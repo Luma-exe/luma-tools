@@ -124,6 +124,17 @@
                     <!-- Populated dynamically -->
                 </div>
 
+                <!-- Track name resolving indicator -->
+                <div class="playlist-resolving hidden" id="playlistResolving">
+                    <div class="resolving-content">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                        <span id="resolvingText">Loading track names...</span>
+                    </div>
+                    <button class="resolving-skip-btn hidden" id="resolvingSkipBtn" onclick="skipResolving()">
+                        <i class="fas fa-forward"></i> Skip
+                    </button>
+                </div>
+
                 <div class="playlist-footer">
                     <div class="playlist-selected-count">
                         <span id="selectedCount">0</span> selected

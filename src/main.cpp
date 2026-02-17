@@ -1037,6 +1037,41 @@ int main() {
         }
     });
 
+    // ── POST /api/resolve-title — fetch real title for a single URL ──────────
+    svr.Post("/api/resolve-title", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            std::string url = body.value("url", "");
+            if (url.empty()) {
+                res.status = 400;
+                res.set_content(json({{"error", "Missing url"}}).dump(), "application/json");
+                return;
+            }
+
+            // Use yt-dlp --print title to get the real title quickly
+            std::string cmd = build_ytdlp_cmd() + " --no-download --no-warnings --print title " + escape_arg(url);
+            int code;
+            std::string output = exec_command(cmd, code);
+
+            // Clean up
+            output.erase(std::remove(output.begin(), output.end(), '\r'), output.end());
+            output.erase(std::remove(output.begin(), output.end(), '\n'), output.end());
+            std::string title = sanitize_utf8(output);
+            // Trim underscores/spaces 
+            while (!title.empty() && (title.front() == '_' || title.front() == ' ')) title.erase(title.begin());
+            while (!title.empty() && (title.back() == '_' || title.back() == ' ')) title.pop_back();
+
+            if (title.empty() || code != 0) {
+                res.set_content(json({{"title", ""}}).dump(), "application/json");
+            } else {
+                res.set_content(json({{"title", title}}).dump(), "application/json");
+            }
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json({{"error", std::string("Resolve failed: ") + e.what()}}).dump(), "application/json");
+        }
+    });
+
     // ── GET /api/status/:id — check download progress ───────────────────────
     svr.Get(R"(/api/status/(.+))", [](const httplib::Request& req, httplib::Response& res) {
         try {

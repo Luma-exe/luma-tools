@@ -1183,6 +1183,61 @@ body {
     flex-shrink: 0;
 }
 
+/* Playlist resolving indicator */
+.playlist-resolving {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    margin-top: 8px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 10px;
+    gap: 12px;
+}
+
+.resolving-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.resolving-content i {
+    color: var(--primary);
+    font-size: 0.9rem;
+}
+
+.resolving-skip-btn {
+    background: rgba(139, 92, 246, 0.15);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    color: var(--primary-light);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.resolving-skip-btn:hover {
+    background: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.5);
+}
+
+@keyframes title-flash {
+    0% { background: rgba(139, 92, 246, 0.2); }
+    100% { background: transparent; }
+}
+
+.playlist-item-title.just-resolved {
+    animation: title-flash 0.6s ease-out;
+    border-radius: 4px;
+}
+
 /* Playlist Footer */
 .playlist-footer {
     margin-top: 16px;

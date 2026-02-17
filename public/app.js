@@ -16,6 +16,8 @@ const state = {
     isDownloading: false,
     playlistItems: [],   // items from playlist analyze
     batchResults: [],    // { title, url, status, download_url, filename, error }
+    resolvingTitles: false,  // whether we're currently resolving track names
+    resolveAborted: false,   // user clicked Skip
 };
 
 // ─── DOM Elements ───────────────────────────────────────────────────────────
@@ -63,6 +65,9 @@ const DOM = {
     selectAllText:       $('#selectAllText'),
     selectedCount:       $('#selectedCount'),
     playlistFormatTabs:  $('#playlistFormatTabs'),
+    playlistResolving:   $('#playlistResolving'),
+    resolvingText:       $('#resolvingText'),
+    resolvingSkipBtn:    $('#resolvingSkipBtn'),
     // Batch progress elements
     batchProgressSection: $('#batchProgressSection'),
     batchTitle:           $('#batchTitle'),
@@ -195,6 +200,7 @@ async function analyzeURL() {
         if (data.type === 'playlist') {
             renderPlaylist(data);
             showSection('playlist');
+            resolveUnknownTitles();
         } else {
             renderMediaInfo(data);
             showSection('media');
@@ -544,6 +550,85 @@ function renderPlaylist(data) {
     }
 
     updateSelectedCount();
+
+    // Reset resolving state
+    state.resolvingTitles = false;
+    state.resolveAborted = false;
+    DOM.playlistResolving.classList.add('hidden');
+    DOM.resolvingSkipBtn.classList.add('hidden');
+}
+
+// ─── Title Resolution ───────────────────────────────────────────────────────
+
+async function resolveUnknownTitles() {
+    // Find items with generic "Track N" names
+    const unknowns = state.playlistItems.filter(item => /^Track \d+$/.test(item.title));
+    if (unknowns.length === 0) return;
+
+    state.resolvingTitles = true;
+    state.resolveAborted = false;
+
+    // Show resolving indicator
+    DOM.playlistResolving.classList.remove('hidden');
+    DOM.resolvingSkipBtn.classList.add('hidden');
+    DOM.resolvingText.textContent = `Loading track names (0/${unknowns.length})...`;
+
+    // Show skip button after 3 seconds
+    const skipTimer = setTimeout(() => {
+        if (state.resolvingTitles && !state.resolveAborted) {
+            DOM.resolvingSkipBtn.classList.remove('hidden');
+        }
+    }, 3000);
+
+    let resolved = 0;
+    for (const item of unknowns) {
+        if (state.resolveAborted) break;
+
+        try {
+            const resp = await fetch('/api/resolve-title', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: item.url }),
+            });
+            const data = await resp.json();
+
+            if (state.resolveAborted) break;
+
+            if (data.title && data.title.trim()) {
+                // Update state
+                item.title = data.title;
+                // Update DOM
+                const el = DOM.playlistItems.querySelector(`[data-index="${item.index}"]`);
+                if (el) {
+                    const titleEl = el.querySelector('.playlist-item-title');
+                    if (titleEl) {
+                        titleEl.textContent = data.title;
+                        titleEl.classList.add('just-resolved');
+                        setTimeout(() => titleEl.classList.remove('just-resolved'), 700);
+                    }
+                }
+            }
+        } catch (err) {
+            // Silently skip failed resolutions
+        }
+
+        resolved++;
+        if (!state.resolveAborted) {
+            DOM.resolvingText.textContent = `Loading track names (${resolved}/${unknowns.length})...`;
+        }
+    }
+
+    // Done
+    clearTimeout(skipTimer);
+    state.resolvingTitles = false;
+    DOM.playlistResolving.classList.add('hidden');
+}
+
+function skipResolving() {
+    state.resolveAborted = true;
+    state.resolvingTitles = false;
+    DOM.playlistResolving.classList.add('hidden');
+    showToast('Skipped loading track names', 'info');
 }
 
 function escapeHTML(str) {
