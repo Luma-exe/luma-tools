@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luma Tools — Universal Media Downloader</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-animation">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <!-- Particles -->
+    <canvas id="particles"></canvas>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>LUMA<span>TOOLS</span></h1>
+                    <p class="tagline">Universal Media Downloader</p>
+                </div>
+            </div>
+            <div class="header-status" id="serverStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking...</span>
+            </div>
+        </header>
+
+        <!-- Main Card -->
+        <main class="main-card">
+            <!-- URL Input Section -->
+            <div class="input-section">
+                <div class="input-wrapper" id="inputWrapper">
+                    <div class="platform-badge" id="platformBadge">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <input 
+                        type="url" 
+                        id="urlInput" 
+                        placeholder="Paste any media URL here..." 
+                        autocomplete="off"
+                        spellcheck="false"
+                    >
+                    <button class="analyze-btn" id="analyzeBtn" onclick="analyzeURL()">
+                        <i class="fas fa-search"></i>
+                        <span>Analyze</span>
+                    </button>
+                </div>
+                <div class="supported-platforms">
+                    <span class="label">Supported:</span>
+                    <div class="platform-icons">
+                        <i class="fab fa-youtube" title="YouTube"></i>
+                        <i class="fab fa-tiktok" title="TikTok"></i>
+                        <i class="fab fa-instagram" title="Instagram"></i>
+                        <i class="fab fa-spotify" title="Spotify"></i>
+                        <i class="fab fa-soundcloud" title="SoundCloud"></i>
+                        <i class="fab fa-x-twitter" title="X / Twitter"></i>
+                        <i class="fab fa-facebook" title="Facebook"></i>
+                        <i class="fab fa-twitch" title="Twitch"></i>
+                        <i class="fab fa-reddit-alien" title="Reddit"></i>
+                        <i class="fas fa-ellipsis" title="And more..."></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading-section hidden" id="loadingSection">
+                <div class="loader">
+                    <div class="loader-ring"></div>
+                    <div class="loader-ring"></div>
+                    <div class="loader-ring"></div>
+                </div>
+                <p class="loading-text">Analyzing media...</p>
+            </div>
+
+            <!-- Error State -->
+            <div class="error-section hidden" id="errorSection">
+                <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <p class="error-text" id="errorText">Something went wrong</p>
+                <button class="retry-btn" onclick="retryAnalysis()">
+                    <i class="fas fa-redo"></i> Try Again
+                </button>
+            </div>
+
+            <!-- Media Info Section -->
+            <div class="media-section hidden" id="mediaSection">
+                <!-- Media Preview -->
+                <div class="media-preview">
+                    <div class="thumbnail-container">
+                        <img id="mediaThumbnail" src="" alt="Thumbnail">
+                        <div class="duration-badge" id="mediaDuration">0:00</div>
+                        <div class="platform-overlay" id="platformOverlay">
+                            <i class="fab fa-youtube"></i>
+                        </div>
+                    </div>
+                    <div class="media-info">
+                        <h2 id="mediaTitle">Media Title</h2>
+                        <p class="media-uploader" id="mediaUploader">
+                            <i class="fas fa-user"></i>
+                            <span>Uploader</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Format Selection -->
+                <div class="format-section">
+                    <h3><i class="fas fa-sliders-h"></i> Download Options</h3>
+                    
+                    <div class="format-tabs" id="formatTabs">
+                        <button class="format-tab active" data-format="mp3" onclick="selectFormat('mp3')">
+                            <i class="fas fa-music"></i>
+                            <span>MP3</span>
+                            <small>Audio Only</small>
+                        </button>
+                        <button class="format-tab" data-format="mp4" onclick="selectFormat('mp4')">
+                            <i class="fas fa-video"></i>
+                            <span>MP4</span>
+                            <small>Video</small>
+                        </button>
+                    </div>
+
+                    <!-- Quality Selection (for video) -->
+                    <div class="quality-section hidden" id="qualitySection">
+                        <h4><i class="fas fa-film"></i> Video Quality</h4>
+                        <div class="quality-grid" id="qualityGrid">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Download Button -->
+                    <button class="download-btn" id="downloadBtn" onclick="startDownload()">
+                        <div class="btn-content">
+                            <i class="fas fa-download"></i>
+                            <span>Download</span>
+                        </div>
+                        <div class="btn-progress" id="btnProgress"></div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Download Progress -->
+            <div class="progress-section hidden" id="progressSection">
+                <div class="progress-header">
+                    <div class="progress-icon spinning">
+                        <i class="fas fa-circle-notch"></i>
+                    </div>
+                    <div class="progress-info">
+                        <h3 id="progressTitle">Downloading...</h3>
+                        <p id="progressStatus">Starting download</p>
+                    </div>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-details">
+                    <span class="progress-pct" id="progressPct"></span>
+                    <span class="progress-speed" id="progressSpeed"></span>
+                    <span class="progress-eta" id="progressEta"></span>
+                    <span class="progress-size" id="progressSize"></span>
+                </div>
+            </div>
+
+            <!-- Download Complete -->
+            <div class="complete-section hidden" id="completeSection">
+                <div class="complete-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3>Download Ready!</h3>
+                <a class="save-btn" id="saveBtn" href="#" download>
+                    <i class="fas fa-save"></i>
+                    <span>Save File</span>
+                </a>
+                <button class="new-download-btn" onclick="resetUI()">
+                    <i class="fas fa-plus"></i> New Download
+                </button>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Powered by <strong>C++ & yt-dlp</strong> — Built with <i class="fas fa-heart"></i> by Luma</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
