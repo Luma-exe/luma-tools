@@ -96,6 +96,106 @@
                 </button>
             </div>
 
+            <!-- Playlist Section -->
+            <div class="playlist-section hidden" id="playlistSection">
+                <div class="playlist-header">
+                    <div class="playlist-info">
+                        <div class="playlist-icon">
+                            <i class="fas fa-list-ul"></i>
+                        </div>
+                        <div>
+                            <h2 id="playlistTitle">Playlist</h2>
+                            <p class="playlist-meta">
+                                <span id="playlistCount">0 items</span>
+                                <span class="dot-sep">&bull;</span>
+                                <span id="playlistUploader">Unknown</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="playlist-actions">
+                        <button class="playlist-select-btn" onclick="toggleSelectAll()">
+                            <i class="fas fa-check-double" id="selectAllIcon"></i>
+                            <span id="selectAllText">Select All</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="playlist-items" id="playlistItems">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <div class="playlist-footer">
+                    <div class="playlist-selected-count">
+                        <span id="selectedCount">0</span> selected
+                    </div>
+
+                    <!-- Format Selection for Playlist -->
+                    <div class="format-tabs playlist-format-tabs" id="playlistFormatTabs">
+                        <button class="format-tab active" data-format="mp3" onclick="selectFormat('mp3')">
+                            <i class="fas fa-music"></i>
+                            <span>MP3</span>
+                        </button>
+                        <button class="format-tab" data-format="mp4" onclick="selectFormat('mp4')">
+                            <i class="fas fa-video"></i>
+                            <span>MP4</span>
+                        </button>
+                    </div>
+
+                    <button class="download-btn" id="playlistDownloadBtn" onclick="startPlaylistDownload()">
+                        <div class="btn-content">
+                            <i class="fas fa-download"></i>
+                            <span>Download Selected</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Batch Progress Section -->
+            <div class="batch-progress-section hidden" id="batchProgressSection">
+                <div class="batch-header">
+                    <div class="progress-icon spinning">
+                        <i class="fas fa-circle-notch"></i>
+                    </div>
+                    <div class="progress-info">
+                        <h3 id="batchTitle">Downloading playlist...</h3>
+                        <p id="batchStatus">Starting...</p>
+                    </div>
+                </div>
+                <div class="batch-overall">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="batchOverallBar"></div>
+                    </div>
+                    <div class="batch-overall-label">
+                        <span id="batchCurrentNum">0</span> / <span id="batchTotalNum">0</span> files
+                    </div>
+                </div>
+                <div class="batch-current-item" id="batchCurrentItem">
+                    <div class="batch-item-name" id="batchItemName"></div>
+                    <div class="progress-bar-container small">
+                        <div class="progress-bar" id="batchItemBar"></div>
+                    </div>
+                    <div class="progress-details">
+                        <span class="progress-pct" id="batchItemPct"></span>
+                        <span class="progress-speed" id="batchItemSpeed"></span>
+                        <span class="progress-eta" id="batchItemEta"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Complete Section -->
+            <div class="batch-complete-section hidden" id="batchCompleteSection">
+                <div class="complete-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3 id="batchCompleteText">All downloads complete!</h3>
+                <div class="batch-files" id="batchFiles">
+                    <!-- Populated dynamically with save buttons -->
+                </div>
+                <button class="new-download-btn" onclick="resetUI()">
+                    <i class="fas fa-plus"></i> New Download
+                </button>
+            </div>
+
             <!-- Media Info Section -->
             <div class="media-section hidden" id="mediaSection">
                 <!-- Media Preview -->

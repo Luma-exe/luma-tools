@@ -14,6 +14,8 @@ const state = {
     downloadId: null,
     pollInterval: null,
     isDownloading: false,
+    playlistItems: [],   // items from playlist analyze
+    batchResults: [],    // { title, url, status, download_url, filename, error }
 };
 
 // ─── DOM Elements ───────────────────────────────────────────────────────────
@@ -50,6 +52,34 @@ const DOM = {
     completeSection: $('#completeSection'),
     saveBtn:         $('#saveBtn'),
     serverStatus:    $('#serverStatus'),
+    // Playlist elements
+    playlistSection:     $('#playlistSection'),
+    playlistTitle:       $('#playlistTitle'),
+    playlistCount:       $('#playlistCount'),
+    playlistUploader:    $('#playlistUploader'),
+    playlistItems:       $('#playlistItems'),
+    playlistDownloadBtn: $('#playlistDownloadBtn'),
+    selectAllIcon:       $('#selectAllIcon'),
+    selectAllText:       $('#selectAllText'),
+    selectedCount:       $('#selectedCount'),
+    playlistFormatTabs:  $('#playlistFormatTabs'),
+    // Batch progress elements
+    batchProgressSection: $('#batchProgressSection'),
+    batchTitle:           $('#batchTitle'),
+    batchStatus:          $('#batchStatus'),
+    batchOverallBar:      $('#batchOverallBar'),
+    batchCurrentNum:      $('#batchCurrentNum'),
+    batchTotalNum:        $('#batchTotalNum'),
+    batchCurrentItem:     $('#batchCurrentItem'),
+    batchItemName:        $('#batchItemName'),
+    batchItemBar:         $('#batchItemBar'),
+    batchItemPct:         $('#batchItemPct'),
+    batchItemSpeed:       $('#batchItemSpeed'),
+    batchItemEta:         $('#batchItemEta'),
+    // Batch complete elements
+    batchCompleteSection: $('#batchCompleteSection'),
+    batchCompleteText:    $('#batchCompleteText'),
+    batchFiles:           $('#batchFiles'),
 };
 
 // ─── Platform Detection (Client-side for instant feedback) ──────────────────
@@ -162,8 +192,13 @@ async function analyzeURL() {
             document.documentElement.style.setProperty('--platform-color', data.platform.color);
         }
 
-        renderMediaInfo(data);
-        showSection('media');
+        if (data.type === 'playlist') {
+            renderPlaylist(data);
+            showSection('playlist');
+        } else {
+            renderMediaInfo(data);
+            showSection('media');
+        }
     } catch (err) {
         let msg = err.message || 'Failed to analyze URL';
         // Clean up yt-dlp error messages for display
@@ -395,13 +430,19 @@ function showSection(section) {
     DOM.mediaSection.classList.add('hidden');
     DOM.progressSection.classList.add('hidden');
     DOM.completeSection.classList.add('hidden');
+    DOM.playlistSection.classList.add('hidden');
+    DOM.batchProgressSection.classList.add('hidden');
+    DOM.batchCompleteSection.classList.add('hidden');
 
     switch (section) {
-        case 'loading':  DOM.loadingSection.classList.remove('hidden'); break;
-        case 'error':    DOM.errorSection.classList.remove('hidden'); break;
-        case 'media':    DOM.mediaSection.classList.remove('hidden'); break;
-        case 'progress': DOM.progressSection.classList.remove('hidden'); break;
-        case 'complete': DOM.completeSection.classList.remove('hidden'); break;
+        case 'loading':       DOM.loadingSection.classList.remove('hidden'); break;
+        case 'error':         DOM.errorSection.classList.remove('hidden'); break;
+        case 'media':         DOM.mediaSection.classList.remove('hidden'); break;
+        case 'progress':      DOM.progressSection.classList.remove('hidden'); break;
+        case 'complete':      DOM.completeSection.classList.remove('hidden'); break;
+        case 'playlist':      DOM.playlistSection.classList.remove('hidden'); break;
+        case 'batchProgress': DOM.batchProgressSection.classList.remove('hidden'); break;
+        case 'batchComplete': DOM.batchCompleteSection.classList.remove('hidden'); break;
     }
 }
 
@@ -413,6 +454,8 @@ function resetUI() {
     state.selectedFormat = 'mp3';
     state.selectedQuality = 'best';
     state.isDownloading = false;
+    state.playlistItems = [];
+    state.batchResults = [];
     
     if (state.pollInterval) {
         clearInterval(state.pollInterval);
@@ -425,6 +468,13 @@ function resetUI() {
     DOM.inputWrapper.classList.remove('detected');
     DOM.downloadBtn.disabled = false;
     DOM.progressBar.style.width = '0%';
+    DOM.playlistItems.innerHTML = '';
+    DOM.batchFiles.innerHTML = '';
+
+    // Reset format tabs in both sections
+    $$('.format-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.format === 'mp3');
+    });
 
     // Hide all sections
     showSection(null);
@@ -445,6 +495,232 @@ function showToast(message, type = 'info') {
     document.body.appendChild(toast);
 
     setTimeout(() => toast.remove(), 3500);
+}
+
+// ─── Playlist Functions ─────────────────────────────────────────────────────
+
+function renderPlaylist(data) {
+    state.playlistItems = data.items || [];
+
+    DOM.playlistTitle.textContent = data.title || 'Playlist';
+    DOM.playlistCount.textContent = `${data.item_count || data.items.length} items`;
+    DOM.playlistUploader.textContent = data.uploader || 'Unknown';
+
+    // Determine if platform is audio-only
+    const isAudioOnly = data.platform && !data.platform.supports_video;
+    const mp4Tab = DOM.playlistFormatTabs.querySelector('[data-format="mp4"]');
+    if (isAudioOnly) {
+        mp4Tab.classList.add('disabled');
+        selectFormat('mp3');
+    } else {
+        mp4Tab.classList.remove('disabled');
+    }
+
+    // Build item list
+    DOM.playlistItems.innerHTML = '';
+    for (const item of state.playlistItems) {
+        const el = document.createElement('div');
+        el.className = 'playlist-item selected';
+        el.dataset.index = item.index;
+
+        const dur = item.duration > 0
+            ? `${Math.floor(item.duration / 60)}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}`
+            : '';
+
+        const uploaderText = item.uploader ? ` • ${item.uploader}` : '';
+
+        el.innerHTML = `
+            <div class="playlist-item-check"><i class="fas fa-check"></i></div>
+            <span class="playlist-item-index">${item.index + 1}</span>
+            <div class="playlist-item-info">
+                <div class="playlist-item-title">${escapeHTML(item.title)}</div>
+                <div class="playlist-item-meta">${escapeHTML(uploaderText.replace(/^ • /, ''))}</div>
+            </div>
+            <span class="playlist-item-duration">${dur}</span>
+        `;
+
+        el.addEventListener('click', () => toggleItem(el));
+        DOM.playlistItems.appendChild(el);
+    }
+
+    updateSelectedCount();
+}
+
+function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function toggleItem(el) {
+    el.classList.toggle('selected');
+    updateSelectedCount();
+}
+
+function toggleSelectAll() {
+    const items = $$('.playlist-item');
+    const allSelected = [...items].every(el => el.classList.contains('selected'));
+
+    items.forEach(el => {
+        if (allSelected) {
+            el.classList.remove('selected');
+        } else {
+            el.classList.add('selected');
+        }
+    });
+
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const selected = $$('.playlist-item.selected');
+    const total = $$('.playlist-item');
+    const count = selected.length;
+
+    DOM.selectedCount.textContent = count;
+    DOM.playlistDownloadBtn.disabled = count === 0;
+
+    // Update select all button text
+    const allSelected = count === total.length && total.length > 0;
+    DOM.selectAllIcon.className = allSelected ? 'fas fa-times' : 'fas fa-check-double';
+    DOM.selectAllText.textContent = allSelected ? 'Deselect All' : 'Select All';
+}
+
+async function startPlaylistDownload() {
+    const selectedEls = [...$$('.playlist-item.selected')];
+    if (selectedEls.length === 0) {
+        showToast('Select at least one item to download', 'error');
+        return;
+    }
+
+    // Gather selected items
+    const selectedItems = selectedEls.map(el => {
+        const idx = parseInt(el.dataset.index);
+        return state.playlistItems[idx];
+    });
+
+    state.batchResults = [];
+    showSection('batchProgress');
+
+    const total = selectedItems.length;
+    DOM.batchTotalNum.textContent = total;
+    DOM.batchCurrentNum.textContent = '0';
+    DOM.batchOverallBar.style.width = '0%';
+    DOM.batchTitle.textContent = 'Downloading playlist...';
+
+    for (let i = 0; i < total; i++) {
+        const item = selectedItems[i];
+        const num = i + 1;
+
+        DOM.batchCurrentNum.textContent = num;
+        DOM.batchOverallBar.style.width = ((num - 1) / total * 100) + '%';
+        DOM.batchStatus.textContent = `Item ${num} of ${total}`;
+        DOM.batchItemName.textContent = item.title || `Track ${num}`;
+        DOM.batchItemBar.style.width = '0%';
+        DOM.batchItemPct.textContent = '';
+        DOM.batchItemSpeed.textContent = '';
+        DOM.batchItemEta.textContent = '';
+
+        try {
+            // Start download for this item
+            const data = await apiCall('/api/download', {
+                url: item.url,
+                format: state.selectedFormat,
+                quality: 'best',
+                title: item.title || '',
+            });
+
+            const downloadId = data.download_id;
+
+            // Poll until done
+            const result = await pollBatchItem(downloadId);
+            state.batchResults.push({
+                title: item.title,
+                ...result,
+            });
+        } catch (err) {
+            state.batchResults.push({
+                title: item.title,
+                status: 'error',
+                error: err.message,
+            });
+        }
+    }
+
+    // All done
+    DOM.batchOverallBar.style.width = '100%';
+    renderBatchComplete();
+    showSection('batchComplete');
+}
+
+function pollBatchItem(downloadId) {
+    return new Promise((resolve) => {
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/status/${downloadId}`);
+                const data = await res.json();
+
+                if (data.status === 'completed') {
+                    clearInterval(interval);
+                    DOM.batchItemBar.style.width = '100%';
+                    DOM.batchItemPct.textContent = '100%';
+                    resolve({
+                        status: 'completed',
+                        download_url: data.download_url,
+                        filename: data.filename,
+                    });
+                } else if (data.status === 'error') {
+                    clearInterval(interval);
+                    resolve({
+                        status: 'error',
+                        error: data.error || 'Download failed',
+                    });
+                } else {
+                    // Update individual item progress
+                    const pct = data.progress || 0;
+                    DOM.batchItemBar.style.width = Math.max(pct, 2) + '%';
+                    DOM.batchItemPct.textContent = pct > 0 ? pct.toFixed(1) + '%' : '';
+                    if (data.speed) DOM.batchItemSpeed.textContent = data.speed;
+                    if (data.eta != null && data.eta >= 0) DOM.batchItemEta.textContent = formatETA(data.eta);
+                }
+            } catch {
+                // Network error, keep polling
+            }
+        }, 800);
+    });
+}
+
+function renderBatchComplete() {
+    const successCount = state.batchResults.filter(r => r.status === 'completed').length;
+    const failCount = state.batchResults.filter(r => r.status === 'error').length;
+
+    if (failCount === 0) {
+        DOM.batchCompleteText.textContent = `All ${successCount} downloads complete!`;
+    } else {
+        DOM.batchCompleteText.textContent = `${successCount} completed, ${failCount} failed`;
+    }
+
+    DOM.batchFiles.innerHTML = '';
+    for (const result of state.batchResults) {
+        const row = document.createElement('div');
+        row.className = 'batch-file-row';
+
+        if (result.status === 'completed') {
+            row.innerHTML = `
+                <span class="batch-file-name">${escapeHTML(result.title)}</span>
+                <a class="batch-file-save" href="${result.download_url}" download="${escapeHTML(result.filename || 'download')}">
+                    <i class="fas fa-save"></i> Save
+                </a>
+            `;
+        } else {
+            row.innerHTML = `
+                <span class="batch-file-name">${escapeHTML(result.title)}</span>
+                <span class="batch-file-error"><i class="fas fa-times-circle"></i> Failed</span>
+            `;
+        }
+
+        DOM.batchFiles.appendChild(row);
+    }
 }
 
 // ─── Server Health Check ────────────────────────────────────────────────────

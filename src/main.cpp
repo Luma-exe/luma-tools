@@ -539,8 +539,127 @@ int main() {
             }
 
             auto platform = detect_platform(url);
+            json platform_json = {
+                {"id", platform.id},
+                {"name", platform.name},
+                {"icon", platform.icon},
+                {"color", platform.color},
+                {"supports_video", platform.supports_video},
+                {"supports_audio", platform.supports_audio}
+            };
 
-            // Use yt-dlp to get media info
+            // ── Check if it's a playlist first ──────────────────────────────
+            // Use --flat-playlist --dump-single-json to quickly get playlist metadata
+            bool is_playlist = false;
+            {
+                std::string probe_cmd = build_ytdlp_cmd() + " --flat-playlist --dump-single-json --no-warnings " + escape_arg(url);
+                int probe_code;
+                std::string probe_output = exec_command(probe_cmd, probe_code);
+
+                // Find the JSON object
+                auto json_start = probe_output.find('{');
+                if (json_start != std::string::npos) {
+                    try {
+                        json probe = json::parse(probe_output.substr(json_start));
+                        // It's a playlist if _type is "playlist" and there are entries
+                        std::string ptype = json_str(probe, "_type");
+                        if ((ptype == "playlist" || ptype == "multi_video") && probe.contains("entries") && probe["entries"].is_array() && probe["entries"].size() > 1) {
+                            is_playlist = true;
+
+                            // Build playlist response
+                            json items = json::array();
+                            int index = 0;
+                            for (const auto& entry : probe["entries"]) {
+                                index++;
+                                std::string item_url = json_str(entry, "url");
+                                if (item_url.empty()) item_url = json_str(entry, "webpage_url");
+                                // If url is just a video ID, construct full URL
+                                if (!item_url.empty() && item_url.find("http") != 0) {
+                                    std::string extractor = json_str(entry, "ie_key", json_str(entry, "extractor"));
+                                    std::string vid_id = item_url;
+                                    if (extractor == "Youtube" || extractor == "youtube") {
+                                        item_url = "https://www.youtube.com/watch?v=" + vid_id;
+                                    } else {
+                                        // Try webpage_url as fallback
+                                        std::string wp = json_str(entry, "webpage_url");
+                                        if (!wp.empty()) item_url = wp;
+                                    }
+                                }
+
+                                // Get title and sanitize — keep underscores from emoji replacement
+                                // but if the result is empty/only-underscores, use fallback
+                                std::string raw_title = json_str(entry, "title", "");
+                                std::string title = sanitize_utf8(raw_title);
+                                // Trim leading/trailing underscores and spaces
+                                while (!title.empty() && (title.front() == '_' || title.front() == ' ')) title.erase(title.begin());
+                                while (!title.empty() && (title.back() == '_' || title.back() == ' ')) title.pop_back();
+
+                                // If title is still empty, extract a readable name from the URL slug
+                                if (title.empty() && !item_url.empty()) {
+                                    // e.g. https://soundcloud.com/user/my-cool-track → "My Cool Track"
+                                    std::string slug = item_url;
+                                    // Remove query params
+                                    auto qpos = slug.find('?');
+                                    if (qpos != std::string::npos) slug = slug.substr(0, qpos);
+                                    // Get last path segment
+                                    auto spos = slug.rfind('/');
+                                    if (spos != std::string::npos) slug = slug.substr(spos + 1);
+                                    // Check if slug is all digits (API URL like api-v2.soundcloud.com/tracks/ID)
+                                    bool all_digits = !slug.empty() && std::all_of(slug.begin(), slug.end(), ::isdigit);
+                                    if (!all_digits && !slug.empty()) {
+                                        // Replace hyphens with spaces and capitalize first letter of each word
+                                        std::string readable;
+                                        bool cap_next = true;
+                                        for (char c : slug) {
+                                            if (c == '-' || c == '_') {
+                                                readable += ' ';
+                                                cap_next = true;
+                                            } else if (cap_next && std::isalpha(c)) {
+                                                readable += (char)std::toupper(c);
+                                                cap_next = false;
+                                            } else {
+                                                readable += c;
+                                                cap_next = false;
+                                            }
+                                        }
+                                        while (!readable.empty() && readable.back() == ' ') readable.pop_back();
+                                        if (!readable.empty()) title = readable;
+                                    }
+                                }
+                                if (title.empty()) title = "Track " + std::to_string(index);
+
+                                items.push_back({
+                                    {"index", index - 1},
+                                    {"title", title},
+                                    {"url", item_url},
+                                    {"duration", json_num(entry, "duration", 0)},
+                                    {"thumbnail", json_str(entry, "thumbnail", "")},
+                                    {"uploader", sanitize_utf8(json_str(entry, "uploader", json_str(entry, "channel", "")))},
+                                });
+                            }
+
+                            json response = {
+                                {"type", "playlist"},
+                                {"title", sanitize_utf8(json_str(probe, "title", "Playlist"))},
+                                {"uploader", sanitize_utf8(json_str(probe, "uploader", json_str(probe, "channel", "Unknown")))},
+                                {"thumbnail", json_str(probe, "thumbnails", "") == "" ? json_str(probe, "thumbnail", "") : json_str(probe, "thumbnail", "")},
+                                {"item_count", (int)items.size()},
+                                {"items", items},
+                                {"platform", platform_json}
+                            };
+
+                            std::cout << "[Luma Tools] Playlist detected: " << items.size() << " items" << std::endl;
+                            res.set_content(response.dump(), "application/json");
+                            return;
+                        }
+                    } catch (const json::exception& e) {
+                        // Not valid JSON or not a playlist — fall through to single item
+                        std::cout << "[Luma Tools] Playlist probe parse failed: " << e.what() << std::endl;
+                    }
+                }
+            }
+
+            // ── Single item analysis ────────────────────────────────────────
             std::string cmd = build_ytdlp_cmd() + " --dump-json --no-warnings --no-playlist " + escape_arg(url);
             int exit_code;
             std::string output = exec_command(cmd, exit_code);
@@ -624,19 +743,13 @@ int main() {
             }
 
             json response = {
+                {"type", "single"},
                 {"title", json_str(info, "title", "Unknown")},
                 {"thumbnail", json_str(info, "thumbnail")},
                 {"duration", json_num(info, "duration", 0)},
                 {"uploader", json_str(info, "uploader", json_str(info, "channel", "Unknown"))},
                 {"description", json_str(info, "description").substr(0, std::min((size_t)200, json_str(info, "description").size()))},
-                {"platform", {
-                    {"id", platform.id},
-                    {"name", platform.name},
-                    {"icon", platform.icon},
-                    {"color", platform.color},
-                    {"supports_video", platform.supports_video},
-                    {"supports_audio", platform.supports_audio}
-                }},
+                {"platform", platform_json},
                 {"formats", formats}
             };
 
