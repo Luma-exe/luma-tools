@@ -285,6 +285,133 @@ std::string get_downloads_dir() {
     return dir;
 }
 
+// ─── Processing Job Manager ───────────────────────────────────────────────────
+
+static std::mutex jobs_mutex;
+static std::map<std::string, json> job_status;
+static std::map<std::string, std::string> job_results; // job_id -> result file path
+static int job_counter = 0;
+
+std::string generate_job_id() {
+    std::lock_guard<std::mutex> lock(jobs_mutex);
+    return "job_" + std::to_string(++job_counter) + "_" +
+           std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
+}
+
+void update_job(const std::string& id, const json& status, const std::string& result_path = "") {
+    std::lock_guard<std::mutex> lock(jobs_mutex);
+    job_status[id] = status;
+    if (!result_path.empty()) job_results[id] = result_path;
+}
+
+json get_job(const std::string& id) {
+    std::lock_guard<std::mutex> lock(jobs_mutex);
+    if (job_status.count(id)) return job_status[id];
+    return { {"error", "not_found"} };
+}
+
+std::string get_job_result_path(const std::string& id) {
+    std::lock_guard<std::mutex> lock(jobs_mutex);
+    if (job_results.count(id)) return job_results[id];
+    return "";
+}
+
+// ─── File Processing Helpers ──────────────────────────────────────────────────
+
+std::string get_processing_dir() {
+    std::string dir = "processing";
+    if (!fs::exists(dir)) fs::create_directories(dir);
+    return dir;
+}
+
+std::string read_file_binary(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+}
+
+std::string mime_from_ext(const std::string& ext) {
+    std::string e = ext;
+    std::transform(e.begin(), e.end(), e.begin(), ::tolower);
+    if (e == ".jpg" || e == ".jpeg") return "image/jpeg";
+    if (e == ".png") return "image/png";
+    if (e == ".webp") return "image/webp";
+    if (e == ".gif") return "image/gif";
+    if (e == ".bmp") return "image/bmp";
+    if (e == ".tiff" || e == ".tif") return "image/tiff";
+    if (e == ".mp4") return "video/mp4";
+    if (e == ".webm") return "video/webm";
+    if (e == ".mkv") return "video/x-matroska";
+    if (e == ".avi") return "video/x-msvideo";
+    if (e == ".mov") return "video/quicktime";
+    if (e == ".mp3") return "audio/mpeg";
+    if (e == ".wav") return "audio/wav";
+    if (e == ".flac") return "audio/flac";
+    if (e == ".aac") return "audio/aac";
+    if (e == ".ogg") return "audio/ogg";
+    if (e == ".m4a") return "audio/mp4";
+    if (e == ".wma") return "audio/x-ms-wma";
+    if (e == ".pdf") return "application/pdf";
+    if (e == ".zip") return "application/zip";
+    return "application/octet-stream";
+}
+
+void send_file_response(httplib::Response& res, const std::string& path, const std::string& filename) {
+    auto data = read_file_binary(path);
+    if (data.empty()) {
+        res.status = 500;
+        res.set_content(json({{"error", "Failed to read output file"}}).dump(), "application/json");
+        return;
+    }
+    std::string ext = fs::path(filename).extension().string();
+    res.set_content(data, mime_from_ext(ext));
+    res.set_header("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+}
+
+std::string save_upload(const httplib::MultipartFormData& file, const std::string& prefix) {
+    std::string proc_dir = get_processing_dir();
+    std::string ext = fs::path(file.filename).extension().string();
+    std::string safe_name = prefix + "_input" + ext;
+    std::string path = proc_dir + "/" + safe_name;
+    std::ofstream out(path, std::ios::binary);
+    out.write(file.content.data(), file.content.size());
+    out.close();
+    return path;
+}
+
+// ─── Ghostscript finder (for PDF tools) ───────────────────────────────────────
+
+std::string g_ghostscript_path;
+
+std::string find_ghostscript() {
+#ifdef _WIN32
+    auto gs = find_executable("gswin64c");
+    if (!gs.empty()) return gs;
+    gs = find_executable("gswin32c");
+    if (!gs.empty()) return gs;
+    gs = find_executable("gs");
+    if (!gs.empty()) return gs;
+    const char* pf = std::getenv("ProgramFiles");
+    std::string progfiles = pf ? pf : "C:\\Program Files";
+    try {
+        std::string gs_dir = progfiles + "\\gs";
+        if (fs::exists(gs_dir)) {
+            for (const auto& entry : fs::directory_iterator(gs_dir)) {
+                if (entry.is_directory()) {
+                    std::string c = entry.path().string() + "\\bin\\gswin64c.exe";
+                    if (fs::exists(c)) return c;
+                    c = entry.path().string() + "\\bin\\gswin32c.exe";
+                    if (fs::exists(c)) return c;
+                }
+            }
+        }
+    } catch (...) {}
+#else
+    auto gs = find_executable("gs");
+    if (!gs.empty()) return gs;
+#endif
+    return "";
+}
+
 // ─── Find yt-dlp executable ────────────────────────────────────────────────────
 
 std::string g_ytdlp_path; // Global: resolved full path to yt-dlp
@@ -448,6 +575,14 @@ int main() {
         std::cerr << "[Luma Tools] WARNING: deno not found. YouTube extraction may fail." << std::endl;
     }
 
+    // ── Find Ghostscript (for PDF tools) ─────────────────────────────────────
+    g_ghostscript_path = find_ghostscript();
+    if (!g_ghostscript_path.empty()) {
+        std::cout << "[Luma Tools] Ghostscript found: " << g_ghostscript_path << std::endl;
+    } else {
+        std::cerr << "[Luma Tools] WARNING: Ghostscript not found. PDF tools will be limited." << std::endl;
+    }
+
     // ── Add ffmpeg & deno directories to process PATH so yt-dlp finds them ──
     {
         std::string current_path;
@@ -479,6 +614,11 @@ int main() {
     // ── Serve static files ──────────────────────────────────────────────────
     svr.set_mount_point("/", public_dir);
     svr.set_mount_point("/downloads", dl_dir);
+
+    // Allow large file uploads (500 MB) and generous timeouts for video processing
+    svr.set_payload_max_length(500 * 1024 * 1024);
+    svr.set_read_timeout(300, 0);
+    svr.set_write_timeout(300, 0);
 
     // CORS headers
     svr.set_pre_routing_handler([](const httplib::Request&, httplib::Response& res) {
@@ -1094,12 +1234,540 @@ int main() {
 
         json response = {
             {"status", "ok"},
-            {"server", "Luma Tools v1.0"},
+            {"server", "Luma Tools v2.0"},
             {"yt_dlp_version", version.empty() ? "not installed" : version},
-            {"yt_dlp_available", !version.empty()}
+            {"yt_dlp_available", !version.empty()},
+            {"ffmpeg_available", !g_ffmpeg_path.empty()},
+            {"ghostscript_available", !g_ghostscript_path.empty()}
         };
 
         res.set_content(response.dump(), "application/json");
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FILE PROCESSING TOOL ENDPOINTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── POST /api/tools/image-compress ──────────────────────────────────────
+    svr.Post("/api/tools/image-compress", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        int quality = 75;
+        if (req.has_file("quality")) {
+            try { quality = std::stoi(req.get_file_value("quality").content); } catch (...) {}
+        }
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string ext = fs::path(file.filename).extension().string();
+        std::string output_path = get_processing_dir() + "/" + jid + "_out" + ext;
+
+        // Map quality 0-100 to ffmpeg params
+        std::string qarg;
+        std::string e = ext;
+        std::transform(e.begin(), e.end(), e.begin(), ::tolower);
+        if (e == ".jpg" || e == ".jpeg") {
+            int qv = 2 + (100 - quality) * 29 / 100;
+            qarg = "-q:v " + std::to_string(qv);
+        } else if (e == ".webp") {
+            qarg = "-quality " + std::to_string(quality);
+        } else if (e == ".png") {
+            qarg = "-compression_level 9";
+        } else {
+            int qv = 2 + (100 - quality) * 29 / 100;
+            qarg = "-q:v " + std::to_string(qv);
+        }
+
+        std::string cmd = "ffmpeg -y -i " + escape_arg(input_path) + " " + qarg + " " + escape_arg(output_path);
+        std::cout << "[Luma Tools] Image compress: " << cmd << std::endl;
+        int code;
+        exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            std::string out_name = fs::path(file.filename).stem().string() + "_compressed" + ext;
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            res.set_content(json({{"error", "Image compression failed"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/image-resize ────────────────────────────────────────
+    svr.Post("/api/tools/image-resize", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string width = req.has_file("width") ? req.get_file_value("width").content : "";
+        std::string height = req.has_file("height") ? req.get_file_value("height").content : "";
+
+        if (width.empty() && height.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Width or height required"}}).dump(), "application/json");
+            return;
+        }
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string ext = fs::path(file.filename).extension().string();
+        std::string output_path = get_processing_dir() + "/" + jid + "_out" + ext;
+
+        std::string sw = width.empty() ? "-1" : width;
+        std::string sh = height.empty() ? "-1" : height;
+        std::string filter = "scale=" + sw + ":" + sh;
+
+        std::string cmd = "ffmpeg -y -i " + escape_arg(input_path) + " -vf " + escape_arg(filter) + " " + escape_arg(output_path);
+        std::cout << "[Luma Tools] Image resize: " << cmd << std::endl;
+        int code;
+        exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            std::string out_name = fs::path(file.filename).stem().string() + "_resized" + ext;
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            res.set_content(json({{"error", "Image resize failed"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/image-convert ───────────────────────────────────────
+    svr.Post("/api/tools/image-convert", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string format = req.has_file("format") ? req.get_file_value("format").content : "png";
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string out_ext = "." + format;
+        std::string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
+
+        std::string cmd = "ffmpeg -y -i " + escape_arg(input_path) + " " + escape_arg(output_path);
+        std::cout << "[Luma Tools] Image convert: " << cmd << std::endl;
+        int code;
+        exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            std::string out_name = fs::path(file.filename).stem().string() + out_ext;
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            res.set_content(json({{"error", "Image conversion failed"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/audio-convert ───────────────────────────────────────
+    svr.Post("/api/tools/audio-convert", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string out_ext = "." + format;
+        std::string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
+
+        std::string codec;
+        if (format == "mp3") codec = "-c:a libmp3lame -q:a 2";
+        else if (format == "aac" || format == "m4a") codec = "-c:a aac -b:a 192k";
+        else if (format == "wav") codec = "-c:a pcm_s16le";
+        else if (format == "flac") codec = "-c:a flac";
+        else if (format == "ogg") codec = "-c:a libvorbis -q:a 6";
+        else if (format == "wma") codec = "-c:a wmav2 -b:a 192k";
+
+        std::string cmd = "ffmpeg -y -i " + escape_arg(input_path) + " " + codec + " " + escape_arg(output_path);
+        std::cout << "[Luma Tools] Audio convert: " << cmd << std::endl;
+        int code;
+        exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            std::string out_name = fs::path(file.filename).stem().string() + out_ext;
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            res.set_content(json({{"error", "Audio conversion failed"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/video-compress (async) ──────────────────────────────
+    svr.Post("/api/tools/video-compress", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string preset = req.has_file("preset") ? req.get_file_value("preset").content : "medium";
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string output_path = get_processing_dir() + "/" + jid + "_out.mp4";
+        std::string orig_name = fs::path(file.filename).stem().string();
+
+        update_job(jid, {{"status", "processing"}, {"progress", 0}, {"stage", "Compressing video..."}});
+
+        std::thread([jid, input_path, output_path, preset, orig_name]() {
+            int crf = 26;
+            if (preset == "low") crf = 32;
+            else if (preset == "medium") crf = 26;
+            else if (preset == "high") crf = 20;
+
+            std::string cmd = "ffmpeg -y -i " + escape_arg(input_path) +
+                " -c:v libx264 -crf " + std::to_string(crf) +
+                " -preset medium -c:a aac -b:a 128k " + escape_arg(output_path);
+            std::cout << "[Luma Tools] Video compress: " << cmd << std::endl;
+            int code;
+            exec_command(cmd, code);
+
+            if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+                std::string result_name = orig_name + "_compressed.mp4";
+                update_job(jid, {{"status", "completed"}, {"progress", 100}, {"filename", result_name}}, output_path);
+            } else {
+                update_job(jid, {{"status", "error"}, {"error", "Video compression failed"}});
+            }
+            try { fs::remove(input_path); } catch (...) {}
+        }).detach();
+
+        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+    });
+
+    // ── POST /api/tools/video-trim (async) ──────────────────────────────────
+    svr.Post("/api/tools/video-trim", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string start = req.has_file("start") ? req.get_file_value("start").content : "00:00:00";
+        std::string end = req.has_file("end") ? req.get_file_value("end").content : "";
+
+        if (end.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "End time is required"}}).dump(), "application/json");
+            return;
+        }
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string ext = fs::path(file.filename).extension().string();
+        std::string output_path = get_processing_dir() + "/" + jid + "_out" + ext;
+        std::string orig_name = fs::path(file.filename).stem().string();
+
+        update_job(jid, {{"status", "processing"}, {"progress", 0}, {"stage", "Trimming video..."}});
+
+        std::thread([jid, input_path, output_path, start, end, ext, orig_name]() {
+            std::string cmd = "ffmpeg -y -i " + escape_arg(input_path) +
+                " -ss " + start + " -to " + end + " -c copy " + escape_arg(output_path);
+            std::cout << "[Luma Tools] Video trim: " << cmd << std::endl;
+            int code;
+            exec_command(cmd, code);
+
+            if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+                std::string result_name = orig_name + "_trimmed" + ext;
+                update_job(jid, {{"status", "completed"}, {"progress", 100}, {"filename", result_name}}, output_path);
+            } else {
+                update_job(jid, {{"status", "error"}, {"error", "Video trimming failed"}});
+            }
+            try { fs::remove(input_path); } catch (...) {}
+        }).detach();
+
+        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+    });
+
+    // ── POST /api/tools/video-convert (async) ───────────────────────────────
+    svr.Post("/api/tools/video-convert", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string format = req.has_file("format") ? req.get_file_value("format").content : "mp4";
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string out_ext = "." + format;
+        std::string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
+        std::string orig_name = fs::path(file.filename).stem().string();
+
+        update_job(jid, {{"status", "processing"}, {"progress", 0}, {"stage", "Converting video..."}});
+
+        std::thread([jid, input_path, output_path, format, out_ext, orig_name]() {
+            std::string codec;
+            if (format == "mp4") codec = "-c:v libx264 -c:a aac";
+            else if (format == "webm") codec = "-c:v libvpx-vp9 -c:a libopus";
+            else if (format == "mkv") codec = "-c:v libx264 -c:a aac";
+            else if (format == "avi") codec = "-c:v libx264 -c:a mp3";
+            else if (format == "mov") codec = "-c:v libx264 -c:a aac";
+
+            std::string cmd = "ffmpeg -y -i " + escape_arg(input_path) +
+                " " + codec + " " + escape_arg(output_path);
+            std::cout << "[Luma Tools] Video convert: " << cmd << std::endl;
+            int code;
+            exec_command(cmd, code);
+
+            if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+                std::string result_name = orig_name + out_ext;
+                update_job(jid, {{"status", "completed"}, {"progress", 100}, {"filename", result_name}}, output_path);
+            } else {
+                update_job(jid, {{"status", "error"}, {"error", "Video conversion failed"}});
+            }
+            try { fs::remove(input_path); } catch (...) {}
+        }).detach();
+
+        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+    });
+
+    // ── POST /api/tools/video-extract-audio (async) ─────────────────────────
+    svr.Post("/api/tools/video-extract-audio", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string out_ext = "." + format;
+        std::string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
+        std::string orig_name = fs::path(file.filename).stem().string();
+
+        update_job(jid, {{"status", "processing"}, {"progress", 0}, {"stage", "Extracting audio..."}});
+
+        std::thread([jid, input_path, output_path, format, out_ext, orig_name]() {
+            std::string codec;
+            if (format == "mp3") codec = "-c:a libmp3lame -q:a 2";
+            else if (format == "aac" || format == "m4a") codec = "-c:a aac -b:a 192k";
+            else if (format == "wav") codec = "-c:a pcm_s16le";
+            else if (format == "flac") codec = "-c:a flac";
+            else if (format == "ogg") codec = "-c:a libvorbis -q:a 6";
+
+            std::string cmd = "ffmpeg -y -i " + escape_arg(input_path) +
+                " -vn " + codec + " " + escape_arg(output_path);
+            std::cout << "[Luma Tools] Extract audio: " << cmd << std::endl;
+            int code;
+            exec_command(cmd, code);
+
+            if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+                std::string result_name = orig_name + out_ext;
+                update_job(jid, {{"status", "completed"}, {"progress", 100}, {"filename", result_name}}, output_path);
+            } else {
+                update_job(jid, {{"status", "error"}, {"error", "Audio extraction failed"}});
+            }
+            try { fs::remove(input_path); } catch (...) {}
+        }).detach();
+
+        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+    });
+
+    // ── GET /api/tools/status/:id — check processing job ────────────────────
+    svr.Get(R"(/api/tools/status/(.+))", [](const httplib::Request& req, httplib::Response& res) {
+        std::string id = req.matches[1];
+        json status = get_job(id);
+        res.set_content(status.dump(), "application/json");
+    });
+
+    // ── GET /api/tools/result/:id — download processed file ─────────────────
+    svr.Get(R"(/api/tools/result/(.+))", [](const httplib::Request& req, httplib::Response& res) {
+        std::string id = req.matches[1];
+        std::string path = get_job_result_path(id);
+        if (path.empty() || !fs::exists(path)) {
+            res.status = 404;
+            res.set_content(json({{"error", "Result not found"}}).dump(), "application/json");
+            return;
+        }
+        json status = get_job(id);
+        std::string filename = json_str(status, "filename", "processed_file");
+        send_file_response(res, path, filename);
+    });
+
+    // ── POST /api/tools/pdf-compress ────────────────────────────────────────
+    svr.Post("/api/tools/pdf-compress", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_ghostscript_path.empty()) {
+            res.status = 500;
+            res.set_content(json({{"error", "Ghostscript not installed. PDF tools require Ghostscript."}}).dump(), "application/json");
+            return;
+        }
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string level = req.has_file("level") ? req.get_file_value("level").content : "ebook";
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string output_path = get_processing_dir() + "/" + jid + "_out.pdf";
+
+        std::string cmd = escape_arg(g_ghostscript_path) +
+            " -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/" + level +
+            " -dNOPAUSE -dQUIET -dBATCH -sOutputFile=" + escape_arg(output_path) +
+            " " + escape_arg(input_path);
+        std::cout << "[Luma Tools] PDF compress: " << cmd << std::endl;
+        int code;
+        exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            std::string out_name = fs::path(file.filename).stem().string() + "_compressed.pdf";
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            res.set_content(json({{"error", "PDF compression failed"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/pdf-merge ───────────────────────────────────────────
+    svr.Post("/api/tools/pdf-merge", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_ghostscript_path.empty()) {
+            res.status = 500;
+            res.set_content(json({{"error", "Ghostscript not installed. PDF tools require Ghostscript."}}).dump(), "application/json");
+            return;
+        }
+        int count_val = 0;
+        if (req.has_file("count")) {
+            try { count_val = std::stoi(req.get_file_value("count").content); } catch (...) {}
+        }
+        if (count_val < 2) {
+            res.status = 400;
+            res.set_content(json({{"error", "At least 2 PDF files required"}}).dump(), "application/json");
+            return;
+        }
+
+        std::string jid = generate_job_id();
+        std::string proc_dir = get_processing_dir();
+        std::vector<std::string> input_paths;
+
+        for (int i = 0; i < count_val; i++) {
+            std::string key = "file" + std::to_string(i);
+            if (!req.has_file(key)) continue;
+            auto f = req.get_file_value(key);
+            std::string path = proc_dir + "/" + jid + "_in" + std::to_string(i) + ".pdf";
+            std::ofstream out(path, std::ios::binary);
+            out.write(f.content.data(), f.content.size());
+            out.close();
+            input_paths.push_back(path);
+        }
+
+        if (input_paths.size() < 2) {
+            res.status = 400;
+            res.set_content(json({{"error", "At least 2 valid PDF files required"}}).dump(), "application/json");
+            for (auto& p : input_paths) try { fs::remove(p); } catch (...) {}
+            return;
+        }
+
+        std::string output_path = proc_dir + "/" + jid + "_merged.pdf";
+        std::string cmd = escape_arg(g_ghostscript_path) +
+            " -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=" + escape_arg(output_path);
+        for (const auto& p : input_paths) cmd += " " + escape_arg(p);
+
+        std::cout << "[Luma Tools] PDF merge: " << cmd << std::endl;
+        int code;
+        exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            send_file_response(res, output_path, "merged.pdf");
+        } else {
+            res.status = 500;
+            res.set_content(json({{"error", "PDF merge failed"}}).dump(), "application/json");
+        }
+        for (auto& p : input_paths) try { fs::remove(p); } catch (...) {}
+        try { fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/pdf-to-images ───────────────────────────────────────
+    svr.Post("/api/tools/pdf-to-images", [&dl_dir](const httplib::Request& req, httplib::Response& res) {
+        if (g_ghostscript_path.empty()) {
+            res.status = 500;
+            res.set_content(json({{"error", "Ghostscript not installed. PDF tools require Ghostscript."}}).dump(), "application/json");
+            return;
+        }
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        std::string format = req.has_file("format") ? req.get_file_value("format").content : "png";
+        std::string dpi = req.has_file("dpi") ? req.get_file_value("dpi").content : "200";
+
+        std::string jid = generate_job_id();
+        std::string input_path = save_upload(file, jid);
+        std::string proc_dir = get_processing_dir();
+        std::string out_pattern = proc_dir + "/" + jid + "_page_%03d." + format;
+
+        std::string device = "png16m";
+        if (format == "jpg" || format == "jpeg") device = "jpeg";
+        else if (format == "tiff" || format == "tif") device = "tiff24nc";
+
+        std::string cmd = escape_arg(g_ghostscript_path) +
+            " -dNOPAUSE -dBATCH -sDEVICE=" + device +
+            " -r" + dpi +
+            " -sOutputFile=" + escape_arg(out_pattern) +
+            " " + escape_arg(input_path);
+        std::cout << "[Luma Tools] PDF to images: " << cmd << std::endl;
+        int code;
+        exec_command(cmd, code);
+
+        // Collect output pages
+        std::vector<std::string> pages;
+        for (int i = 1; i <= 999; i++) {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%03d", i);
+            std::string page_path = proc_dir + "/" + jid + "_page_" + buf + "." + format;
+            if (fs::exists(page_path)) pages.push_back(page_path);
+            else break;
+        }
+
+        if (pages.empty()) {
+            res.status = 500;
+            res.set_content(json({{"error", "PDF to images conversion failed"}}).dump(), "application/json");
+            try { fs::remove(input_path); } catch (...) {}
+            return;
+        }
+
+        if (pages.size() == 1) {
+            // Single page — return the image directly
+            std::string out_name = fs::path(file.filename).stem().string() + "_page1." + format;
+            send_file_response(res, pages[0], out_name);
+        } else {
+            // Multiple pages — copy to downloads dir and return JSON with links
+            json files_json = json::array();
+            std::string base_name = fs::path(file.filename).stem().string();
+            for (size_t i = 0; i < pages.size(); i++) {
+                std::string page_name = base_name + "_page" + std::to_string(i + 1) + "." + format;
+                std::string dest = dl_dir + "/" + page_name;
+                try { fs::copy_file(pages[i], dest, fs::copy_options::overwrite_existing); } catch (...) {}
+                files_json.push_back({{"name", page_name}, {"url", "/downloads/" + page_name}});
+            }
+            json resp = {{"pages", files_json}, {"count", (int)pages.size()}};
+            res.set_content(resp.dump(), "application/json");
+        }
+
+        // Cleanup temp files
+        try { fs::remove(input_path); } catch (...) {}
+        for (auto& p : pages) try { fs::remove(p); } catch (...) {}
     });
 
     // ── Start the server ────────────────────────────────────────────────────

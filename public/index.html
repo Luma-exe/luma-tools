@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luma Tools — Universal Media Downloader</title>
+    <title>Luma Tools — Universal Media Toolkit</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,295 +18,589 @@
         <div class="gradient-orb orb-3"></div>
         <div class="grid-overlay"></div>
     </div>
-
-    <!-- Particles -->
     <canvas id="particles"></canvas>
 
-    <div class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <div class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-bolt"></i>
+    <div class="app-layout">
+        <!-- ═══════════════ SIDEBAR ═══════════════ -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="logo-text"><h1>LUMA<span>TOOLS</span></h1></div>
                 </div>
-                <div class="logo-text">
-                    <h1>LUMA<span>TOOLS</span></h1>
-                    <p class="tagline">Universal Media Downloader</p>
-                </div>
-            </div>
-            <div class="header-status" id="serverStatus">
-                <span class="status-dot"></span>
-                <span class="status-text">Checking...</span>
-            </div>
-        </header>
-
-        <!-- Main Card -->
-        <main class="main-card">
-            <!-- URL Input Section -->
-            <div class="input-section">
-                <div class="input-wrapper" id="inputWrapper">
-                    <div class="platform-badge" id="platformBadge">
-                        <i class="fas fa-link"></i>
-                    </div>
-                    <input 
-                        type="url" 
-                        id="urlInput" 
-                        placeholder="Paste any media URL here..." 
-                        autocomplete="off"
-                        spellcheck="false"
-                    >
-                    <button class="analyze-btn" id="analyzeBtn" onclick="analyzeURL()">
-                        <i class="fas fa-search"></i>
-                        <span>Analyze</span>
-                    </button>
-                </div>
-                <div class="supported-platforms">
-                    <span class="label">Supported:</span>
-                    <div class="platform-icons">
-                        <i class="fab fa-youtube" title="YouTube"></i>
-                        <i class="fab fa-tiktok" title="TikTok"></i>
-                        <i class="fab fa-instagram" title="Instagram"></i>
-                        <i class="fab fa-spotify" title="Spotify"></i>
-                        <i class="fab fa-soundcloud" title="SoundCloud"></i>
-                        <i class="fab fa-x-twitter" title="X / Twitter"></i>
-                        <i class="fab fa-facebook" title="Facebook"></i>
-                        <i class="fab fa-twitch" title="Twitch"></i>
-                        <i class="fab fa-reddit-alien" title="Reddit"></i>
-                        <i class="fas fa-ellipsis" title="And more..."></i>
-                    </div>
-                </div>
+                <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
             </div>
 
-            <!-- Loading State -->
-            <div class="loading-section hidden" id="loadingSection">
-                <div class="loader">
-                    <div class="loader-ring"></div>
-                    <div class="loader-ring"></div>
-                    <div class="loader-ring"></div>
+            <nav class="sidebar-nav">
+                <div class="nav-category">
+                    <div class="nav-category-title">DOWNLOAD</div>
+                    <a class="nav-item active" data-tool="downloader" onclick="switchTool('downloader')">
+                        <i class="fas fa-download"></i><span>Media Downloader</span>
+                    </a>
                 </div>
-                <p class="loading-text">Analyzing media...</p>
-            </div>
+                <div class="nav-category">
+                    <div class="nav-category-title">IMAGE</div>
+                    <a class="nav-item" data-tool="image-compress" onclick="switchTool('image-compress')">
+                        <i class="fas fa-compress-alt"></i><span>Compress</span>
+                    </a>
+                    <a class="nav-item" data-tool="image-resize" onclick="switchTool('image-resize')">
+                        <i class="fas fa-expand-arrows-alt"></i><span>Resize</span>
+                    </a>
+                    <a class="nav-item" data-tool="image-convert" onclick="switchTool('image-convert')">
+                        <i class="fas fa-exchange-alt"></i><span>Convert</span>
+                    </a>
+                </div>
+                <div class="nav-category">
+                    <div class="nav-category-title">VIDEO</div>
+                    <a class="nav-item" data-tool="video-compress" onclick="switchTool('video-compress')">
+                        <i class="fas fa-file-video"></i><span>Compress</span>
+                    </a>
+                    <a class="nav-item" data-tool="video-trim" onclick="switchTool('video-trim')">
+                        <i class="fas fa-cut"></i><span>Trim / Cut</span>
+                    </a>
+                    <a class="nav-item" data-tool="video-convert" onclick="switchTool('video-convert')">
+                        <i class="fas fa-film"></i><span>Convert</span>
+                    </a>
+                    <a class="nav-item" data-tool="video-extract-audio" onclick="switchTool('video-extract-audio')">
+                        <i class="fas fa-volume-up"></i><span>Extract Audio</span>
+                    </a>
+                </div>
+                <div class="nav-category">
+                    <div class="nav-category-title">AUDIO</div>
+                    <a class="nav-item" data-tool="audio-convert" onclick="switchTool('audio-convert')">
+                        <i class="fas fa-headphones"></i><span>Convert</span>
+                    </a>
+                </div>
+                <div class="nav-category">
+                    <div class="nav-category-title">DOCUMENT</div>
+                    <a class="nav-item" data-tool="pdf-compress" onclick="switchTool('pdf-compress')">
+                        <i class="fas fa-file-pdf"></i><span>PDF Compress</span>
+                    </a>
+                    <a class="nav-item" data-tool="pdf-merge" onclick="switchTool('pdf-merge')">
+                        <i class="fas fa-object-group"></i><span>PDF Merge</span>
+                    </a>
+                    <a class="nav-item" data-tool="pdf-to-images" onclick="switchTool('pdf-to-images')">
+                        <i class="fas fa-images"></i><span>PDF to Images</span>
+                    </a>
+                </div>
+            </nav>
 
-            <!-- Error State -->
-            <div class="error-section hidden" id="errorSection">
-                <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                <p class="error-text" id="errorText">Something went wrong</p>
-                <button class="retry-btn" onclick="retryAnalysis()">
-                    <i class="fas fa-redo"></i> Try Again
-                </button>
+            <div class="sidebar-footer">
+                <div class="server-status" id="serverStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Checking...</span>
+                </div>
             </div>
+        </aside>
 
-            <!-- Playlist Section -->
-            <div class="playlist-section hidden" id="playlistSection">
-                <div class="playlist-header">
-                    <div class="playlist-info">
-                        <div class="playlist-icon">
-                            <i class="fas fa-list-ul"></i>
+        <!-- Mobile header -->
+        <div class="mobile-header" id="mobileHeader">
+            <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <div class="mobile-logo"><i class="fas fa-bolt"></i> LUMA<span>TOOLS</span></div>
+        </div>
+
+        <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+        <main class="main-content">
+
+            <!-- ──────────── MEDIA DOWNLOADER ──────────── -->
+            <div class="tool-panel active" id="tool-downloader">
+                <div class="tool-header">
+                    <h2><i class="fas fa-download"></i> Media Downloader</h2>
+                    <p>Download videos and audio from any supported platform</p>
+                </div>
+                <div class="tool-body">
+                    <!-- URL Input -->
+                    <div class="input-section">
+                        <div class="input-wrapper" id="inputWrapper">
+                            <div class="platform-badge" id="platformBadge"><i class="fas fa-link"></i></div>
+                            <input type="url" id="urlInput" placeholder="Paste any media URL here..." autocomplete="off" spellcheck="false">
+                            <button class="analyze-btn" id="analyzeBtn" onclick="analyzeURL()"><i class="fas fa-search"></i><span>Analyze</span></button>
                         </div>
-                        <div>
-                            <h2 id="playlistTitle">Playlist</h2>
-                            <p class="playlist-meta">
-                                <span id="playlistCount">0 items</span>
-                                <span class="dot-sep">&bull;</span>
-                                <span id="playlistUploader">Unknown</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="playlist-actions">
-                        <button class="playlist-select-btn" onclick="toggleSelectAll()">
-                            <i class="fas fa-check-double" id="selectAllIcon"></i>
-                            <span id="selectAllText">Select All</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="playlist-items" id="playlistItems">
-                    <!-- Populated dynamically -->
-                </div>
-
-                <!-- Track name resolving indicator -->
-                <div class="playlist-resolving hidden" id="playlistResolving">
-                    <div class="resolving-content">
-                        <i class="fas fa-circle-notch fa-spin"></i>
-                        <span id="resolvingText">Loading track names...</span>
-                    </div>
-                    <button class="resolving-skip-btn hidden" id="resolvingSkipBtn" onclick="skipResolving()">
-                        <i class="fas fa-forward"></i> Skip
-                    </button>
-                </div>
-
-                <div class="playlist-footer">
-                    <div class="playlist-selected-count">
-                        <span id="selectedCount">0</span> selected
-                    </div>
-
-                    <!-- Format Selection for Playlist -->
-                    <div class="format-tabs playlist-format-tabs" id="playlistFormatTabs">
-                        <button class="format-tab active" data-format="mp3" onclick="selectFormat('mp3')">
-                            <i class="fas fa-music"></i>
-                            <span>MP3</span>
-                        </button>
-                        <button class="format-tab" data-format="mp4" onclick="selectFormat('mp4')">
-                            <i class="fas fa-video"></i>
-                            <span>MP4</span>
-                        </button>
-                    </div>
-
-                    <button class="download-btn" id="playlistDownloadBtn" onclick="startPlaylistDownload()">
-                        <div class="btn-content">
-                            <i class="fas fa-download"></i>
-                            <span>Download Selected</span>
-                        </div>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Batch Progress Section -->
-            <div class="batch-progress-section hidden" id="batchProgressSection">
-                <div class="batch-header">
-                    <div class="progress-icon spinning">
-                        <i class="fas fa-circle-notch"></i>
-                    </div>
-                    <div class="progress-info">
-                        <h3 id="batchTitle">Downloading playlist...</h3>
-                        <p id="batchStatus">Starting...</p>
-                    </div>
-                </div>
-                <div class="batch-overall">
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" id="batchOverallBar"></div>
-                    </div>
-                    <div class="batch-overall-label">
-                        <span id="batchCurrentNum">0</span> / <span id="batchTotalNum">0</span> files
-                    </div>
-                </div>
-                <div class="batch-current-item" id="batchCurrentItem">
-                    <div class="batch-item-name" id="batchItemName"></div>
-                    <div class="progress-bar-container small">
-                        <div class="progress-bar" id="batchItemBar"></div>
-                    </div>
-                    <div class="progress-details">
-                        <span class="progress-pct" id="batchItemPct"></span>
-                        <span class="progress-speed" id="batchItemSpeed"></span>
-                        <span class="progress-eta" id="batchItemEta"></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Batch Complete Section -->
-            <div class="batch-complete-section hidden" id="batchCompleteSection">
-                <div class="complete-icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <h3 id="batchCompleteText">All downloads complete!</h3>
-                <div class="batch-files" id="batchFiles">
-                    <!-- Populated dynamically with save buttons -->
-                </div>
-                <button class="new-download-btn" onclick="resetUI()">
-                    <i class="fas fa-plus"></i> New Download
-                </button>
-            </div>
-
-            <!-- Media Info Section -->
-            <div class="media-section hidden" id="mediaSection">
-                <!-- Media Preview -->
-                <div class="media-preview">
-                    <div class="thumbnail-container">
-                        <img id="mediaThumbnail" src="" alt="Thumbnail">
-                        <div class="duration-badge" id="mediaDuration">0:00</div>
-                        <div class="platform-overlay" id="platformOverlay">
-                            <i class="fab fa-youtube"></i>
-                        </div>
-                    </div>
-                    <div class="media-info">
-                        <h2 id="mediaTitle">Media Title</h2>
-                        <p class="media-uploader" id="mediaUploader">
-                            <i class="fas fa-user"></i>
-                            <span>Uploader</span>
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Format Selection -->
-                <div class="format-section">
-                    <h3><i class="fas fa-sliders-h"></i> Download Options</h3>
-                    
-                    <div class="format-tabs" id="formatTabs">
-                        <button class="format-tab active" data-format="mp3" onclick="selectFormat('mp3')">
-                            <i class="fas fa-music"></i>
-                            <span>MP3</span>
-                            <small>Audio Only</small>
-                        </button>
-                        <button class="format-tab" data-format="mp4" onclick="selectFormat('mp4')">
-                            <i class="fas fa-video"></i>
-                            <span>MP4</span>
-                            <small>Video</small>
-                        </button>
-                    </div>
-
-                    <!-- Quality Selection (for video) -->
-                    <div class="quality-section hidden" id="qualitySection">
-                        <h4><i class="fas fa-film"></i> Video Quality</h4>
-                        <div class="quality-grid" id="qualityGrid">
-                            <!-- Populated dynamically -->
+                        <div class="supported-platforms">
+                            <span class="label">Supported:</span>
+                            <div class="platform-icons">
+                                <i class="fab fa-youtube" title="YouTube"></i>
+                                <i class="fab fa-tiktok" title="TikTok"></i>
+                                <i class="fab fa-instagram" title="Instagram"></i>
+                                <i class="fab fa-spotify" title="Spotify"></i>
+                                <i class="fab fa-soundcloud" title="SoundCloud"></i>
+                                <i class="fab fa-x-twitter" title="X / Twitter"></i>
+                                <i class="fab fa-facebook" title="Facebook"></i>
+                                <i class="fab fa-twitch" title="Twitch"></i>
+                                <i class="fab fa-reddit-alien" title="Reddit"></i>
+                                <i class="fas fa-ellipsis" title="And more..."></i>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Download Button -->
-                    <button class="download-btn" id="downloadBtn" onclick="startDownload()">
-                        <div class="btn-content">
-                            <i class="fas fa-download"></i>
-                            <span>Download</span>
+                    <!-- Loading -->
+                    <div class="dl-section hidden" id="loadingSection">
+                        <div class="loader"><div class="loader-ring"></div><div class="loader-ring"></div><div class="loader-ring"></div></div>
+                        <p class="loading-text">Analyzing media...</p>
+                    </div>
+
+                    <!-- Error -->
+                    <div class="dl-section hidden" id="errorSection">
+                        <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <p class="error-text" id="errorText">Something went wrong</p>
+                        <button class="retry-btn" onclick="retryAnalysis()"><i class="fas fa-redo"></i> Try Again</button>
+                    </div>
+
+                    <!-- Playlist -->
+                    <div class="dl-section hidden" id="playlistSection">
+                        <div class="playlist-header">
+                            <div class="playlist-info">
+                                <div class="playlist-icon"><i class="fas fa-list-ul"></i></div>
+                                <div><h2 id="playlistTitle">Playlist</h2><p class="playlist-meta"><span id="playlistCount">0 items</span><span class="dot-sep">&bull;</span><span id="playlistUploader">Unknown</span></p></div>
+                            </div>
+                            <div class="playlist-actions">
+                                <button class="playlist-select-btn" onclick="toggleSelectAll()"><i class="fas fa-check-double" id="selectAllIcon"></i><span id="selectAllText">Select All</span></button>
+                            </div>
                         </div>
-                        <div class="btn-progress" id="btnProgress"></div>
-                    </button>
+                        <div class="playlist-items" id="playlistItems"></div>
+                        <div class="playlist-resolving hidden" id="playlistResolving">
+                            <div class="resolving-content"><i class="fas fa-circle-notch fa-spin"></i><span id="resolvingText">Loading track names...</span></div>
+                            <button class="resolving-skip-btn hidden" id="resolvingSkipBtn" onclick="skipResolving()"><i class="fas fa-forward"></i> Skip</button>
+                        </div>
+                        <div class="playlist-footer">
+                            <div class="playlist-selected-count"><span id="selectedCount">0</span> selected</div>
+                            <div class="format-tabs playlist-format-tabs" id="playlistFormatTabs">
+                                <button class="format-tab active" data-format="mp3" onclick="selectFormat('mp3')"><i class="fas fa-music"></i><span>MP3</span></button>
+                                <button class="format-tab" data-format="mp4" onclick="selectFormat('mp4')"><i class="fas fa-video"></i><span>MP4</span></button>
+                            </div>
+                            <button class="download-btn" id="playlistDownloadBtn" onclick="startPlaylistDownload()"><div class="btn-content"><i class="fas fa-download"></i><span>Download Selected</span></div></button>
+                        </div>
+                    </div>
+
+                    <!-- Batch Progress -->
+                    <div class="dl-section hidden" id="batchProgressSection">
+                        <div class="batch-header">
+                            <div class="progress-icon spinning"><i class="fas fa-circle-notch"></i></div>
+                            <div class="progress-info"><h3 id="batchTitle">Downloading playlist...</h3><p id="batchStatus">Starting...</p></div>
+                        </div>
+                        <div class="batch-overall">
+                            <div class="progress-bar-container"><div class="progress-bar" id="batchOverallBar"></div></div>
+                            <div class="batch-overall-label"><span id="batchCurrentNum">0</span> / <span id="batchTotalNum">0</span> files</div>
+                        </div>
+                        <div class="batch-current-item" id="batchCurrentItem">
+                            <div class="batch-item-name" id="batchItemName"></div>
+                            <div class="progress-bar-container small"><div class="progress-bar" id="batchItemBar"></div></div>
+                            <div class="progress-details"><span class="progress-pct" id="batchItemPct"></span><span class="progress-speed" id="batchItemSpeed"></span><span class="progress-eta" id="batchItemEta"></span></div>
+                        </div>
+                    </div>
+
+                    <!-- Batch Complete -->
+                    <div class="dl-section hidden" id="batchCompleteSection">
+                        <div class="complete-icon"><i class="fas fa-check-circle"></i></div>
+                        <h3 id="batchCompleteText">All downloads complete!</h3>
+                        <div class="batch-files" id="batchFiles"></div>
+                        <button class="new-download-btn" onclick="resetDownloaderUI()"><i class="fas fa-plus"></i> New Download</button>
+                    </div>
+
+                    <!-- Media Info -->
+                    <div class="dl-section hidden" id="mediaSection">
+                        <div class="media-preview">
+                            <div class="thumbnail-container">
+                                <img id="mediaThumbnail" src="" alt="Thumbnail">
+                                <div class="duration-badge" id="mediaDuration">0:00</div>
+                                <div class="platform-overlay" id="platformOverlay"><i class="fab fa-youtube"></i></div>
+                            </div>
+                            <div class="media-info">
+                                <h2 id="mediaTitle">Media Title</h2>
+                                <p class="media-uploader" id="mediaUploader"><i class="fas fa-user"></i><span>Uploader</span></p>
+                            </div>
+                        </div>
+                        <div class="format-section">
+                            <h3><i class="fas fa-sliders-h"></i> Download Options</h3>
+                            <div class="format-tabs" id="formatTabs">
+                                <button class="format-tab active" data-format="mp3" onclick="selectFormat('mp3')"><i class="fas fa-music"></i><span>MP3</span><small>Audio Only</small></button>
+                                <button class="format-tab" data-format="mp4" onclick="selectFormat('mp4')"><i class="fas fa-video"></i><span>MP4</span><small>Video</small></button>
+                            </div>
+                            <div class="quality-section hidden" id="qualitySection">
+                                <h4><i class="fas fa-film"></i> Video Quality</h4>
+                                <div class="quality-grid" id="qualityGrid"></div>
+                            </div>
+                            <button class="download-btn" id="downloadBtn" onclick="startDownload()"><div class="btn-content"><i class="fas fa-download"></i><span>Download</span></div><div class="btn-progress" id="btnProgress"></div></button>
+                        </div>
+                    </div>
+
+                    <!-- Download Progress -->
+                    <div class="dl-section hidden" id="progressSection">
+                        <div class="progress-header">
+                            <div class="progress-icon spinning"><i class="fas fa-circle-notch"></i></div>
+                            <div class="progress-info"><h3 id="progressTitle">Downloading...</h3><p id="progressStatus">Starting download</p></div>
+                        </div>
+                        <div class="progress-bar-container"><div class="progress-bar" id="progressBar"></div></div>
+                        <div class="progress-details"><span class="progress-pct" id="progressPct"></span><span class="progress-speed" id="progressSpeed"></span><span class="progress-eta" id="progressEta"></span><span class="progress-size" id="progressSize"></span></div>
+                    </div>
+
+                    <!-- Download Complete -->
+                    <div class="dl-section hidden" id="completeSection">
+                        <div class="complete-icon"><i class="fas fa-check-circle"></i></div>
+                        <h3>Download Ready!</h3>
+                        <a class="save-btn" id="saveBtn" href="#" download><i class="fas fa-save"></i><span>Save File</span></a>
+                        <button class="new-download-btn" onclick="resetDownloaderUI()"><i class="fas fa-plus"></i> New Download</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Download Progress -->
-            <div class="progress-section hidden" id="progressSection">
-                <div class="progress-header">
-                    <div class="progress-icon spinning">
-                        <i class="fas fa-circle-notch"></i>
-                    </div>
-                    <div class="progress-info">
-                        <h3 id="progressTitle">Downloading...</h3>
-                        <p id="progressStatus">Starting download</p>
-                    </div>
+            <!-- ──────────── IMAGE COMPRESS ──────────── -->
+            <div class="tool-panel" id="tool-image-compress">
+                <div class="tool-header">
+                    <h2><i class="fas fa-compress-alt"></i> Image Compress</h2>
+                    <p>Reduce image file size while maintaining quality</p>
                 </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar" id="progressBar"></div>
-                </div>
-                <div class="progress-details">
-                    <span class="progress-pct" id="progressPct"></span>
-                    <span class="progress-speed" id="progressSpeed"></span>
-                    <span class="progress-eta" id="progressEta"></span>
-                    <span class="progress-size" id="progressSize"></span>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-image-compress" data-accept="image/*" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="image-compress">
+                        <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('image-compress')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Quality</label>
+                        <div class="slider-group"><input type="range" min="10" max="100" value="75" class="quality-slider" id="imageCompressQuality" oninput="document.getElementById('imageCompressQualityVal').textContent=this.value+'%'"><span class="slider-value" id="imageCompressQualityVal">75%</span></div>
+                        <small class="option-hint">Lower = smaller file, less quality</small>
+                    </div>
+                    <button class="process-btn" onclick="processFile('image-compress')"><i class="fas fa-compress-alt"></i> Compress Image</button>
+                    <div class="processing-status hidden" data-tool="image-compress"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="image-compress">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
                 </div>
             </div>
 
-            <!-- Download Complete -->
-            <div class="complete-section hidden" id="completeSection">
-                <div class="complete-icon">
-                    <i class="fas fa-check-circle"></i>
+            <!-- ──────────── IMAGE RESIZE ──────────── -->
+            <div class="tool-panel" id="tool-image-resize">
+                <div class="tool-header">
+                    <h2><i class="fas fa-expand-arrows-alt"></i> Image Resize</h2>
+                    <p>Change image dimensions while preserving aspect ratio</p>
                 </div>
-                <h3>Download Ready!</h3>
-                <a class="save-btn" id="saveBtn" href="#" download>
-                    <i class="fas fa-save"></i>
-                    <span>Save File</span>
-                </a>
-                <button class="new-download-btn" onclick="resetUI()">
-                    <i class="fas fa-plus"></i> New Download
-                </button>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-image-resize" data-accept="image/*" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="image-resize">
+                        <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('image-resize')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Dimensions</label>
+                        <div class="dimension-inputs">
+                            <div class="dim-group"><label>Width</label><input type="number" id="resizeWidth" placeholder="Auto" min="1" max="10000"></div>
+                            <div class="dim-lock active" id="dimLock" onclick="toggleAspectLock()"><i class="fas fa-link"></i></div>
+                            <div class="dim-group"><label>Height</label><input type="number" id="resizeHeight" placeholder="Auto" min="1" max="10000"></div>
+                        </div>
+                        <small class="option-hint">Leave one blank to keep aspect ratio</small>
+                    </div>
+                    <button class="process-btn" onclick="processFile('image-resize')"><i class="fas fa-expand-arrows-alt"></i> Resize Image</button>
+                    <div class="processing-status hidden" data-tool="image-resize"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="image-resize">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
             </div>
+
+            <!-- ──────────── IMAGE CONVERT ──────────── -->
+            <div class="tool-panel" id="tool-image-convert">
+                <div class="tool-header">
+                    <h2><i class="fas fa-exchange-alt"></i> Image Convert</h2>
+                    <p>Convert between PNG, JPEG, WebP, BMP, TIFF, ICO and more</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-image-convert" data-accept="image/*" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, ICO, GIF &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="image-convert">
+                        <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('image-convert')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Output Format</label>
+                        <div class="format-select-grid" data-tool="image-convert">
+                            <button class="fmt-btn active" data-fmt="png" onclick="selectOutputFmt(this)">PNG</button>
+                            <button class="fmt-btn" data-fmt="jpg" onclick="selectOutputFmt(this)">JPEG</button>
+                            <button class="fmt-btn" data-fmt="webp" onclick="selectOutputFmt(this)">WebP</button>
+                            <button class="fmt-btn" data-fmt="bmp" onclick="selectOutputFmt(this)">BMP</button>
+                            <button class="fmt-btn" data-fmt="tiff" onclick="selectOutputFmt(this)">TIFF</button>
+                            <button class="fmt-btn" data-fmt="ico" onclick="selectOutputFmt(this)">ICO</button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('image-convert')"><i class="fas fa-exchange-alt"></i> Convert Image</button>
+                    <div class="processing-status hidden" data-tool="image-convert"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="image-convert">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO COMPRESS ──────────── -->
+            <div class="tool-panel" id="tool-video-compress">
+                <div class="tool-header">
+                    <h2><i class="fas fa-file-video"></i> Video Compress</h2>
+                    <p>Reduce video file size with adjustable quality</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-compress" data-accept="video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-compress">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-compress')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Compression Level</label>
+                        <div class="preset-grid" data-tool="video-compress">
+                            <button class="preset-btn" data-val="light" onclick="selectPreset(this)"><i class="fas fa-feather"></i><span>Light</span><small>~70% size</small></button>
+                            <button class="preset-btn active" data-val="medium" onclick="selectPreset(this)"><i class="fas fa-balance-scale"></i><span>Medium</span><small>~50% size</small></button>
+                            <button class="preset-btn" data-val="heavy" onclick="selectPreset(this)"><i class="fas fa-compress-arrows-alt"></i><span>Heavy</span><small>~30% size</small></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-compress')"><i class="fas fa-compress-alt"></i> Compress Video</button>
+                    <div class="processing-status hidden" data-tool="video-compress"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="video-compress">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO TRIM ──────────── -->
+            <div class="tool-panel" id="tool-video-trim">
+                <div class="tool-header">
+                    <h2><i class="fas fa-cut"></i> Video Trim / Cut</h2>
+                    <p>Extract a segment from your video by setting start and end times</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-trim" data-accept="video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-trim">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-trim')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Time Range</label>
+                        <div class="time-inputs">
+                            <div class="time-group"><label>Start</label><input type="text" id="trimStart" placeholder="00:00:00" value="00:00:00"></div>
+                            <span class="time-arrow"><i class="fas fa-arrow-right"></i></span>
+                            <div class="time-group"><label>End</label><input type="text" id="trimEnd" placeholder="00:01:00"></div>
+                        </div>
+                        <small class="option-hint">Format: HH:MM:SS or MM:SS</small>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-trim')"><i class="fas fa-cut"></i> Trim Video</button>
+                    <div class="processing-status hidden" data-tool="video-trim"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="video-trim">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO CONVERT ──────────── -->
+            <div class="tool-panel" id="tool-video-convert">
+                <div class="tool-header">
+                    <h2><i class="fas fa-film"></i> Video Convert</h2>
+                    <p>Convert between MP4, WebM, AVI, MOV, MKV and more</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-convert" data-accept="video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-convert">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-convert')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Output Format</label>
+                        <div class="format-select-grid" data-tool="video-convert">
+                            <button class="fmt-btn active" data-fmt="mp4" onclick="selectOutputFmt(this)">MP4</button>
+                            <button class="fmt-btn" data-fmt="webm" onclick="selectOutputFmt(this)">WebM</button>
+                            <button class="fmt-btn" data-fmt="avi" onclick="selectOutputFmt(this)">AVI</button>
+                            <button class="fmt-btn" data-fmt="mov" onclick="selectOutputFmt(this)">MOV</button>
+                            <button class="fmt-btn" data-fmt="mkv" onclick="selectOutputFmt(this)">MKV</button>
+                            <button class="fmt-btn" data-fmt="gif" onclick="selectOutputFmt(this)">GIF</button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-convert')"><i class="fas fa-film"></i> Convert Video</button>
+                    <div class="processing-status hidden" data-tool="video-convert"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="video-convert">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO EXTRACT AUDIO ──────────── -->
+            <div class="tool-panel" id="tool-video-extract-audio">
+                <div class="tool-header">
+                    <h2><i class="fas fa-volume-up"></i> Extract Audio</h2>
+                    <p>Extract the audio track from any video file</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-extract-audio" data-accept="video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-extract-audio">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-extract-audio')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Audio Format</label>
+                        <div class="format-select-grid" data-tool="video-extract-audio">
+                            <button class="fmt-btn active" data-fmt="mp3" onclick="selectOutputFmt(this)">MP3</button>
+                            <button class="fmt-btn" data-fmt="wav" onclick="selectOutputFmt(this)">WAV</button>
+                            <button class="fmt-btn" data-fmt="flac" onclick="selectOutputFmt(this)">FLAC</button>
+                            <button class="fmt-btn" data-fmt="aac" onclick="selectOutputFmt(this)">AAC</button>
+                            <button class="fmt-btn" data-fmt="ogg" onclick="selectOutputFmt(this)">OGG</button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-extract-audio')"><i class="fas fa-volume-up"></i> Extract Audio</button>
+                    <div class="processing-status hidden" data-tool="video-extract-audio"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="video-extract-audio">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── AUDIO CONVERT ──────────── -->
+            <div class="tool-panel" id="tool-audio-convert">
+                <div class="tool-header">
+                    <h2><i class="fas fa-headphones"></i> Audio Convert</h2>
+                    <p>Convert between MP3, WAV, FLAC, OGG, AAC, M4A and more</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-audio-convert" data-accept="audio/*" data-max="209715200">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your audio file here</p><span>or click to browse</span><small>MP3, WAV, FLAC, OGG, AAC, M4A, WMA &mdash; Max 200 MB</small></div>
+                        <input type="file" class="upload-input" accept="audio/*,.mp3,.wav,.flac,.ogg,.aac,.m4a,.wma">
+                    </div>
+                    <div class="file-preview hidden" data-tool="audio-convert">
+                        <div class="file-info"><i class="fas fa-music"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('audio-convert')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Output Format</label>
+                        <div class="format-select-grid" data-tool="audio-convert">
+                            <button class="fmt-btn active" data-fmt="mp3" onclick="selectOutputFmt(this)">MP3</button>
+                            <button class="fmt-btn" data-fmt="wav" onclick="selectOutputFmt(this)">WAV</button>
+                            <button class="fmt-btn" data-fmt="flac" onclick="selectOutputFmt(this)">FLAC</button>
+                            <button class="fmt-btn" data-fmt="ogg" onclick="selectOutputFmt(this)">OGG</button>
+                            <button class="fmt-btn" data-fmt="aac" onclick="selectOutputFmt(this)">AAC</button>
+                            <button class="fmt-btn" data-fmt="m4a" onclick="selectOutputFmt(this)">M4A</button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('audio-convert')"><i class="fas fa-headphones"></i> Convert Audio</button>
+                    <div class="processing-status hidden" data-tool="audio-convert"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="audio-convert">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── PDF COMPRESS ──────────── -->
+            <div class="tool-panel" id="tool-pdf-compress">
+                <div class="tool-header">
+                    <h2><i class="fas fa-file-pdf"></i> PDF Compress</h2>
+                    <p>Reduce PDF file size for easy sharing</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-pdf-compress" data-accept=".pdf,application/pdf" data-max="104857600">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your PDF here</p><span>or click to browse</span><small>PDF files &mdash; Max 100 MB</small></div>
+                        <input type="file" class="upload-input" accept=".pdf,application/pdf">
+                    </div>
+                    <div class="file-preview hidden" data-tool="pdf-compress">
+                        <div class="file-info"><i class="fas fa-file-pdf"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('pdf-compress')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Compression Level</label>
+                        <div class="preset-grid" data-tool="pdf-compress">
+                            <button class="preset-btn" data-val="screen" onclick="selectPreset(this)"><i class="fas fa-mobile-alt"></i><span>Screen</span><small>Smallest</small></button>
+                            <button class="preset-btn active" data-val="ebook" onclick="selectPreset(this)"><i class="fas fa-book"></i><span>eBook</span><small>Balanced</small></button>
+                            <button class="preset-btn" data-val="printer" onclick="selectPreset(this)"><i class="fas fa-print"></i><span>Print</span><small>High quality</small></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('pdf-compress')"><i class="fas fa-compress-alt"></i> Compress PDF</button>
+                    <div class="processing-status hidden" data-tool="pdf-compress"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="pdf-compress">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── PDF MERGE ──────────── -->
+            <div class="tool-panel" id="tool-pdf-merge">
+                <div class="tool-header">
+                    <h2><i class="fas fa-object-group"></i> PDF Merge</h2>
+                    <p>Combine multiple PDF files into one document</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone multi" id="uz-pdf-merge" data-accept=".pdf,application/pdf" data-max="104857600">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop PDF files here</p><span>or click to browse (select multiple)</span><small>PDF files &mdash; Max 100 MB total</small></div>
+                        <input type="file" class="upload-input" accept=".pdf,application/pdf" multiple>
+                    </div>
+                    <div class="multi-file-list hidden" data-tool="pdf-merge"></div>
+                    <button class="process-btn" onclick="processFile('pdf-merge')"><i class="fas fa-object-group"></i> Merge PDFs</button>
+                    <div class="processing-status hidden" data-tool="pdf-merge"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Merging...</span></div>
+                    <div class="result-section hidden" data-tool="pdf-merge">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── PDF TO IMAGES ──────────── -->
+            <div class="tool-panel" id="tool-pdf-to-images">
+                <div class="tool-header">
+                    <h2><i class="fas fa-images"></i> PDF to Images</h2>
+                    <p>Convert each page of a PDF into a separate image</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-pdf-to-images" data-accept=".pdf,application/pdf" data-max="104857600">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your PDF here</p><span>or click to browse</span><small>PDF files &mdash; Max 100 MB</small></div>
+                        <input type="file" class="upload-input" accept=".pdf,application/pdf">
+                    </div>
+                    <div class="file-preview hidden" data-tool="pdf-to-images">
+                        <div class="file-info"><i class="fas fa-file-pdf"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('pdf-to-images')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Image Format</label>
+                        <div class="format-select-grid" data-tool="pdf-to-images">
+                            <button class="fmt-btn active" data-fmt="png" onclick="selectOutputFmt(this)">PNG</button>
+                            <button class="fmt-btn" data-fmt="jpg" onclick="selectOutputFmt(this)">JPEG</button>
+                        </div>
+                        <label class="option-label" style="margin-top:12px">DPI (Resolution)</label>
+                        <div class="slider-group"><input type="range" min="72" max="600" value="200" step="1" class="quality-slider" id="pdfDpi" oninput="document.getElementById('pdfDpiVal').textContent=this.value+' DPI'"><span class="slider-value" id="pdfDpiVal">200 DPI</span></div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('pdf-to-images')"><i class="fas fa-images"></i> Convert to Images</button>
+                    <div class="processing-status hidden" data-tool="pdf-to-images"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="pdf-to-images">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download ZIP</a>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="footer"><p>Powered by <strong>C++ & FFmpeg</strong> &mdash; Built with <i class="fas fa-heart"></i> by Luma</p></footer>
         </main>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <p>Powered by <strong>C++ & yt-dlp</strong> — Built with <i class="fas fa-heart"></i> by Luma</p>
-        </footer>
     </div>
 
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <script src="app.js"></script>
 </body>
 </html>
