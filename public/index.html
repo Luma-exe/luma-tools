@@ -391,11 +391,17 @@
                     <div class="tool-options">
                         <label class="option-label">Time Range</label>
                         <div class="time-inputs">
-                            <div class="time-group"><label>Start</label><input type="text" id="trimStart" placeholder="00:00:00" value="00:00:00"></div>
+                            <div class="time-group"><label>Start</label><input type="text" id="trimStart" placeholder="00:00:00.000" value="00:00:00"></div>
                             <span class="time-arrow"><i class="fas fa-arrow-right"></i></span>
-                            <div class="time-group"><label>End</label><input type="text" id="trimEnd" placeholder="00:01:00"></div>
+                            <div class="time-group"><label>End</label><input type="text" id="trimEnd" placeholder="00:01:00.000"></div>
                         </div>
-                        <small class="option-hint">Format: HH:MM:SS or MM:SS</small>
+                        <small class="option-hint">Format: HH:MM:SS or HH:MM:SS.mmm for frame precision</small>
+                        <label class="option-label" style="margin-top:12px">Cut Mode</label>
+                        <div class="preset-grid" data-tool="video-trim-mode">
+                            <button class="preset-btn active" data-val="fast" onclick="selectPreset(this)"><i class="fas fa-bolt"></i><span>Fast</span><small>Keyframe aligned</small></button>
+                            <button class="preset-btn" data-val="precise" onclick="selectPreset(this)"><i class="fas fa-crosshairs"></i><span>Precise</span><small>Frame-accurate</small></button>
+                        </div>
+                        <small class="option-hint">Precise re-encodes for exact frame cuts (slower, outputs MP4)</small>
                     </div>
                     <button class="process-btn" onclick="processFile('video-trim')"><i class="fas fa-cut"></i> Trim Video</button>
                     <div class="processing-status hidden" data-tool="video-trim"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>

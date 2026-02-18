@@ -23,7 +23,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
-add_executable(luma-tools src/main.cpp)
+add_executable(luma-tools
+    src/main.cpp
+    src/common.cpp
+    src/platform.cpp
+    src/discord.cpp
+    src/routes_download.cpp
+    src/routes_tools.cpp
+)
 
 target_link_libraries(luma-tools PRIVATE httplib::httplib nlohmann_json::nlohmann_json)
 

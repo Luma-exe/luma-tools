@@ -251,6 +251,7 @@ async function processFile(toolId) {
         case 'video-trim':
             formData.append('start', $('#trimStart').value || '00:00:00');
             formData.append('end', $('#trimEnd').value || '');
+            formData.append('mode', getSelectedPreset('video-trim-mode') || 'fast');
             if (!$('#trimEnd').value) { showToast('Please enter an end time', 'error'); return; }
             break;
         case 'video-convert':
