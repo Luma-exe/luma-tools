@@ -15,6 +15,9 @@
     <meta property="og:image:height" content="630">
     <meta property="og:site_name" content="Luma Tools">
     <meta name="theme-color" content="#7c5cff">
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="alternate icon" type="image/png" href="/favicon.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Luma Tools — Universal Media Toolkit">
     <meta name="twitter:description" content="Free online media toolkit — download videos, convert images, compress PDFs and 20+ more tools.">
@@ -93,6 +96,9 @@
                     </a>
                     <a class="nav-item" data-tool="image-bg-remove" onclick="switchTool('image-bg-remove')">
                         <i class="fas fa-user-alt"></i><span>Background Remover</span>
+                    </a>
+                    <a class="nav-item" data-tool="redact" onclick="switchTool('redact')">
+                        <i class="fas fa-user-secret"></i><span>Privacy Redaction</span>
                     </a>
                 </div>
                 <div class="nav-category">
@@ -179,6 +185,7 @@
             </nav>
 
             <div class="sidebar-footer">
+                <div class="sidebar-credit"><i class="fas fa-bolt"></i> Built by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener">Luma</a></div>
                 <button class="install-app-btn hidden" id="installAppBtn" onclick="installPWA()">
                     <i class="fas fa-download"></i> Install App
                 </button>
@@ -1358,7 +1365,8 @@
             </div>
 
             <footer class="footer">
-                <span>Powered by <strong>C++</strong>, <strong>FFmpeg</strong>, <strong>yt-dlp</strong> & <strong>Ghostscript</strong> &mdash; Built with <i class="fas fa-heart"></i> by Luma</span>
+                <span>Powered by <strong>C++</strong>, <strong>WebAssembly</strong>, <strong>FFmpeg</strong>, <strong>yt-dlp</strong> &amp; <strong>Ghostscript</strong> &mdash; Built with <i class="fas fa-heart"></i> by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener" style="color:var(--accent-light);text-decoration:none;font-weight:600">Luma</a></span>
+                <br>
                 <a href="https://ko-fi.com/lumaexe" target="_blank" rel="noopener" class="footer-kofi"><i class="fas fa-mug-hot"></i> Buy me a coffee</a>
             </footer>
         </main>

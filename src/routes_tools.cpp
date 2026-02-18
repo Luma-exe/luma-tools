@@ -1,3 +1,15 @@
+#include <vector>
+#include <sstream>
+
+// Simple join for vector<string>
+static std::string join(const std::vector<std::string>& v, const std::string& delim) {
+    std::ostringstream oss;
+    for (size_t i = 0; i < v.size(); ++i) {
+        if (i) oss << delim;
+        oss << v[i];
+    }
+    return oss.str();
+}
 /**
  * Luma Tools — File processing tool route handlers
  * All /api/tools/* endpoints (image, video, audio, PDF)

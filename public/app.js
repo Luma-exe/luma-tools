@@ -175,16 +175,18 @@ function handleFileSelect(toolId, file) {
     if (toolId === 'audio-convert') initWaveform('audio-convert', file);
     if (toolId === 'video-extract-audio') initWaveform('video-extract-audio', file);
     if (toolId === 'video-trim') initWaveform('video-trim', file);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO/VIDEO WAVEFORM VISUALIZATION
 // ═══════════════════════════════════════════════════════════════════════════
 
 let waveSurfers = {};
-let trimRegion = null;
 
 function initWaveform(toolId, file) {
-    // Clean up previous
-    if (waveSurfers[toolId]) { waveSurfers[toolId].destroy(); waveSurfers[toolId] = null; }
+    // Clean up previous instance
+    if (waveSurfers[toolId]) { try { waveSurfers[toolId].destroy(); } catch(e) {} waveSurfers[toolId] = null; }
+
     let wrap, el;
     if (toolId === 'audio-convert') {
         wrap = $('#waveform-audio-convert'); el = $('#waveformAudioConvert');
@@ -194,44 +196,64 @@ function initWaveform(toolId, file) {
         wrap = $('#waveform-video-trim'); el = $('#waveformVideoTrim');
     }
     if (!wrap || !el) return;
+
     wrap.style.display = '';
     el.innerHTML = '';
-    const ws = WaveSurfer.create({
-        container: el,
-        waveColor: '#7c5cff',
-        progressColor: '#6366f1',
-        height: 64,
-        barWidth: 2,
-        barGap: 1,
-        responsive: true,
-        cursorColor: '#222',
-        backend: 'webaudio',
-    });
+
+    // WaveSurfer v7 API: use load(url) not loadBlob()
+    let ws;
+    try {
+        ws = WaveSurfer.create({
+            container: el,
+            waveColor: '#7c5cff',
+            progressColor: '#6366f1',
+            height: 80,
+            barWidth: 2,
+            barGap: 1,
+            cursorColor: '#a78bfa',
+        });
+    } catch (e) {
+        console.error('WaveSurfer create failed:', e);
+        wrap.style.display = 'none';
+        return;
+    }
+
     waveSurfers[toolId] = ws;
-    ws.loadBlob(file);
+
+    const url = URL.createObjectURL(file);
+    ws.load(url).catch(err => {
+        console.error('WaveSurfer load error:', err);
+        wrap.style.display = 'none';
+    });
+
+    // Show trim time range on ready (no regions plugin needed)
     if (toolId === 'video-trim') {
         ws.on('ready', () => {
-            // Add region selection
-            if (trimRegion) trimRegion.remove();
-            trimRegion = ws.addRegion({ start: 0, end: ws.getDuration(), color: 'rgba(124,92,255,0.2)' });
-            $('#waveformTrimStart').textContent = '00:00';
-            $('#waveformTrimEnd').textContent = formatTime(ws.getDuration());
-            trimRegion.on('update-end', () => {
-                $('#trimStart').value = formatTime(trimRegion.start);
-                $('#trimEnd').value = formatTime(trimRegion.end);
-                $('#waveformTrimStart').textContent = formatTime(trimRegion.start);
-                $('#waveformTrimEnd').textContent = formatTime(trimRegion.end);
+            const dur = ws.getDuration();
+            const startEl = $('#waveformTrimStart');
+            const endEl = $('#waveformTrimEnd');
+            if (startEl) startEl.textContent = '00:00:00.00';
+            if (endEl) endEl.textContent = formatTime(dur);
+            // Sync waveform seek to trim inputs
+            ws.on('seek', progress => {
+                const t = formatTime(progress * dur);
+                if ($('#trimStart') && !$('#trimStart').value) $('#trimStart').value = t;
             });
         });
     }
-    ws.on('error', err => { wrap.style.display = 'none'; });
+
+    ws.on('error', err => {
+        console.error('WaveSurfer error:', err);
+        wrap.style.display = 'none';
+    });
 }
 
 function formatTime(sec) {
     sec = Math.max(0, sec);
-    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
-    return (h>0?String(h).padStart(2,'0')+':':'') + String(m).padStart(2,'0')+':' + String(s.toFixed(2)).padStart(5,'0');
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return (h > 0 ? String(h).padStart(2, '0') + ':' : '') + String(m).padStart(2, '0') + ':' + String(s.toFixed(2)).padStart(5, '0');
 }
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PRIVACY REDACTION TOOL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -245,61 +267,58 @@ function initRedactCanvas(file) {
     const wrap = $('#redactCanvasWrap');
     const canvas = $('#redactCanvas');
     if (!wrap || !canvas) return;
-    wrap.classList.remove('hidden');
+
+    redactImg = null;
+    redactVideo = null;
     redactRegions = [];
-    // Reset tool buttons
+
     $('#redactBoxBtn')?.classList.add('active');
     $('#redactBlurBtn')?.classList.remove('active');
     redactMode = 'box';
-    // Image or video?
+
     if (file.type.startsWith('image/')) {
         const img = new Image();
         img.onload = () => {
             redactImg = img;
-            canvas.width = img.width;
-            canvas.height = img.height;
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            wrap.classList.remove('hidden');
             drawRedactCanvas();
             initRedactDraw(canvas);
         };
+        img.onerror = () => showToast('Could not load image', 'error');
         img.src = URL.createObjectURL(file);
     } else if (file.type.startsWith('video/')) {
         const video = document.createElement('video');
         video.preload = 'auto';
+        video.muted = true;
         video.src = URL.createObjectURL(file);
-        video.currentTime = 0;
-        video.onloadeddata = () => {
-            redactVideo = video;
-            // Draw first frame
+        video.addEventListener('seeked', () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            wrap.classList.remove('hidden');
+            redactVideo = video;
             drawRedactCanvas();
             initRedactDraw(canvas);
-        };
+        }, { once: true });
+        video.addEventListener('loadedmetadata', () => { video.currentTime = 0.1; });
     }
 }
 
 function drawRedactCanvas() {
     const canvas = $('#redactCanvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    // Draw base image/video frame
     if (redactImg) ctx.drawImage(redactImg, 0, 0, canvas.width, canvas.height);
     else if (redactVideo) ctx.drawImage(redactVideo, 0, 0, canvas.width, canvas.height);
-    // Draw all regions
     for (const reg of redactRegions) {
         if (reg.type === 'box') {
-            ctx.save();
-            ctx.globalAlpha = 1.0;
-            ctx.fillStyle = '#111';
-            ctx.fillRect(reg.x, reg.y, reg.w, reg.h);
-            ctx.restore();
+            ctx.save(); ctx.globalAlpha = 1.0; ctx.fillStyle = '#111';
+            ctx.fillRect(reg.x, reg.y, reg.w, reg.h); ctx.restore();
         } else if (reg.type === 'blur') {
-            // Simple blur: get region, draw blurred
             try {
                 const imgData = ctx.getImageData(reg.x, reg.y, reg.w, reg.h);
-                const blurred = blurImageData(imgData, 8);
-                ctx.putImageData(blurred, reg.x, reg.y);
+                ctx.putImageData(blurImageData(imgData, 10), reg.x, reg.y);
             } catch {}
         }
     }
@@ -307,52 +326,36 @@ function drawRedactCanvas() {
 
 function initRedactDraw(canvas) {
     let drawing = false, startX, startY;
+    const scaleX = () => canvas.width / canvas.getBoundingClientRect().width;
+    const scaleY = () => canvas.height / canvas.getBoundingClientRect().height;
     function getPos(e) {
         const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
-        const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
-        return { x: Math.max(0, Math.min(canvas.width, x)), y: Math.max(0, Math.min(canvas.height, y)) };
+        const cx = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - rect.left;
+        const cy = (e.clientY ?? e.touches?.[0]?.clientY ?? 0) - rect.top;
+        return { x: cx * scaleX(), y: cy * scaleY() };
     }
-    function onStart(e) {
-        e.preventDefault();
-        drawing = true;
-        const p = getPos(e);
-        startX = p.x; startY = p.y;
-    }
-    function onMove(e) {
-        if (!drawing) return;
-        e.preventDefault();
+    canvas.onmousedown = canvas.ontouchstart = e => { e.preventDefault(); drawing = true; const p = getPos(e); startX = p.x; startY = p.y; };
+    canvas.onmousemove = canvas.ontouchmove = e => {
+        if (!drawing) return; e.preventDefault();
         const p = getPos(e);
         drawRedactCanvas();
-        // Draw preview rect
         const ctx = canvas.getContext('2d');
-        ctx.save();
-        ctx.strokeStyle = redactMode === 'box' ? '#111' : '#7c5cff';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        ctx.strokeRect(startX, startY, p.x - startX, p.y - startY);
-        ctx.restore();
-    }
-    function onEnd(e) {
-        if (!drawing) return;
-        drawing = false;
+        ctx.save(); ctx.strokeStyle = redactMode === 'box' ? '#fff' : '#7c5cff';
+        ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+        ctx.strokeRect(startX, startY, p.x - startX, p.y - startY); ctx.restore();
+    };
+    window.onmouseup = canvas.ontouchend = e => {
+        if (!drawing) return; drawing = false;
         const p = getPos(e);
-        let x = Math.min(startX, p.x), y = Math.min(startY, p.y);
-        let w = Math.abs(p.x - startX), h = Math.abs(p.y - startY);
-        if (w < 8 || h < 8) return; // Ignore tiny
-        redactRegions.push({ type: redactMode, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
+        const x = Math.round(Math.min(startX, p.x)), y = Math.round(Math.min(startY, p.y));
+        const w = Math.round(Math.abs(p.x - startX)), h = Math.round(Math.abs(p.y - startY));
+        if (w < 4 || h < 4) return;
+        redactRegions.push({ type: redactMode, x, y, w, h });
         drawRedactCanvas();
-    }
-    canvas.onmousedown = onStart;
-    canvas.onmousemove = onMove;
-    window.onmouseup = onEnd;
-    canvas.ontouchstart = onStart;
-    canvas.ontouchmove = onMove;
-    canvas.ontouchend = onEnd;
+    };
 }
 
 function blurImageData(imgData, radius) {
-    // Simple box blur (not fast, but works for small regions)
     const { data, width, height } = imgData;
     const out = new Uint8ClampedArray(data);
     for (let y = 0; y < height; y++) {
@@ -360,21 +363,18 @@ function blurImageData(imgData, radius) {
             let r=0,g=0,b=0,a=0,n=0;
             for (let dy = -radius; dy <= radius; dy++) {
                 for (let dx = -radius; dx <= radius; dx++) {
-                    const nx = x + dx, ny = y + dy;
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                        const i = (ny * width + nx) * 4;
-                        r += data[i]; g += data[i+1]; b += data[i+2]; a += data[i+3]; n++;
+                    const nx = x+dx, ny = y+dy;
+                    if (nx>=0 && nx<width && ny>=0 && ny<height) {
+                        const i=(ny*width+nx)*4; r+=data[i];g+=data[i+1];b+=data[i+2];a+=data[i+3];n++;
                     }
                 }
             }
-            const i = (y * width + x) * 4;
-            out[i] = r/n; out[i+1] = g/n; out[i+2] = b/n; out[i+3] = a/n;
+            const i=(y*width+x)*4; out[i]=r/n;out[i+1]=g/n;out[i+2]=b/n;out[i+3]=a/n;
         }
     }
     return new ImageData(out, width, height);
 }
 
-// Tool button handlers
 document.addEventListener('DOMContentLoaded', () => {
     $('#redactBoxBtn')?.addEventListener('click', () => {
         redactMode = 'box';
@@ -386,16 +386,9 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#redactBlurBtn').classList.add('active');
         $('#redactBoxBtn').classList.remove('active');
     });
-    $('#redactUndoBtn')?.addEventListener('click', () => {
-        redactRegions.pop();
-        drawRedactCanvas();
-    });
-    $('#redactClearBtn')?.addEventListener('click', () => {
-        redactRegions = [];
-        drawRedactCanvas();
-    });
+    $('#redactUndoBtn')?.addEventListener('click', () => { redactRegions.pop(); drawRedactCanvas(); });
+    $('#redactClearBtn')?.addEventListener('click', () => { redactRegions = []; drawRedactCanvas(); });
 });
-}
 
 function handleMultiFiles(toolId, files) {
     if (!state.multiFiles[toolId]) state.multiFiles[toolId] = [];
