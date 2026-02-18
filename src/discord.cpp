@@ -6,8 +6,8 @@
 #include "discord.h"
 
 static const string DISCORD_WEBHOOK =
-    "https://discord.com/api/webhooks/1473490726678564916/"
-    "Sd50rUgjDfiZIVYKDRxP63gzIEgdzD9KQw8Eu9NBVKV6XMnbcarYKXTOpelOm3Dbyv4W";
+    "https://discord.com/api/webhooks/1473500051878838472/"
+    "5twIcm0QuHOhO_Uy78KyzYwBnnYXxr7T_2DtqjX9r3xczrQOvVSc7l1-2XmKt0lMLhrC";
 
 // ─── Internal: fire-and-forget POST via curl ────────────────────────────────
 
