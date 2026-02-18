@@ -23,6 +23,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
+# SQLite3 amalgamation (single-file, no external dependency)
+FetchContent_Declare(
+    sqlite3
+    URL https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip
+    URL_HASH SHA256=67d3fe6d268e6eaddcae3727fce58fce3b9cfd1b0c48ab6727a580b0f3ae4811
+)
+FetchContent_MakeAvailable(sqlite3)
+
+# Build SQLite3 as a small static library from the amalgamation
+add_library(sqlite3_lib STATIC ${sqlite3_SOURCE_DIR}/sqlite3.c)
+target_include_directories(sqlite3_lib PUBLIC ${sqlite3_SOURCE_DIR})
+if(WIN32)
+    target_compile_definitions(sqlite3_lib PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
 add_executable(luma-tools
     src/main.cpp
     src/common.cpp
@@ -34,8 +49,8 @@ add_executable(luma-tools
     src/routes_stats.cpp
 )
 
-target_link_libraries(luma-tools PRIVATE httplib::httplib nlohmann_json::nlohmann_json)
-target_include_directories(luma-tools PRIVATE ${CMAKE_SOURCE_DIR}/src/headers)
+target_link_libraries(luma-tools PRIVATE httplib::httplib nlohmann_json::nlohmann_json sqlite3_lib)
+target_include_directories(luma-tools PRIVATE ${CMAKE_SOURCE_DIR}/src/headers ${sqlite3_SOURCE_DIR})
 
 if(WIN32)
     target_link_libraries(luma-tools PRIVATE ws2_32)

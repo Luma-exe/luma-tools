@@ -233,6 +233,9 @@ int main() {
             cout << "[Luma Tools] Startup cleanup: removed " << cleaned << " stale temp file(s)" << endl;
     }
 
+    // ── Initialise stats database (opens/creates stats.db, migrates jsonl) ──
+    stat_init_db();
+
     // ── Register all routes ─────────────────────────────────────────────────
     register_download_routes(svr, dl_dir);
     register_tool_routes(svr, dl_dir);

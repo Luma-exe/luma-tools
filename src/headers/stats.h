@@ -13,6 +13,10 @@
 
 #include "common.h"
 
+// --- Database init (call once at startup before any other stat functions) ----
+
+void stat_init_db();
+
 // --- Record stat events ------------------------------------------------------
 
 void stat_record(const string& kind, const string& name, bool ok = true, const string& ip = "");
