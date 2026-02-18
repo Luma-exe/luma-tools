@@ -1425,7 +1425,24 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Core (must be first) -->
+    <script src="js/state.js"></script>
+    <script src="js/utils.js"></script>
+    <!-- UI & navigation -->
+    <script src="js/ui.js"></script>
+    <!-- Tool modules -->
+    <script src="js/waveform.js"></script>
+    <script src="js/redact.js"></script>
+    <script src="js/crop.js"></script>
+    <script src="js/wasm.js"></script>
+    <script src="js/file-tools.js"></script>
+    <script src="js/batch.js"></script>
+    <script src="js/tools-misc.js"></script>
+    <!-- Downloader & health -->
+    <script src="js/downloader.js"></script>
+    <script src="js/health.js"></script>
+    <!-- PWA, particles, init (must be last) -->
+    <script src="js/pwa.js"></script>
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
