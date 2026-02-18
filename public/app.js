@@ -24,10 +24,42 @@ const state = {
     // Processing state
     processing: {},     // { 'image-compress': true, ... }
     jobPolls: {},       // { 'video-compress': intervalId, ... }
+    // Drop/batch state
+    droppedFiles: [],   // Files held temporarily after global drop
+    droppedCategory: null,
 };
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
+
+const FILE_TOOL_MAP = {
+    'image': [
+        { id: 'image-compress', label: 'Compress', icon: 'fas fa-compress-alt' },
+        { id: 'image-resize', label: 'Resize', icon: 'fas fa-expand-arrows-alt' },
+        { id: 'image-convert', label: 'Convert', icon: 'fas fa-exchange-alt' },
+        { id: 'image-crop', label: 'Crop', icon: 'fas fa-crop-alt' },
+        { id: 'image-bg-remove', label: 'Remove BG', icon: 'fas fa-user-alt' },
+        { id: 'favicon-generate', label: 'Favicon', icon: 'fas fa-star' },
+        { id: 'metadata-strip', label: 'Strip Metadata', icon: 'fas fa-eraser' },
+    ],
+    'video': [
+        { id: 'video-compress', label: 'Compress', icon: 'fas fa-file-video' },
+        { id: 'video-trim', label: 'Trim / Cut', icon: 'fas fa-cut' },
+        { id: 'video-convert', label: 'Convert', icon: 'fas fa-film' },
+        { id: 'video-extract-audio', label: 'Extract Audio', icon: 'fas fa-volume-up' },
+        { id: 'video-to-gif', label: 'To GIF', icon: 'fas fa-magic' },
+        { id: 'video-speed', label: 'Speed', icon: 'fas fa-tachometer-alt' },
+        { id: 'video-remove-audio', label: 'Remove Audio', icon: 'fas fa-volume-mute' },
+    ],
+    'audio': [
+        { id: 'audio-convert', label: 'Convert', icon: 'fas fa-headphones' },
+        { id: 'audio-normalize', label: 'Normalize', icon: 'fas fa-balance-scale-right' },
+    ],
+    'pdf': [
+        { id: 'pdf-compress', label: 'Compress', icon: 'fas fa-file-pdf' },
+        { id: 'pdf-to-images', label: 'To Images', icon: 'fas fa-images' },
+    ],
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SIDEBAR & NAVIGATION
@@ -239,14 +271,28 @@ async function processFile(toolId) {
         return processMultiFile(toolId, files);
     }
 
+    // Route to WASM for supported tools
+    if (WASM_TOOLS[toolId]) {
+        const file = state.files[toolId];
+        if (!file) { showToast('Please select a file first', 'error'); return; }
+        const builder = WASM_TOOLS[toolId];
+        const opts = getWasmOpts(toolId);
+        const cmd = builder(file, opts);
+        if (cmd) {
+            return processFileWasm(toolId);
+        }
+    }
+
+    return processFileServer(toolId);
+}
+
+async function processFileServer(toolId) {
     const file = state.files[toolId];
     if (!file) { showToast('Please select a file first', 'error'); return; }
 
-    // Build form data
     const formData = new FormData();
     formData.append('file', file);
 
-    // Add tool-specific options
     switch (toolId) {
         case 'image-compress':
             formData.append('quality', $('#imageCompressQuality').value);
@@ -308,7 +354,6 @@ async function processFile(toolId) {
             break;
     }
 
-    // Show processing
     showProcessing(toolId, true);
 
     const asyncTools = ['video-compress','video-trim','video-convert','video-extract-audio',
@@ -325,7 +370,6 @@ async function processFile(toolId) {
         }
 
         if (isAsync) {
-            // Async processing — get job ID and poll
             const data = await res.json();
             if (data.job_id) {
                 pollJobStatus(toolId, data.job_id);
@@ -333,15 +377,12 @@ async function processFile(toolId) {
                 throw new Error('No job ID returned');
             }
         } else {
-            // Synchronous — check content type
             const contentType = res.headers.get('content-type') || '';
             if (contentType.includes('application/json')) {
                 const data = await res.json();
                 if (data.hashes) {
-                    // Hash generator — show hash results
                     showHashResults(toolId, data);
                 } else if (data.pages && data.pages.length > 0) {
-                    // Multi-page results (pdf-to-images, favicon-generate)
                     showMultiResult(toolId, data.pages);
                 } else {
                     throw new Error('No output files');
@@ -1391,17 +1432,602 @@ function copyMarkdownHTML() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SMART DRAG & DROP (auto-detect file type)
+// GLOBAL DRAG-DROP & QUICK-ACTION MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function detectToolForFile(file) {
-    const type = file.type || '';
+function detectFileCategory(file) {
+    const type = (file.type || '').toLowerCase();
     const name = file.name.toLowerCase();
-    if (type.startsWith('image/')) return 'image-compress';
-    if (type.startsWith('video/') || name.endsWith('.mkv')) return 'video-compress';
-    if (type.startsWith('audio/')) return 'audio-convert';
-    if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf-compress';
+    if (type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|tiff?|ico|gif|svg)$/.test(name)) return 'image';
+    if (type.startsWith('video/') || /\.(mp4|webm|avi|mov|mkv|flv|wmv)$/.test(name)) return 'video';
+    if (type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|aac|m4a|wma|opus)$/.test(name)) return 'audio';
+    if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
     return null;
+}
+
+let _dragCounter = 0;
+
+function initGlobalDrop() {
+    const overlay = $('#dropOverlay');
+
+    document.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer?.types?.includes('Files')) {
+            _dragCounter++;
+            overlay.classList.add('visible');
+        }
+    });
+
+    document.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        _dragCounter--;
+        if (_dragCounter <= 0) { _dragCounter = 0; overlay.classList.remove('visible'); }
+    });
+
+    document.addEventListener('dragover', (e) => e.preventDefault());
+
+    document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        _dragCounter = 0;
+        overlay.classList.remove('visible');
+
+        if (e.target.closest('.upload-zone')) return;
+
+        const files = [...(e.dataTransfer?.files || [])];
+        if (files.length === 0) return;
+
+        const category = detectFileCategory(files[0]);
+        if (!category) {
+            showToast('Unsupported file type', 'error');
+            return;
+        }
+
+        state.droppedFiles = files;
+        state.droppedCategory = category;
+        showQuickActionModal(category, files);
+    });
+}
+
+function showQuickActionModal(category, files) {
+    const backdrop = $('#quickActionBackdrop');
+    const grid = $('#qaGrid');
+    const title = $('#qaTitle');
+    const fileInfo = $('#qaFileInfo');
+    const batchHint = $('#qaBatchHint');
+    const batchText = $('#qaBatchText');
+    const tools = FILE_TOOL_MAP[category] || [];
+
+    title.textContent = category.charAt(0).toUpperCase() + category.slice(1) + ' Tools';
+    if (files.length === 1) {
+        fileInfo.textContent = `${files[0].name} (${formatBytes(files[0].size)})`;
+    } else {
+        const totalSize = files.reduce((s, f) => s + f.size, 0);
+        fileInfo.textContent = `${files.length} files (${formatBytes(totalSize)} total)`;
+    }
+
+    if (files.length > 1) {
+        batchHint.classList.remove('hidden');
+        batchText.textContent = `${files.length} files detected — choosing a tool will batch-process all files.`;
+    } else {
+        batchHint.classList.add('hidden');
+    }
+
+    grid.innerHTML = '';
+    for (const tool of tools) {
+        const btn = document.createElement('button');
+        btn.className = 'quick-action-btn';
+        btn.innerHTML = `<i class="${tool.icon}"></i><span>${tool.label}</span>`;
+        btn.onclick = () => onQuickActionSelect(tool.id);
+        grid.appendChild(btn);
+    }
+
+    backdrop.classList.add('visible');
+}
+
+function closeQuickAction(e) {
+    if (e && e.target !== e.currentTarget) return;
+    $('#quickActionBackdrop').classList.remove('visible');
+    state.droppedFiles = [];
+    state.droppedCategory = null;
+}
+
+function onQuickActionSelect(toolId) {
+    const files = state.droppedFiles;
+    $('#quickActionBackdrop').classList.remove('visible');
+
+    if (files.length > 1) {
+        batchQueue.start(toolId, files);
+    } else if (files.length === 1) {
+        switchTool(toolId);
+        setTimeout(() => {
+            handleFileSelect(toolId, files[0]);
+            showToast(`File loaded into ${toolId.replace(/-/g, ' ')}`, 'success');
+        }, 100);
+    }
+    state.droppedFiles = [];
+    state.droppedCategory = null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BATCH QUEUE MANAGER
+// ═══════════════════════════════════════════════════════════════════════════
+
+const batchQueue = {
+    files: [],
+    toolId: null,
+    results: [],
+    current: 0,
+    total: 0,
+    running: false,
+
+    async start(toolId, files) {
+        this.files = files;
+        this.toolId = toolId;
+        this.results = [];
+        this.current = 0;
+        this.total = files.length;
+        this.running = true;
+
+        switchTool(toolId);
+
+        const overlay = $('#batchOverlay');
+        overlay.classList.remove('hidden');
+        $('#batchOvTitle').textContent = 'Batch Processing...';
+        $('#batchOvBar').style.width = '0%';
+        $('#batchOvTotal').textContent = this.total;
+        $('#batchOvCurrent').textContent = '0';
+        $('#batchOvDownloadAll').classList.add('hidden');
+        $('#batchOvNewBtn').classList.add('hidden');
+        const spinner = overlay.querySelector('.progress-icon');
+        if (spinner) spinner.classList.add('spinning');
+
+        this.renderFileList();
+        await this.processNext();
+    },
+
+    renderFileList() {
+        const list = $('#batchOvFileList');
+        list.innerHTML = '';
+        this.files.forEach((f, i) => {
+            const entry = document.createElement('div');
+            entry.className = 'batch-file-entry';
+            entry.id = 'batchEntry-' + i;
+            const statusClass = i < this.current ? 'done' : (i === this.current && this.running ? 'active' : 'pending');
+            const statusIcon = i < this.current ? 'fa-check-circle' : (i === this.current && this.running ? 'fa-circle-notch fa-spin' : 'fa-clock');
+            entry.innerHTML = `<span class="file-status-icon ${statusClass}"><i class="fas ${statusIcon}"></i></span>`
+                + `<span class="batch-file-name" style="flex:1;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(f.name)}</span>`
+                + `<span style="font-size:0.72rem;color:var(--text-muted);font-family:var(--font-mono)">${formatBytes(f.size)}</span>`;
+            list.appendChild(entry);
+        });
+    },
+
+    updateEntry(index, status) {
+        const entry = document.getElementById('batchEntry-' + index);
+        if (!entry) return;
+        const icon = entry.querySelector('.file-status-icon');
+        if (status === 'done') {
+            icon.className = 'file-status-icon done';
+            icon.innerHTML = '<i class="fas fa-check-circle"></i>';
+        } else if (status === 'error') {
+            icon.className = 'file-status-icon error';
+            icon.innerHTML = '<i class="fas fa-times-circle"></i>';
+        } else if (status === 'active') {
+            icon.className = 'file-status-icon active';
+            icon.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+        }
+    },
+
+    async processNext() {
+        if (this.current >= this.total) {
+            this.finish();
+            return;
+        }
+        const file = this.files[this.current];
+        this.updateEntry(this.current, 'active');
+        $('#batchOvStatus').textContent = `Processing ${this.current + 1} of ${this.total}: ${file.name}`;
+        $('#batchOvCurrent').textContent = this.current;
+
+        try {
+            let resultBlob;
+            if (WASM_TOOLS[this.toolId]) {
+                resultBlob = await processFileWasmDirect(this.toolId, file);
+            } else {
+                resultBlob = await processFileServerDirect(this.toolId, file);
+            }
+            const ext = resultBlob._filename ? resultBlob._filename.split('.').pop() : file.name.split('.').pop();
+            const outName = file.name.replace(/\.[^.]+$/, '') + '_LumaTools.' + ext;
+            this.results.push({ name: outName, blob: resultBlob, status: 'done' });
+            this.updateEntry(this.current, 'done');
+        } catch (err) {
+            this.results.push({ name: file.name, blob: null, status: 'error', error: err.message });
+            this.updateEntry(this.current, 'error');
+        }
+
+        this.current++;
+        this.updateProgress();
+        await this.processNext();
+    },
+
+    updateProgress() {
+        const pct = (this.current / this.total) * 100;
+        $('#batchOvBar').style.width = pct + '%';
+        $('#batchOvCurrent').textContent = this.current;
+    },
+
+    async finish() {
+        this.running = false;
+        const overlay = $('#batchOverlay');
+        const spinner = overlay.querySelector('.progress-icon');
+        if (spinner) spinner.classList.remove('spinning');
+
+        const successCount = this.results.filter(r => r.status === 'done').length;
+        const failCount = this.results.filter(r => r.status === 'error').length;
+        $('#batchOvTitle').textContent = failCount === 0 ? 'Batch Complete!' : `${successCount} done, ${failCount} failed`;
+        $('#batchOvStatus').textContent = `Processed ${this.total} files`;
+        $('#batchOvBar').style.width = '100%';
+
+        if (successCount > 0) {
+            $('#batchOvDownloadAll').classList.remove('hidden');
+        }
+        $('#batchOvNewBtn').classList.remove('hidden');
+    },
+
+    reset() {
+        this.files = [];
+        this.toolId = null;
+        this.results = [];
+        this.current = 0;
+        this.total = 0;
+        this.running = false;
+    },
+};
+
+async function processFileServerDirect(toolId, file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    switch (toolId) {
+        case 'image-compress':
+            formData.append('quality', $('#imageCompressQuality')?.value || '75');
+            break;
+        case 'image-resize':
+            formData.append('width', $('#resizeWidth')?.value || '');
+            formData.append('height', $('#resizeHeight')?.value || '');
+            break;
+        case 'image-convert':
+            formData.append('format', getSelectedFmt('image-convert') || 'png');
+            break;
+        case 'video-compress':
+            formData.append('preset', getSelectedPreset('video-compress') || 'medium');
+            break;
+        case 'video-convert':
+            formData.append('format', getSelectedFmt('video-convert') || 'mp4');
+            break;
+        case 'audio-convert':
+            formData.append('format', getSelectedFmt('audio-convert') || 'mp3');
+            break;
+        case 'pdf-compress':
+            formData.append('level', getSelectedPreset('pdf-compress') || 'ebook');
+            break;
+        case 'metadata-strip':
+            break;
+        case 'image-bg-remove':
+            formData.append('method', getSelectedFmt('bg-remove-method') || 'auto');
+            break;
+        default:
+            break;
+    }
+
+    const asyncTools = ['video-compress','video-trim','video-convert','video-extract-audio',
+        'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize'];
+    const isAsync = asyncTools.includes(toolId);
+
+    const res = await fetch('/api/tools/' + toolId, { method: 'POST', body: formData });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Processing failed' }));
+        throw new Error(err.error || 'Processing failed');
+    }
+
+    if (isAsync) {
+        const data = await res.json();
+        if (!data.job_id) throw new Error('No job ID returned');
+        return await pollJobForBlob(data.job_id);
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+        throw new Error('Batch not supported for this tool');
+    }
+    const blob = await res.blob();
+    const filename = getFilenameFromResponse(res) || file.name;
+    blob._filename = filename;
+    return blob;
+}
+
+function pollJobForBlob(jobId) {
+    return new Promise((resolve, reject) => {
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/tools/status/${jobId}`);
+                const data = await res.json();
+                if (data.status === 'completed') {
+                    clearInterval(interval);
+                    const fileRes = await fetch(`/api/tools/result/${jobId}`);
+                    if (!fileRes.ok) { reject(new Error('Failed to download result')); return; }
+                    const blob = await fileRes.blob();
+                    blob._filename = getFilenameFromResponse(fileRes) || 'processed_file';
+                    resolve(blob);
+                } else if (data.status === 'error') {
+                    clearInterval(interval);
+                    reject(new Error(data.error || 'Processing failed'));
+                }
+            } catch (err) { /* keep polling */ }
+        }, 1000);
+    });
+}
+
+async function batchDownloadAll() {
+    const successResults = batchQueue.results.filter(r => r.status === 'done' && r.blob);
+    if (successResults.length === 0) return;
+
+    if (successResults.length === 1) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(successResults[0].blob);
+        a.download = successResults[0].name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+    }
+
+    const btn = $('#batchOvDownloadAll');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating zip...';
+
+    try {
+        const zip = new JSZip();
+        for (const r of successResults) {
+            zip.file(r.name, r.blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(zipBlob);
+        a.download = 'LumaTools_batch.zip';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch (err) {
+        showToast('Failed to create zip: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-file-archive"></i> Download All (.zip)';
+    }
+}
+
+function closeBatchOverlay() {
+    $('#batchOverlay').classList.add('hidden');
+    batchQueue.reset();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FFMPEG.WASM — CLIENT-SIDE PROCESSING
+// ═══════════════════════════════════════════════════════════════════════════
+
+const WasmProcessor = {
+    ffmpeg: null,
+    loaded: false,
+    loading: false,
+    _loadPromise: null,
+
+    async load() {
+        if (this.loaded) return;
+        if (this.loading) return this._loadPromise;
+
+        this.loading = true;
+        this._loadPromise = (async () => {
+            try {
+                showToast('Loading processing engine...', 'info');
+                const { FFmpeg } = FFmpegWASM;
+                this.ffmpeg = new FFmpeg();
+                this.ffmpeg.on('log', ({ message }) => {
+                    // Can be used for debugging
+                });
+                await this.ffmpeg.load({
+                    coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+                });
+                this.loaded = true;
+                showToast('Processing engine ready!', 'success');
+            } catch (err) {
+                this.loading = false;
+                this._loadPromise = null;
+                throw err;
+            } finally {
+                this.loading = false;
+            }
+        })();
+        return this._loadPromise;
+    },
+
+    async process(file, args, outputName, progressCb) {
+        await this.load();
+        const { fetchFile } = FFmpegUtil;
+
+        if (progressCb) {
+            this.ffmpeg.on('progress', ({ progress }) => {
+                progressCb(Math.max(0, Math.min(1, progress)));
+            });
+        }
+
+        const inputName = 'input' + getExtension(file.name);
+        await this.ffmpeg.writeFile(inputName, await fetchFile(file));
+        const fullArgs = args.map(a => a === '__INPUT__' ? inputName : a);
+        await this.ffmpeg.exec(fullArgs);
+        const data = await this.ffmpeg.readFile(outputName);
+        await this.ffmpeg.deleteFile(inputName).catch(() => {});
+        await this.ffmpeg.deleteFile(outputName).catch(() => {});
+
+        if (progressCb) {
+            this.ffmpeg.off('progress');
+        }
+
+        return new Blob([data.buffer], { type: mimeFromExt(outputName) });
+    },
+};
+
+function getExtension(filename) {
+    const dot = filename.lastIndexOf('.');
+    return dot > 0 ? filename.slice(dot) : '';
+}
+
+function mimeFromExt(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    const map = {
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+        'webp': 'image/webp', 'bmp': 'image/bmp', 'tiff': 'image/tiff',
+        'ico': 'image/x-icon', 'gif': 'image/gif',
+        'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'flac': 'audio/flac',
+        'ogg': 'audio/ogg', 'aac': 'audio/aac', 'm4a': 'audio/mp4',
+        'mp4': 'video/mp4', 'webm': 'video/webm',
+    };
+    return map[ext] || 'application/octet-stream';
+}
+
+const WASM_TOOLS = {
+    'image-compress': (file, opts) => {
+        const q = Math.max(1, Math.min(31, 2 + (100 - (opts.quality || 75)) * 29 / 100));
+        return { args: ['-i', '__INPUT__', '-q:v', String(Math.round(q)), 'output.jpg'], output: 'output.jpg' };
+    },
+    'image-resize': (file, opts) => {
+        const w = opts.width || '-1', h = opts.height || '-1';
+        const ext = getExtension(file.name) || '.png';
+        return { args: ['-i', '__INPUT__', '-vf', `scale=${w}:${h}`, 'output' + ext], output: 'output' + ext };
+    },
+    'image-convert': (file, opts) => {
+        const fmt = opts.format || 'png';
+        return { args: ['-i', '__INPUT__', 'output.' + fmt], output: 'output.' + fmt };
+    },
+    'image-crop': (file, opts) => {
+        const ext = getExtension(file.name) || '.png';
+        const { x = 0, y = 0, w = 100, h = 100 } = opts;
+        return { args: ['-i', '__INPUT__', '-vf', `crop=${w}:${h}:${x}:${y}`, 'output' + ext], output: 'output' + ext };
+    },
+    'image-bg-remove': (file, opts) => {
+        const method = opts.method || 'white';
+        if (method === 'auto') return null; // fall back to server for AI removal
+        const color = method === 'black' ? 'black' : 'white';
+        return { args: ['-i', '__INPUT__', '-vf', `colorkey=${color}:0.3:0.15,format=rgba`, 'output.png'], output: 'output.png' };
+    },
+    'metadata-strip': (file) => {
+        const ext = getExtension(file.name) || '.jpg';
+        return { args: ['-i', '__INPUT__', '-map_metadata', '-1', '-c', 'copy', 'output' + ext], output: 'output' + ext };
+    },
+    'audio-convert': (file, opts) => {
+        if (file.size > 50 * 1024 * 1024) return null; // >50MB → server
+        const fmt = opts.format || 'mp3';
+        return { args: ['-i', '__INPUT__', 'output.' + fmt], output: 'output.' + fmt };
+    },
+    'favicon-generate': () => null, // multi-output; always use server
+};
+
+function getWasmOpts(toolId) {
+    switch (toolId) {
+        case 'image-compress':
+            return { quality: parseInt($('#imageCompressQuality')?.value || '75') };
+        case 'image-resize':
+            return { width: $('#resizeWidth')?.value || '', height: $('#resizeHeight')?.value || '' };
+        case 'image-convert':
+            return { format: getSelectedFmt('image-convert') || 'png' };
+        case 'image-crop':
+            return state.cropRect || { x: 0, y: 0, w: 100, h: 100 };
+        case 'image-bg-remove':
+            return { method: getSelectedFmt('bg-remove-method') || 'auto' };
+        case 'metadata-strip':
+            return {};
+        case 'audio-convert':
+            return { format: getSelectedFmt('audio-convert') || 'mp3' };
+        default:
+            return {};
+    }
+}
+
+async function processFileWasm(toolId) {
+    const file = state.files[toolId];
+    if (!file) { showToast('Please select a file first', 'error'); return; }
+
+    const opts = getWasmOpts(toolId);
+    const builder = WASM_TOOLS[toolId];
+    const cmd = builder ? builder(file, opts) : null;
+
+    if (!cmd) {
+        return processFileServer(toolId);
+    }
+
+    showProcessing(toolId, true);
+    const procEl = document.querySelector(`.processing-status[data-tool="${toolId}"]`);
+    const procText = procEl?.querySelector('.processing-text') || procEl?.querySelector('span');
+
+    try {
+        const blob = await WasmProcessor.process(file, cmd.args, cmd.output, (progress) => {
+            if (procText) procText.textContent = `Processing... ${Math.round(progress * 100)}%`;
+        });
+        const ext = cmd.output.split('.').pop();
+        const outName = file.name.replace(/\.[^.]+$/, '') + '_LumaTools.' + ext;
+        showResult(toolId, blob, outName);
+    } catch (err) {
+        showToast('Client processing failed, trying server...', 'info');
+        try {
+            await processFileServer(toolId);
+            return;
+        } catch (serverErr) {
+            showToast(serverErr.message, 'error');
+        }
+    } finally {
+        showProcessing(toolId, false);
+    }
+}
+
+async function processFileWasmDirect(toolId, file) {
+    const opts = getWasmOpts(toolId);
+    const builder = WASM_TOOLS[toolId];
+    const cmd = builder ? builder(file, opts) : null;
+
+    if (!cmd) {
+        return processFileServerDirect(toolId, file);
+    }
+
+    const blob = await WasmProcessor.process(file, cmd.args, cmd.output);
+    blob._filename = file.name.replace(/\.[^.]+$/, '') + '_LumaTools.' + cmd.output.split('.').pop();
+    return blob;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PWA INSTALL PROMPT
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _deferredInstallPrompt = null;
+
+function initInstallPrompt() {
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        _deferredInstallPrompt = e;
+        const btn = $('#installAppBtn');
+        if (btn) btn.classList.remove('hidden');
+    });
+
+    window.addEventListener('appinstalled', () => {
+        _deferredInstallPrompt = null;
+        const btn = $('#installAppBtn');
+        if (btn) btn.classList.add('hidden');
+        showToast('App installed successfully!', 'success');
+    });
+}
+
+function installPWA() {
+    if (!_deferredInstallPrompt) return;
+    _deferredInstallPrompt.prompt();
+    _deferredInstallPrompt.userChoice.then((choice) => {
+        _deferredInstallPrompt = null;
+        const btn = $('#installAppBtn');
+        if (btn) btn.classList.add('hidden');
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1493,6 +2119,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initDownloader();
     checkServerHealth();
     initMobileSwipe();
+    initGlobalDrop();
+    initInstallPrompt();
 
     // Keyboard shortcut: Ctrl+K to search
     document.addEventListener('keydown', (e) => {
@@ -1502,31 +2130,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (si) { si.focus(); si.select(); }
             if (window.innerWidth <= 768 && !$('#sidebar').classList.contains('open')) toggleSidebar(true);
         }
-    });
-
-    // Global drag & drop auto-detect
-    document.addEventListener('dragover', (e) => e.preventDefault());
-    document.addEventListener('drop', (e) => {
-        if (e.target.closest('.upload-zone')) return;
-        e.preventDefault();
-        const file = e.dataTransfer?.files?.[0];
-        if (!file) return;
-        const toolId = detectToolForFile(file);
-        if (toolId) {
-            switchTool(toolId);
-            setTimeout(() => {
-                state.files[toolId] = file;
-                const preview = document.querySelector(`.file-preview[data-tool="${toolId}"]`);
-                if (preview) {
-                    preview.classList.remove('hidden');
-                    preview.querySelector('.file-name').textContent = file.name;
-                    preview.querySelector('.file-size').textContent = formatBytes(file.size);
-                }
-                const zone = document.getElementById('uz-' + toolId);
-                if (zone) zone.classList.add('hidden');
-                showToast(`File loaded into ${toolId.replace(/-/g, ' ')}`, 'success');
-                if (toolId === 'image-crop') initCropCanvas(file);
-            }, 100);
+        if (e.key === 'Escape') {
+            closeQuickAction();
         }
     });
 

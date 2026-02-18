@@ -25,6 +25,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/util.min.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
     <!-- Animated background -->
@@ -170,6 +177,9 @@
             </nav>
 
             <div class="sidebar-footer">
+                <button class="install-app-btn hidden" id="installAppBtn" onclick="installPWA()">
+                    <i class="fas fa-download"></i> Install App
+                </button>
                 <div class="server-status" id="serverStatus">
                     <div class="status-ticker">
                         <div class="ticker-track" id="tickerTrack">
@@ -1234,6 +1244,56 @@
         <span class="kofi-shine"></span>
     </a>
 
+    <!-- Drop overlay -->
+    <div class="drop-overlay" id="dropOverlay">
+        <div class="drop-overlay-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+        <div class="drop-overlay-text">Drop to Analyze</div>
+        <div class="drop-overlay-hint">Release to choose a tool for your file</div>
+    </div>
+
+    <!-- Quick-action modal -->
+    <div class="quick-action-backdrop" id="quickActionBackdrop" onclick="closeQuickAction(event)">
+        <div class="quick-action-modal">
+            <div class="quick-action-header">
+                <div>
+                    <h3><i class="fas fa-bolt"></i> <span id="qaTitle">Quick Action</span></h3>
+                    <div class="quick-action-file-info" id="qaFileInfo"></div>
+                </div>
+                <button class="quick-action-close" onclick="closeQuickAction()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="quick-action-grid" id="qaGrid"></div>
+            <div class="quick-action-batch-hint hidden" id="qaBatchHint">
+                <i class="fas fa-layer-group"></i>
+                <span id="qaBatchText">Multiple files detected. Choosing a tool will batch-process all files.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch processing overlay -->
+    <div class="batch-overlay hidden" id="batchOverlay">
+        <div class="batch-overlay-panel">
+            <div class="batch-overlay-header">
+                <div class="progress-icon spinning"><i class="fas fa-circle-notch"></i></div>
+                <div>
+                    <h3 id="batchOvTitle">Batch Processing...</h3>
+                    <p id="batchOvStatus">Starting...</p>
+                </div>
+            </div>
+            <div class="batch-overlay-progress">
+                <div class="progress-bar-container"><div class="progress-bar" id="batchOvBar"></div></div>
+                <div class="batch-overall-label"><span id="batchOvCurrent">0</span> / <span id="batchOvTotal">0</span> files</div>
+            </div>
+            <div class="batch-file-list" id="batchOvFileList"></div>
+            <button class="batch-download-all hidden" id="batchOvDownloadAll" onclick="batchDownloadAll()"><i class="fas fa-file-archive"></i> Download All (.zip)</button>
+            <button class="batch-new-btn hidden" id="batchOvNewBtn" onclick="closeBatchOverlay()"><i class="fas fa-plus"></i> New Batch</button>
+        </div>
+    </div>
+
     <script src="app.js"></script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+    </script>
 </body>
 </html>
