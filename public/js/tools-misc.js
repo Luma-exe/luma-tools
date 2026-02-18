@@ -220,17 +220,38 @@ function updateWheelBrightness() {
     const cx = canvas.width / 2, cy = canvas.height / 2, radius = cx - 4;
     drawWheel(ctx, cx, cy, radius, val);
 
-    // Re-sample the pixel under the current cursor position so the preview updates instantly
+    // Compute color mathematically from cursor angle (hue) + distance (saturation) + new brightness.
+    // This avoids pixel-sampling inaccuracies caused by CSS scaling vs canvas resolution.
     const cursor = document.getElementById('wheelCursor');
     if (!cursor) return;
-    const rect = canvas.getBoundingClientRect();
     const cursorPctX = parseFloat(cursor.style.left) / 100;
     const cursorPctY = parseFloat(cursor.style.top) / 100;
     if (isNaN(cursorPctX) || isNaN(cursorPctY)) return;
-    const sx = Math.round(cursorPctX * canvas.width);
-    const sy = Math.round(cursorPctY * canvas.height);
-    const pixel = ctx.getImageData(sx, sy, 1, 1).data;
-    const [r, g, b] = pixel;
+
+    // Convert % position back to canvas-space coordinates
+    const sx = cursorPctX * canvas.width;
+    const sy = cursorPctY * canvas.height;
+    const dx = sx - cx, dy = sy - cy;
+    let angle = Math.atan2(dy, dx) / (2 * Math.PI);
+    if (angle < 0) angle += 1;
+    const sat = Math.min(Math.sqrt(dx * dx + dy * dy) / radius, 1);
+
+    // HSL → RGB (same formula as drawWheel)
+    const h = angle, s = sat, l = val * 0.5;
+    let r, g, b;
+    if (s === 0) {
+        r = g = b = Math.round(l * 255);
+    } else {
+        const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q-p)*6*t; if (t < 1/2) return q; if (t < 2/3) return p + (q-p)*(2/3-t)*6; return p; };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+        r = Math.round(hue2rgb(p, q, h + 1/3) * 255);
+        g = Math.round(hue2rgb(p, q, h) * 255);
+        b = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+    }
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+
     const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
     cursor.style.background = hex;
     const previewWheel = document.getElementById('colorPreviewWheel');
@@ -239,28 +260,15 @@ function updateWheelBrightness() {
     if (hexWheel) hexWheel.value = hex;
     const rgbWheel = document.getElementById('colorRgbWheel');
     if (rgbWheel) rgbWheel.value = `${r}, ${g}, ${b}`;
-    // Sync to inputs tab too
+    // Sync to inputs tab
     const colorHex = document.getElementById('colorHex');
     if (colorHex) colorHex.value = hex;
     const colorRgb = document.getElementById('colorRgb');
     if (colorRgb) colorRgb.value = `${r}, ${g}, ${b}`;
     const colorPreview = document.getElementById('colorPreview');
     if (colorPreview) colorPreview.style.background = hex;
-    // Compute & update HSL
-    const rr = r/255, gg = g/255, bb = b/255;
-    const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
-    let hh = 0, ss = 0, ll = (max + min) / 2;
-    if (max !== min) {
-        const d = max - min;
-        ss = ll > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) {
-            case rr: hh = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break;
-            case gg: hh = ((bb - rr) / d + 2) / 6; break;
-            case bb: hh = ((rr - gg) / d + 4) / 6; break;
-        }
-    }
     const colorHsl = document.getElementById('colorHsl');
-    if (colorHsl) colorHsl.value = `${Math.round(hh*360)}, ${Math.round(ss*100)}%, ${Math.round(ll*100)}%`;
+    if (colorHsl) colorHsl.value = `${Math.round(h*360)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%`;
 }
 
 // ── Markdown Preview ──────────────────────────────────────────────────────
