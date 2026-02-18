@@ -413,14 +413,20 @@ function showResult(toolId, blob, filename) {
     downloadLink.style.display = '';
 
     // clear any previous preview / multi list
-    result.querySelectorAll('.result-preview, .multi-result-list, .result-zip-btn').forEach(el => el.remove());
+    result.querySelectorAll('.result-preview, .result-actions, .multi-result-list, .result-zip-btn').forEach(el => el.remove());
+
+    // wrap download button + optional preview in a side-by-side container
+    const actions = document.createElement('div');
+    actions.className = 'result-actions';
+    downloadLink.parentNode.insertBefore(actions, downloadLink);
+    actions.appendChild(downloadLink);
 
     if (IMAGE_EXTS.test(filename)) {
         const preview = document.createElement('img');
         preview.className = 'result-preview result-preview--image';
         preview.src = objectUrl;
         preview.alt = 'Preview';
-        result.appendChild(preview);
+        actions.appendChild(preview);
     } else if (VIDEO_EXTS.test(filename)) {
         const preview = document.createElement('video');
         preview.className = 'result-preview result-preview--video';
@@ -430,7 +436,7 @@ function showResult(toolId, blob, filename) {
         preview.playsInline = true;
         // seek to first frame so poster is visible
         preview.addEventListener('loadedmetadata', () => { preview.currentTime = 0.1; }, { once: true });
-        result.appendChild(preview);
+        actions.appendChild(preview);
     }
 }
 
