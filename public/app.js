@@ -872,13 +872,75 @@ async function checkServerHealth() {
             const once = renderItems(items);
             const html = once + '<span class="ticker-sep">│</span>' + once + '<span class="ticker-sep">│</span>';
 
-            if (tickerTrack) tickerTrack.innerHTML = html;
+            if (tickerTrack) {
+                tickerTrack.innerHTML = html;
+                initTickerDrag(tickerTrack);
+            }
         } else {
             if (tickerTrack) tickerTrack.innerHTML = '<span class="status-text">Server error</span>';
         }
     } catch {
         if (tickerTrack) tickerTrack.innerHTML = '<span class="status-text">Server offline</span>';
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TICKER DRAG-TO-SCROLL
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initTickerDrag(track) {
+    if (track._dragInit) return; // already initialized
+    track._dragInit = true;
+
+    let isDragging = false;
+    let startX = 0;
+    let scrollOffset = 0;
+
+    function getAnimOffset() {
+        const style = getComputedStyle(track);
+        const matrix = new DOMMatrix(style.transform);
+        return matrix.m41; // translateX value
+    }
+
+    function onPointerDown(e) {
+        isDragging = true;
+        startX = e.clientX;
+        scrollOffset = getAnimOffset();
+        track.classList.add('dragging');
+        track.style.transform = `translateX(${scrollOffset}px)`;
+        track.setPointerCapture(e.pointerId);
+    }
+
+    function onPointerMove(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        track.style.transform = `translateX(${scrollOffset + dx}px)`;
+    }
+
+    function onPointerUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        track.classList.remove('dragging');
+        // Read current position and resume animation from there
+        const currentX = getAnimOffset();
+        const totalWidth = track.scrollWidth / 2; // half because content is duplicated
+        // Normalize to 0..totalWidth range
+        let progress = (-currentX % totalWidth) / totalWidth;
+        if (progress < 0) progress += 1;
+        const duration = 40; // must match CSS animation duration
+        const remaining = duration * (1 - progress);
+        // Reset and restart with adjusted timing
+        track.style.transform = '';
+        track.style.animation = 'none';
+        track.offsetHeight; // force reflow
+        track.style.animation = `ticker-scroll ${duration}s linear infinite`;
+        track.style.animationDelay = `-${progress * duration}s`;
+    }
+
+    track.addEventListener('pointerdown', onPointerDown);
+    track.addEventListener('pointermove', onPointerMove);
+    track.addEventListener('pointerup', onPointerUp);
+    track.addEventListener('pointercancel', onPointerUp);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

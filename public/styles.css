@@ -177,6 +177,12 @@ body {
     display: inline-flex; gap: 24px;
     white-space: nowrap;
     animation: ticker-scroll 40s linear infinite;
+    cursor: grab;
+    user-select: none;
+}
+.ticker-track.dragging {
+    animation-play-state: paused;
+    cursor: grabbing;
 }
 .ticker-track .ticker-item {
     font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono);
