@@ -53,10 +53,12 @@ static string url_decode(const string& s) {
 }
 
 static pair<int64_t,int64_t> parse_range(const string& range) {
+    // Jan 1 2025 00:00:00 UTC
+    static constexpr int64_t EPOCH_2025 = 1735689600LL;
     if (range == "today") { int64_t s = stat_today_start(); return {s, s + 86399}; }
     if (range == "week")  return {stat_days_ago(7),  INT64_MAX};
     if (range == "month") return {stat_days_ago(30), INT64_MAX};
-    return {0, INT64_MAX};
+    return {EPOCH_2025, INT64_MAX};
 }
 
 // =============================================================================
