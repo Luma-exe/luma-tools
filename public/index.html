@@ -1615,11 +1615,19 @@
     <script>
     (function() {
         function trackEvent(name) {
-            fetch('/api/stats/event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name })
-            }).catch(() => {});
+            var body = JSON.stringify({ name: name });
+            // sendBeacon survives navigation (target="_blank" opens before fetch completes)
+            if (navigator.sendBeacon) {
+                var blob = new Blob([body], { type: 'application/json' });
+                navigator.sendBeacon('/api/stats/event', blob);
+            } else {
+                fetch('/api/stats/event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body,
+                    keepalive: true
+                }).catch(() => {});
+            }
         }
         document.addEventListener('click', function(e) {
             var el = e.target.closest('a');
