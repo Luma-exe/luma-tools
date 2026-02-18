@@ -33,6 +33,7 @@ add_executable(luma-tools
 )
 
 target_link_libraries(luma-tools PRIVATE httplib::httplib nlohmann_json::nlohmann_json)
+target_include_directories(luma-tools PRIVATE ${CMAKE_SOURCE_DIR}/src/headers)
 
 if(WIN32)
     target_link_libraries(luma-tools PRIVATE ws2_32)
