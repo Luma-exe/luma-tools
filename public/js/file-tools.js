@@ -491,14 +491,26 @@ function showMultiResult(toolId, pages) {
 
     result.appendChild(actions);
 
-    // ── individual download links (full width below) ─────────────────────────
+    // ── individual download links with inline thumbnail (full width below) ───
     result.classList.add('has-multi');
     const listEl = document.createElement('div');
     listEl.className = 'multi-result-list';
-    listEl.innerHTML = pages.map(p => {
+    pages.forEach(p => {
         const tagged = lumaTag(p.name);
-        return `<a href="${escapeHTML(p.url)}" download="${escapeHTML(tagged)}" class="result-page-link"><i class="fas fa-download"></i> ${escapeHTML(tagged)}</a>`;
-    }).join('');
+        const row = document.createElement('a');
+        row.href = escapeHTML(p.url);
+        row.download = tagged;
+        row.className = 'result-page-link';
+        row.innerHTML = `<i class="fas fa-download"></i><span class="result-page-name">${escapeHTML(tagged)}</span>`;
+        if (isImageSet) {
+            const thumb = document.createElement('img');
+            thumb.className = 'result-page-thumb';
+            thumb.src = p.url;
+            thumb.alt = '';
+            row.appendChild(thumb);
+        }
+        listEl.appendChild(row);
+    });
     result.appendChild(listEl);
 }
 

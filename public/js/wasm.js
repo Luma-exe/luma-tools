@@ -35,9 +35,12 @@ const WasmProcessor = {
     },
 
     process(file, args, outputName, progressCb) {
-        // Serialise: each call waits for the previous one to finish
-        this._queue = this._queue.then(() => this._processOne(file, args, outputName, progressCb));
-        return this._queue;
+        // Serialise: each call waits for the previous one to finish.
+        // The queue itself always resolves (never rejects) so a failed file
+        // doesn't poison every file that follows it.
+        const result = this._queue.then(() => this._processOne(file, args, outputName, progressCb));
+        this._queue = result.catch(() => {}); // recover chain regardless of outcome
+        return result;
     },
 
     async _processOne(file, args, outputName, progressCb) {
@@ -172,7 +175,13 @@ async function processFileWasmDirect(toolId, file) {
     const cmd = builder ? builder(file, opts) : null;
 
     if (!cmd) return processFileServerDirect(toolId, file);
-    const blob = await WasmProcessor.process(file, cmd.args, cmd.output);
-    blob._filename = file.name.replace(/\.[^.]+$/, '') + '_LumaTools.' + cmd.output.split('.').pop();
-    return blob;
+
+    try {
+        const blob = await WasmProcessor.process(file, cmd.args, cmd.output);
+        blob._filename = file.name.replace(/\.[^.]+$/, '') + '_LumaTools.' + cmd.output.split('.').pop();
+        return blob;
+    } catch (wasmErr) {
+        // WASM failed — fall back to the server exactly like the single-file path does
+        return processFileServerDirect(toolId, file);
+    }
 }

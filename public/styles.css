@@ -721,18 +721,26 @@ body {
     display: flex; flex-direction: column; gap: 6px; margin-top: 12px; width: 100%;
 }
 .result-page-link {
-    padding: 6px 14px;
+    padding: 6px 10px;
     background: rgba(124, 92, 255, 0.15);
     border: 1px solid rgba(124, 92, 255, 0.3);
     border-radius: var(--radius-xs);
     color: var(--accent); font-size: 0.8rem; font-weight: 500;
     text-decoration: none;
-    display: flex; align-items: center; gap: 6px;
+    display: flex; align-items: center; gap: 8px;
     transition: all var(--transition);
 }
 .result-page-link:hover {
     background: rgba(124, 92, 255, 0.25);
     transform: translateY(-1px);
+}
+.result-page-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result-page-thumb {
+    width: 40px; height: 40px;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0; margin-left: auto;
 }
 
 /* ─── Result preview thumbnails ─────────────────────────────────────────── */
