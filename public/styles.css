@@ -820,6 +820,82 @@ body {
 .footer strong { color: var(--text-secondary); }
 .footer i.fa-heart { color: var(--accent-3); }
 
+/* ─── Ko-fi Floating Button ───────────────────────────────────────────────── */
+.kofi-float {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    z-index: 999;
+    display: flex; align-items: center; gap: 0;
+    height: 44px;
+    padding: 0 14px;
+    background: rgba(18, 18, 30, 0.8);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 94, 91, 0.25);
+    border-radius: 22px;
+    text-decoration: none;
+    color: #ff6b6b;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 24px rgba(255, 94, 91, 0.15), 0 0 0 0 rgba(255, 94, 91, 0);
+}
+.kofi-float:hover {
+    padding: 0 20px;
+    gap: 8px;
+    background: rgba(255, 94, 91, 0.12);
+    border-color: rgba(255, 94, 91, 0.5);
+    box-shadow: 0 4px 32px rgba(255, 94, 91, 0.25), 0 0 60px rgba(255, 94, 91, 0.08);
+    color: #ff8a8a;
+}
+.kofi-icon {
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    animation: kofi-steam 3s ease-in-out infinite;
+}
+@keyframes kofi-steam {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+}
+.kofi-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+.kofi-float:hover .kofi-label {
+    max-width: 100px;
+    opacity: 1;
+}
+.kofi-shine {
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    transition: left 0.6s ease;
+    pointer-events: none;
+}
+.kofi-float:hover .kofi-shine {
+    left: 100%;
+}
+
+/* Ko-fi footer link */
+.footer-kofi {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 8px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color var(--transition);
+    opacity: 0.7;
+}
+.footer-kofi:hover { color: #ff6b6b; opacity: 1; }
+.footer-kofi i { font-size: 0.68rem; }
+
 /* ─── Toast ───────────────────────────────────────────────────────────────── */
 .toast {
     position: fixed; bottom: 24px; right: 24px; z-index: 1000;
