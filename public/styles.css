@@ -1389,14 +1389,13 @@ body {
 
 /* ─── Markdown Preview ────────────────────────────────────────────────────── */
 .markdown-split {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    display: flex; flex-direction: column; gap: 16px;
 }
-@media (max-width: 768px) { .markdown-split { grid-template-columns: 1fr; } }
 .markdown-rendered {
-    min-height: 200px; padding: 14px;
+    min-height: 240px; padding: 18px;
     background: var(--bg-tertiary); border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm); color: var(--text-primary);
-    font-size: 0.88rem; line-height: 1.65; overflow-y: auto; max-height: 500px;
+    font-size: 0.9rem; line-height: 1.7; overflow-y: auto;
     word-wrap: break-word;
 }
 .markdown-rendered h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 12px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; }
