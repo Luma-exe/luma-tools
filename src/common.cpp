@@ -13,6 +13,7 @@ string g_ytdlp_path;
 string g_ghostscript_path;
 string g_git_commit;
 string g_git_branch;
+string g_hostname;
 
 // ─── Internal state (file-local) ────────────────────────────────────────────
 

@@ -1,14 +1,20 @@
-# Luma Tools — Universal Media Downloader
+# Luma Tools — Universal Media Toolkit
 
-A sleek, modern media downloader with a **C++ backend** and beautiful glassmorphism UI.  
-Paste any URL and it auto-detects the platform, giving you the right download options.
+A powerful media toolkit with a **C++ backend** and beautiful glassmorphism UI.  
+Download media from 10+ platforms and process files with 12 built-in tools — all from your browser.
 
 ![C++](https://img.shields.io/badge/Backend-C%2B%2B17-blue?logo=cplusplus)
 ![yt-dlp](https://img.shields.io/badge/Engine-yt--dlp-red)
+![FFmpeg](https://img.shields.io/badge/Processing-FFmpeg-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
 
-## Supported Platforms
+## Features
+
+### Media Downloader
+
+Paste any URL and it auto-detects the platform, giving you the right download options.
 
 | Platform    | MP3 | MP4 | Quality Selection |
 |-------------|-----|-----|-------------------|
@@ -24,15 +30,33 @@ Paste any URL and it auto-detects the platform, giving you the right download op
 | Reddit      | ✅  | ✅  | ✅                |
 | + many more via yt-dlp |
 
+### File Processing Tools
+
+| Tool              | Description                                      |
+|-------------------|--------------------------------------------------|
+| Image Compress    | Reduce image file size (JPG, PNG, WebP)          |
+| Image Resize      | Scale images by width/height                     |
+| Image Convert     | Convert between PNG, JPG, WebP, BMP, TIFF        |
+| Audio Convert     | Convert between MP3, AAC, WAV, FLAC, OGG, WMA    |
+| Video Compress    | Reduce video size (light/medium/heavy presets)    |
+| Video Trim        | Cut video segments (fast or frame-precise mode)   |
+| Video Convert     | Convert between MP4, WebM, MKV, AVI, MOV, GIF    |
+| Extract Audio     | Rip audio track from any video file               |
+| PDF Compress      | Shrink PDF files via Ghostscript                  |
+| PDF Merge         | Combine multiple PDFs into one                    |
+| PDF to Images     | Convert PDF pages to PNG, JPG, or TIFF            |
+
 ---
 
 ## Prerequisites
 
-1. **C++ Compiler** — MSVC (Visual Studio), GCC, or Clang with C++17 support
+1. **C++ Compiler** — MSVC (Visual Studio 2019+), GCC, or Clang with C++17 support
 2. **CMake** ≥ 3.14 — [Download](https://cmake.org/download/)
 3. **yt-dlp** — `pip install yt-dlp` or [GitHub releases](https://github.com/yt-dlp/yt-dlp/releases)
-4. **ffmpeg** (recommended) — [Download](https://ffmpeg.org/download.html)  
-   *Required for audio extraction and format conversion*
+4. **FFmpeg** — [Download](https://ffmpeg.org/download.html)  
+   *Required for all media processing and audio extraction*
+5. **Ghostscript** *(optional)* — [Download](https://www.ghostscript.com/releases/gsdnld.html)  
+   *Required only for PDF tools (compress, merge, PDF-to-images)*
 
 ---
 
@@ -43,7 +67,7 @@ Paste any URL and it auto-detects the platform, giving you the right download op
 ```powershell
 # 1. Install dependencies
 pip install yt-dlp
-# Install ffmpeg and add to PATH
+winget install Gyan.FFmpeg
 
 # 2. Build
 .\build.bat
@@ -70,43 +94,104 @@ Then open **http://localhost:8080** in your browser.
 
 ---
 
+## VPS / Production Deployment
+
+A Windows Server deployment script is included:
+
+```powershell
+.\deploy\deploy-windows.ps1
+```
+
+This script handles:
+- Installing CMake, FFmpeg, yt-dlp, and Ghostscript
+- Building the project
+- Setting up Caddy as a reverse proxy with automatic HTTPS
+- Registering Windows services via NSSM (LumaTools + LumaToolsCaddy)
+
+Additional deploy helpers:
+- `deploy/restart.bat` — Restart services
+- `deploy/status.bat` — Check service status
+
+---
+
 ## Architecture
 
 ```
 luma-tools/
 ├── src/
-│   └── main.cpp          # C++ HTTP server (cpp-httplib + nlohmann/json)
+│   ├── headers/
+│   │   ├── common.h           # Shared includes, globals, utility declarations
+│   │   ├── discord.h          # Discord webhook function declarations
+│   │   └── routes.h           # Route registration declarations
+│   ├── main.cpp               # Server init, executable discovery, startup
+│   ├── common.cpp             # Utility functions, download/job managers
+│   ├── platform.cpp           # Platform detection (YouTube, TikTok, etc.)
+│   ├── discord.cpp            # Discord webhook logging (rich embeds)
+│   ├── routes_download.cpp    # Download API endpoints
+│   └── routes_tools.cpp       # File processing tool endpoints
 ├── public/
-│   ├── index.html         # Main page
-│   ├── styles.css         # Glassmorphism UI styles
-│   └── app.js             # Frontend logic
-├── CMakeLists.txt         # Build configuration (auto-fetches dependencies)
-├── build.bat / build.sh   # Build scripts
-└── run.bat / run.sh       # Run scripts
+│   ├── index.html             # Main page (sidebar + tool panels)
+│   ├── styles.css             # Glassmorphism dark theme
+│   └── app.js                 # Frontend logic
+├── deploy/
+│   ├── deploy-windows.ps1     # Full VPS deployment script
+│   ├── restart.bat            # Service restart helper
+│   └── status.bat             # Service status helper
+├── CMakeLists.txt             # Build config (auto-fetches dependencies)
+├── build.bat / build.sh       # Build scripts
+└── run.bat / run.sh           # Run scripts
 ```
 
-**Backend Stack:**
-- **cpp-httplib** — Lightweight header-only HTTP server
-- **nlohmann/json** — JSON parsing/serialization
-- **yt-dlp** — Media extraction engine (invoked via subprocess)
+### Backend Stack
 
-**Frontend:**
+- **C++17** — Modern C++ with `std::filesystem`, threads, etc.
+- **cpp-httplib v0.15.3** — Lightweight header-only HTTP server
+- **nlohmann/json v3.11.3** — JSON parsing/serialization
+- **yt-dlp** — Media extraction engine (invoked via subprocess)
+- **FFmpeg** — All media processing (compress, convert, trim, extract)
+- **Ghostscript** — PDF processing (compress, merge, rasterize)
+- **Discord Webhooks** — Activity logging with device hostname identification
+
+### Frontend
+
 - Vanilla HTML/CSS/JS (no frameworks)
 - Animated gradient background with particle effects
 - Glassmorphism design with smooth transitions
 - Auto-detects platform from pasted URLs
+- Scrolling status ticker showing service health and git version
 
 ---
 
 ## API Endpoints
 
-| Method | Endpoint             | Description                    |
-|--------|----------------------|--------------------------------|
-| POST   | `/api/detect`        | Detect platform from URL       |
-| POST   | `/api/analyze`       | Get media info (title, formats)|
-| POST   | `/api/download`      | Start a download               |
-| GET    | `/api/status/:id`    | Check download progress        |
-| GET    | `/api/health`        | Server health + yt-dlp version |
+### Downloads
+
+| Method | Endpoint                | Description                       |
+|--------|-------------------------|-----------------------------------|
+| POST   | `/api/detect`           | Detect platform from URL          |
+| POST   | `/api/analyze`          | Get media info (title, formats)   |
+| POST   | `/api/download`         | Start a download                  |
+| GET    | `/api/resolve-title`    | Resolve title from URL            |
+| GET    | `/api/status/:id`       | Check download progress           |
+| GET    | `/api/health`           | Server health, versions, git info |
+
+### File Processing Tools
+
+| Method | Endpoint                       | Description              |
+|--------|--------------------------------|--------------------------|
+| POST   | `/api/tools/image-compress`    | Compress an image        |
+| POST   | `/api/tools/image-resize`      | Resize an image          |
+| POST   | `/api/tools/image-convert`     | Convert image format     |
+| POST   | `/api/tools/audio-convert`     | Convert audio format     |
+| POST   | `/api/tools/video-compress`    | Compress video (async)   |
+| POST   | `/api/tools/video-trim`        | Trim video (async)       |
+| POST   | `/api/tools/video-convert`     | Convert video (async)    |
+| POST   | `/api/tools/video-extract-audio` | Extract audio (async) |
+| POST   | `/api/tools/pdf-compress`      | Compress a PDF           |
+| POST   | `/api/tools/pdf-merge`         | Merge multiple PDFs      |
+| POST   | `/api/tools/pdf-to-images`     | Convert PDF to images    |
+| GET    | `/api/tools/status/:id`        | Check async job progress |
+| GET    | `/api/tools/result/:id`        | Download processed file  |
 
 ---
 

@@ -19,6 +19,15 @@ int main() {
     string dl_dir = get_downloads_dir();
     cout << "[Luma Tools] Downloads directory: " << fs::absolute(dl_dir) << endl;
 
+    // ── Read hostname ─────────────────────────────────────────────────────────
+    {
+        const char* env_name = std::getenv("COMPUTERNAME");
+        if (!env_name) env_name = std::getenv("HOSTNAME");
+        if (env_name) g_hostname = env_name;
+        else g_hostname = "Unknown";
+        cout << "[Luma Tools] Hostname: " << g_hostname << endl;
+    }
+
     // ── Read git info ────────────────────────────────────────────────────────
     {
         // Walk upward to find .git directory

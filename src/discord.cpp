@@ -49,12 +49,14 @@ static string iso_now() {
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 void discord_log(const string& title, const string& description, int color) {
+    string footer_text = "Luma Tools";
+    if (!g_hostname.empty()) footer_text += " | " + g_hostname;
     json embed = {
         {"title",       title},
         {"description", description},
         {"color",       color},
         {"timestamp",   iso_now()},
-        {"footer",      {{"text", "Luma Tools"}}}
+        {"footer",      {{"text", footer_text}}}
     };
     json payload = {{"embeds", json::array({embed})}};
     discord_send(payload);
