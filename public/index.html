@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Luma Tools — Universal Media Toolkit</title>
+
+    <!-- Discord / Open Graph embed -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tools.lumaplayground.com">
+    <meta property="og:title" content="Luma Tools">
+    <meta property="og:description" content="Free online media toolkit — download videos, convert images, generate QR codes, and 20+ more tools.">
+    <meta property="og:site_name" content="Luma Tools">
+    <meta name="theme-color" content="#7c5cff">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Luma Tools — Universal Media Toolkit">
+    <meta name="twitter:description" content="Free online media toolkit — download videos, convert images, generate QR codes, and 20+ more tools.">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1013,7 +1024,7 @@
                         <textarea id="base64Input" class="text-area-input" rows="5" placeholder="Paste text here..."></textarea>
                     </div>
                     <button class="process-btn" onclick="processBase64()"><i class="fas fa-code"></i> Convert</button>
-                    <div class="text-tool-input" style="margin-top:16px">
+                    <div class="text-tool-input">
                         <label class="option-label">Output</label>
                         <textarea id="base64Output" class="text-area-input" rows="5" readonly placeholder="Result will appear here..."></textarea>
                         <button class="copy-btn hidden" id="base64CopyBtn" onclick="copyToClipboard('base64Output')"><i class="fas fa-copy"></i> Copy</button>

@@ -251,6 +251,7 @@ body {
     border-radius: var(--radius);
     padding: 24px;
     backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    display: flex; flex-direction: column; gap: 16px;
 }
 
 /* ─── Upload Zone ─────────────────────────────────────────────────────────── */
@@ -314,7 +315,7 @@ body {
 .multi-file-item .drag-handle { cursor: grab; color: var(--text-muted); margin-right: 8px; }
 
 /* ─── Tool Options ────────────────────────────────────────────────────────── */
-.tool-options { margin-top: 20px; }
+.tool-options { margin-top: 0; }
 
 .option-label {
     display: block; font-size: 0.8rem; font-weight: 600;
@@ -425,7 +426,7 @@ body {
 
 /* ─── Process Button ──────────────────────────────────────────────────────── */
 .process-btn {
-    width: 100%; margin-top: 20px; padding: 14px 24px;
+    width: 100%; margin-top: 0; padding: 14px 24px;
     background: linear-gradient(135deg, var(--accent), #5a3fd4);
     border: none; border-radius: var(--radius-sm);
     color: white; font-family: var(--font-main);
@@ -902,7 +903,7 @@ body {
 .footer-kofi i { font-size: 0.68rem; }
 
 /* ─── Frontend-Only Tool Styles ───────────────────────────────────────────── */
-.text-tool-input { margin-bottom: 12px; position: relative; }
+.text-tool-input { margin-bottom: 0; position: relative; }
 .text-area-input {
     width: 100%; padding: 12px 14px;
     background: var(--bg-tertiary); border: 1px solid var(--glass-border);
