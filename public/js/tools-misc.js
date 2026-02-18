@@ -95,180 +95,373 @@ function copyToClipboard(elementId) {
 
 // ── Color Converter ───────────────────────────────────────────────────────
 
-function updateColorFrom(source) {
-    let r, g, b;
-    if (source === 'hex') {
-        const hex = document.getElementById('colorHex').value.trim();
-        const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-        if (!m) return;
-        r = parseInt(m[1], 16); g = parseInt(m[2], 16); b = parseInt(m[3], 16);
-    } else if (source === 'rgb') {
-        const parts = document.getElementById('colorRgb').value.split(',').map(s => parseInt(s.trim()));
-        if (parts.length < 3 || parts.some(isNaN)) return;
-        [r, g, b] = parts;
-    } else if (source === 'hsl') {
-        const parts = document.getElementById('colorHsl').value.replace(/%/g, '').split(',').map(s => parseFloat(s.trim()));
-        if (parts.length < 3 || parts.some(isNaN)) return;
-        const [h, s, l] = [parts[0] / 360, parts[1] / 100, parts[2] / 100];
-        if (s === 0) { r = g = b = Math.round(l * 255); } else {
-            const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q-p)*6*t; if (t < 1/2) return q; if (t < 2/3) return p + (q-p)*(2/3-t)*6; return p; };
-            const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
-            r = Math.round(hue2rgb(p, q, h + 1/3) * 255); g = Math.round(hue2rgb(p, q, h) * 255); b = Math.round(hue2rgb(p, q, h - 1/3) * 255);
-        }
-    }
-    r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
-    const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2, '0')).join('');
-    const rr = r/255, gg = g/255, bb = b/255;
-    const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
-    let h, s, l = (max + min) / 2;
-    if (max === min) { h = s = 0; } else {
-        const d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) { case rr: h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break; case gg: h = ((bb - rr) / d + 2) / 6; break; case bb: h = ((rr - gg) / d + 4) / 6; break; }
-    }
-    if (source !== 'hex') document.getElementById('colorHex').value = hex;
-    if (source !== 'rgb') document.getElementById('colorRgb').value = `${r}, ${g}, ${b}`;
-    if (source !== 'hsl') document.getElementById('colorHsl').value = `${Math.round(h*360)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%`;
-    document.getElementById('colorPreview').style.background = hex;
+// ─ Colour math helpers ───────────────────────────────────────────────────
+
+function _hue2rgb(p, q, t) {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
 }
 
-function switchColorTab(tab) {
-    document.querySelectorAll('.color-tab').forEach((t, i) => t.classList.toggle('active', (tab === 'inputs' ? i === 0 : i === 1)));
-    document.getElementById('colorTabInputs').classList.toggle('active', tab === 'inputs');
-    document.getElementById('colorTabWheel').classList.toggle('active', tab === 'wheel');
-    if (tab === 'wheel') initColorWheel();
+function rgbToHsl(r, g, b) {
+    const rr = r/255, gg = g/255, bb = b/255;
+    const max = Math.max(rr,gg,bb), min = Math.min(rr,gg,bb);
+    let h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case rr: h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break;
+            case gg: h = ((bb - rr) / d + 2) / 6; break;
+            case bb: h = ((rr - gg) / d + 4) / 6; break;
+        }
+    }
+    return [Math.round(h*360), Math.round(s*100), Math.round(l*100)];
 }
+
+function hslToRgb(h, s, l) {
+    h /= 360; s /= 100; l /= 100;
+    if (s === 0) { const v = Math.round(l*255); return [v, v, v]; }
+    const q = l < 0.5 ? l*(1+s) : l+s-l*s, p = 2*l - q;
+    return [
+        Math.round(_hue2rgb(p, q, h + 1/3) * 255),
+        Math.round(_hue2rgb(p, q, h) * 255),
+        Math.round(_hue2rgb(p, q, h - 1/3) * 255)
+    ];
+}
+
+function rgbToHsv(r, g, b) {
+    const rr = r/255, gg = g/255, bb = b/255;
+    const max = Math.max(rr,gg,bb), min = Math.min(rr,gg,bb), d = max - min;
+    let h = 0, s = max === 0 ? 0 : d / max, v = max;
+    if (d !== 0) {
+        switch (max) {
+            case rr: h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break;
+            case gg: h = ((bb - rr) / d + 2) / 6; break;
+            case bb: h = ((rr - gg) / d + 4) / 6; break;
+        }
+    }
+    return [Math.round(h*360), Math.round(s*100), Math.round(v*100)];
+}
+
+function hsvToRgb(h, s, v) {
+    h /= 360; s /= 100; v /= 100;
+    let r, g, b;
+    const i = Math.floor(h * 6), f = h * 6 - i;
+    const p = v*(1-s), q = v*(1-f*s), t = v*(1-(1-f)*s);
+    switch (i % 6) {
+        case 0: r=v; g=t; b=p; break; case 1: r=q; g=v; b=p; break;
+        case 2: r=p; g=v; b=t; break; case 3: r=p; g=q; b=v; break;
+        case 4: r=t; g=p; b=v; break; case 5: r=v; g=p; b=q; break;
+        default: r=g=b=0;
+    }
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+}
+
+function rgbToCmyk(r, g, b) {
+    const rr = r/255, gg = g/255, bb = b/255;
+    const k = 1 - Math.max(rr, gg, bb);
+    if (k === 1) return [0, 0, 0, 100];
+    return [
+        Math.round((1 - rr - k) / (1 - k) * 100),
+        Math.round((1 - gg - k) / (1 - k) * 100),
+        Math.round((1 - bb - k) / (1 - k) * 100),
+        Math.round(k * 100)
+    ];
+}
+
+function cmykToRgb(c, m, y, k) {
+    c /= 100; m /= 100; y /= 100; k /= 100;
+    return [
+        Math.round(255 * (1 - c) * (1 - k)),
+        Math.round(255 * (1 - m) * (1 - k)),
+        Math.round(255 * (1 - y) * (1 - k))
+    ];
+}
+
+// ─ Sync all fields from r,g,b  ────────────────────────────────────────────
+
+function syncAllColorFields(r, g, b, skipSource) {
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+    const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+    const [hl, sl, ll] = rgbToHsl(r, g, b);
+    const [hv, sv, vv] = rgbToHsv(r, g, b);
+    const [c, m, y, k] = rgbToCmyk(r, g, b);
+
+    const setVal = (id, v) => { const el = $(id); if (el) el.value = v; };
+    const setBg  = (id)  => { const el = $(id); if (el) el.style.background = hex; };
+
+    // Values tab
+    if (skipSource !== 'hex')  setVal('colorHex',  hex);
+    if (skipSource !== 'rgb')  setVal('colorRgb',  `${r}, ${g}, ${b}`);
+    if (skipSource !== 'hsl')  setVal('colorHsl',  `${hl}, ${sl}%, ${ll}%`);
+    if (skipSource !== 'hsv')  setVal('colorHsv',  `${hv}, ${sv}%, ${vv}%`);
+    if (skipSource !== 'cmyk') setVal('colorCmyk', `${c}%, ${m}%, ${y}%, ${k}%`);
+    setBg('colorPreview');
+
+    // Picker tab outputs
+    setVal('colorHexPicker',  hex);
+    setVal('colorRgbPicker',  `${r}, ${g}, ${b}`);
+    setVal('colorHslPicker',  `${hl}, ${sl}%, ${ll}%`);
+    setVal('colorHsvPicker',  `${hv}, ${sv}%, ${vv}%`);
+    setVal('colorCmykPicker', `${c}%, ${m}%, ${y}%, ${k}%`);
+    setBg('colorPreviewPicker');
+}
+
+// ─ Parse & dispatch from any input field ─────────────────────────────────
+
+function updateColorFrom(source) {
+    let r, g, b;
+    try {
+        if (source === 'hex') {
+            const hex = $('colorHex').value.trim();
+            const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+            if (!m) return;
+            r = parseInt(m[1],16); g = parseInt(m[2],16); b = parseInt(m[3],16);
+        } else if (source === 'rgb') {
+            const pts = $('colorRgb').value.split(',').map(s => parseInt(s.trim()));
+            if (pts.length < 3 || pts.some(isNaN)) return;
+            [r, g, b] = pts;
+        } else if (source === 'hsl') {
+            const pts = $('colorHsl').value.replace(/%/g,'').split(',').map(s => parseFloat(s.trim()));
+            if (pts.length < 3 || pts.some(isNaN)) return;
+            [r, g, b] = hslToRgb(pts[0], pts[1], pts[2]);
+        } else if (source === 'hsv') {
+            const pts = $('colorHsv').value.replace(/%/g,'').split(',').map(s => parseFloat(s.trim()));
+            if (pts.length < 3 || pts.some(isNaN)) return;
+            [r, g, b] = hsvToRgb(pts[0], pts[1], pts[2]);
+        } else if (source === 'cmyk') {
+            const pts = $('colorCmyk').value.replace(/%/g,'').split(',').map(s => parseFloat(s.trim()));
+            if (pts.length < 4 || pts.some(isNaN)) return;
+            [r, g, b] = cmykToRgb(pts[0], pts[1], pts[2], pts[3]);
+        }
+    } catch { return; }
+    syncAllColorFields(r, g, b, source);
+}
+
+function copyColorValue(format, fromPicker) {
+    const id = fromPicker
+        ? { hex:'colorHexPicker', rgb:'colorRgbPicker', hsl:'colorHslPicker', hsv:'colorHsvPicker', cmyk:'colorCmykPicker' }[format]
+        : { hex:'colorHex', rgb:'colorRgb', hsl:'colorHsl', hsv:'colorHsv', cmyk:'colorCmyk' }[format];
+    const el = $(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.value).then(() => showToast('Copied!', 'success'));
+}
+
+// ─ Tab switching ─────────────────────────────────────────────────────────
+
+function switchColorTab(tab) {
+    $$('.color-tab').forEach((t, i) => t.classList.toggle('active', (tab === 'inputs' ? i === 0 : i === 1)));
+    $('colorTabInputs')?.classList.toggle('active', tab === 'inputs');
+    $('colorTabPicker')?.classList.toggle('active', tab === 'picker');
+    if (tab === 'picker') initPickerTab();
+}
+
+// ─ Picker type toggle ────────────────────────────────────────────────────
+
+let _pickerType = 'wheel';   // 'wheel' | 'rect'
+let _pickerInited = false;
+
+function setPickerType(type) {
+    _pickerType = type;
+    $('pickerBtnWheel')?.classList.toggle('active', type === 'wheel');
+    $('pickerBtnRect')?.classList.toggle('active', type === 'rect');
+    $('pickerWheelSection')?.classList.toggle('hidden', type !== 'wheel');
+    $('pickerRectSection')?.classList.toggle('hidden', type !== 'rect');
+    if (type === 'wheel') initColorWheel();
+    else initRectPicker();
+}
+
+function initPickerTab() {
+    if (!_pickerInited) { _pickerInited = true; initColorWheel(); }
+}
+
+// ─ Wheel picker ──────────────────────────────────────────────────────────
 
 let wheelInited = false;
 function initColorWheel() {
     if (wheelInited) return;
     wheelInited = true;
-    const canvas = document.getElementById('colorWheel');
+    const canvas = $('colorWheel');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const cx = canvas.width / 2, cy = canvas.height / 2, radius = cx - 4;
     drawWheel(ctx, cx, cy, radius, 1.0);
 
     let dragging = false;
-    function pickColor(e) {
+    function pickWheel(e) {
         const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX || e.touches[0].clientX) - rect.left;
-        const y = (e.clientY || e.touches[0].clientY) - rect.top;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const x = clientX - rect.left, y = clientY - rect.top;
         const sx = x / rect.width * canvas.width, sy = y / rect.height * canvas.height;
         const dx = sx - cx, dy = sy - cy;
-        if (Math.sqrt(dx * dx + dy * dy) > radius) return;
-        const cursor = document.getElementById('wheelCursor');
-        cursor.style.left = (x / rect.width * 100) + '%';
-        cursor.style.top = (y / rect.height * 100) + '%';
-        const pixel = ctx.getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
-        const [r, g, b] = pixel;
-        const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2, '0')).join('');
-        document.getElementById('colorPreviewWheel').style.background = hex;
-        document.getElementById('colorHexWheel').value = hex;
-        document.getElementById('colorRgbWheel').value = `${r}, ${g}, ${b}`;
-        cursor.style.background = hex;
-        // Sync to main inputs tab
-        document.getElementById('colorHex').value = hex;
-        document.getElementById('colorRgb').value = `${r}, ${g}, ${b}`;
-        document.getElementById('colorPreview').style.background = hex;
-        const rr = r/255, gg = g/255, bb = b/255;
-        const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
-        let hh, ss, ll = (max + min) / 2;
-        if (max === min) { hh = ss = 0; } else {
-            const d = max - min; ss = ll > 0.5 ? d / (2 - max - min) : d / (max + min);
-            switch (max) { case rr: hh = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break; case gg: hh = ((bb - rr) / d + 2) / 6; break; case bb: hh = ((rr - gg) / d + 4) / 6; break; }
-        }
-        document.getElementById('colorHsl').value = `${Math.round(hh*360)}, ${Math.round(ss*100)}%, ${Math.round(ll*100)}%`;
+        if (Math.sqrt(dx*dx + dy*dy) > radius) return;
+        const cursor = $('wheelCursor');
+        if (cursor) { cursor.style.left = (x/rect.width*100)+'%'; cursor.style.top = (y/rect.height*100)+'%'; }
+        updatePickerFromWheelCoords(sx, sy, cx, cy, radius, parseInt($('wheelBrightness')?.value ?? 100) / 100);
     }
-    canvas.addEventListener('mousedown', (e) => { dragging = true; pickColor(e); });
-    canvas.addEventListener('mousemove', (e) => { if (dragging) pickColor(e); });
+    canvas.addEventListener('mousedown', e => { dragging = true; pickWheel(e); });
+    canvas.addEventListener('mousemove', e => { if (dragging) pickWheel(e); });
     window.addEventListener('mouseup', () => { dragging = false; });
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dragging = true; pickColor(e); }, { passive: false });
-    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (dragging) pickColor(e); }, { passive: false });
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); dragging = true; pickWheel(e); }, { passive: false });
+    canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) pickWheel(e); }, { passive: false });
     canvas.addEventListener('touchend', () => { dragging = false; });
+}
+
+function updatePickerFromWheelCoords(sx, sy, cx, cy, radius, brightness) {
+    const dx = sx - cx, dy = sy - cy;
+    let angle = Math.atan2(dy, dx) / (2 * Math.PI);
+    if (angle < 0) angle += 1;
+    const sat = Math.min(Math.sqrt(dx*dx + dy*dy) / radius, 1);
+    const h = angle, s = sat, l = brightness * 0.5;
+    let [r, g, b] = hslToRgb(h * 360, s * 100, l * 100);
+    const cursor = $('wheelCursor');
+    if (cursor) cursor.style.background = '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+    syncAllColorFields(r, g, b, null);
 }
 
 function drawWheel(ctx, cx, cy, radius, brightness) {
     const img = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
     for (let y = 0; y < img.height; y++) {
         for (let x = 0; x < img.width; x++) {
-            const dx = x - cx, dy = y - cy, dist = Math.sqrt(dx * dx + dy * dy);
+            const dx = x-cx, dy = y-cy, dist = Math.sqrt(dx*dx+dy*dy);
             const i = (y * img.width + x) * 4;
             if (dist <= radius) {
-                let angle = Math.atan2(dy, dx) / (2 * Math.PI);
+                let angle = Math.atan2(dy, dx) / (2*Math.PI);
                 if (angle < 0) angle += 1;
                 const sat = dist / radius;
-                const h = angle, s = sat, l = brightness * 0.5;
-                let r, g, b;
-                if (s === 0) { r = g = b = l; } else {
-                    const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q-p)*6*t; if (t < 1/2) return q; if (t < 2/3) return p + (q-p)*(2/3-t)*6; return p; };
-                    const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
-                    r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
-                }
-                img.data[i] = Math.round(r * 255); img.data[i+1] = Math.round(g * 255); img.data[i+2] = Math.round(b * 255); img.data[i+3] = 255;
-            } else { img.data[i+3] = 0; }
+                const l = brightness * 0.5;
+                const [r, g, b] = hslToRgb(angle*360, sat*100, l*100);
+                img.data[i]=r; img.data[i+1]=g; img.data[i+2]=b; img.data[i+3]=255;
+            } else { img.data[i+3]=0; }
         }
     }
     ctx.putImageData(img, 0, 0);
 }
 
 function updateWheelBrightness() {
-    const val = parseInt(document.getElementById('wheelBrightness').value) / 100;
-    const canvas = document.getElementById('colorWheel');
+    const val = parseInt($('wheelBrightness').value) / 100;
+    const canvas = $('colorWheel');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const cx = canvas.width / 2, cy = canvas.height / 2, radius = cx - 4;
+    const cx = canvas.width/2, cy = canvas.height/2, radius = cx - 4;
     drawWheel(ctx, cx, cy, radius, val);
-
-    // Compute color mathematically from cursor angle (hue) + distance (saturation) + new brightness.
-    // This avoids pixel-sampling inaccuracies caused by CSS scaling vs canvas resolution.
-    const cursor = document.getElementById('wheelCursor');
+    const cursor = $('wheelCursor');
     if (!cursor) return;
     const cursorPctX = parseFloat(cursor.style.left) / 100;
     const cursorPctY = parseFloat(cursor.style.top) / 100;
     if (isNaN(cursorPctX) || isNaN(cursorPctY)) return;
+    updatePickerFromWheelCoords(cursorPctX * canvas.width, cursorPctY * canvas.height, cx, cy, radius, val);
+}
 
-    // Convert % position back to canvas-space coordinates
-    const sx = cursorPctX * canvas.width;
-    const sy = cursorPctY * canvas.height;
-    const dx = sx - cx, dy = sy - cy;
-    let angle = Math.atan2(dy, dx) / (2 * Math.PI);
-    if (angle < 0) angle += 1;
-    const sat = Math.min(Math.sqrt(dx * dx + dy * dy) / radius, 1);
+// ─ Rectangle (SV square + hue strip) picker ──────────────────────────────
 
-    // HSL → RGB (same formula as drawWheel)
-    const h = angle, s = sat, l = val * 0.5;
-    let r, g, b;
-    if (s === 0) {
-        r = g = b = Math.round(l * 255);
-    } else {
-        const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q-p)*6*t; if (t < 1/2) return q; if (t < 2/3) return p + (q-p)*(2/3-t)*6; return p; };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
-        r = Math.round(hue2rgb(p, q, h + 1/3) * 255);
-        g = Math.round(hue2rgb(p, q, h) * 255);
-        b = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+let rectInited = false;
+let _rectHue = 240; // current hue for the SV square
+
+function initRectPicker() {
+    if (rectInited) return;
+    rectInited = true;
+    drawHueStrip();
+    drawSVRect(_rectHue);
+    initHueStripEvents();
+    initSVRectEvents();
+}
+
+function drawHueStrip() {
+    const canvas = $('colorHueStrip');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    for (let i = 0; i <= 360; i += 30) grad.addColorStop(i/360, `hsl(${i},100%,50%)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawSVRect(hue) {
+    const canvas = $('colorRectSV');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    // Base: solid hue
+    const base = ctx.createLinearGradient(0, 0, w, 0);
+    base.addColorStop(0, '#fff');
+    base.addColorStop(1, `hsl(${hue},100%,50%)`);
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, w, h);
+    // Overlay: black → transparent (top to bottom)
+    const overlay = ctx.createLinearGradient(0, 0, 0, h);
+    overlay.addColorStop(0, 'rgba(0,0,0,0)');
+    overlay.addColorStop(1, '#000');
+    ctx.fillStyle = overlay;
+    ctx.fillRect(0, 0, w, h);
+}
+
+function initHueStripEvents() {
+    const canvas = $('colorHueStrip');
+    if (!canvas) return;
+    let dragging = false;
+    function pick(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const pct = x / rect.width;
+        _rectHue = Math.round(pct * 360);
+        // Move hue cursor
+        const cur = $('hueCursor');
+        if (cur) cur.style.left = (pct * 100) + '%';
+        drawSVRect(_rectHue);
+        pickSVRectFromCursor();
     }
-    r = Math.max(0, Math.min(255, r));
-    g = Math.max(0, Math.min(255, g));
-    b = Math.max(0, Math.min(255, b));
+    canvas.addEventListener('mousedown', e => { dragging = true; pick(e); });
+    canvas.addEventListener('mousemove', e => { if (dragging) pick(e); });
+    window.addEventListener('mouseup', () => { dragging = false; });
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); dragging = true; pick(e); }, { passive: false });
+    canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) pick(e); }, { passive: false });
+    canvas.addEventListener('touchend', () => { dragging = false; });
+}
 
-    const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
-    cursor.style.background = hex;
-    const previewWheel = document.getElementById('colorPreviewWheel');
-    if (previewWheel) previewWheel.style.background = hex;
-    const hexWheel = document.getElementById('colorHexWheel');
-    if (hexWheel) hexWheel.value = hex;
-    const rgbWheel = document.getElementById('colorRgbWheel');
-    if (rgbWheel) rgbWheel.value = `${r}, ${g}, ${b}`;
-    // Sync to inputs tab
-    const colorHex = document.getElementById('colorHex');
-    if (colorHex) colorHex.value = hex;
-    const colorRgb = document.getElementById('colorRgb');
-    if (colorRgb) colorRgb.value = `${r}, ${g}, ${b}`;
-    const colorPreview = document.getElementById('colorPreview');
-    if (colorPreview) colorPreview.style.background = hex;
-    const colorHsl = document.getElementById('colorHsl');
-    if (colorHsl) colorHsl.value = `${Math.round(h*360)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%`;
+function initSVRectEvents() {
+    const canvas = $('colorRectSV');
+    if (!canvas) return;
+    let dragging = false;
+    function pick(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const x = Math.max(0, Math.min(rect.width,  clientX - rect.left));
+        const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+        const cur = $('rectCursor');
+        if (cur) { cur.style.left = (x/rect.width*100)+'%'; cur.style.top = (y/rect.height*100)+'%'; }
+        const sat = x / rect.width * 100;
+        const val = (1 - y / rect.height) * 100;
+        const [r, g, b] = hsvToRgb(_rectHue, sat, val);
+        if (cur) cur.style.background = '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+        syncAllColorFields(r, g, b, null);
+    }
+    canvas.addEventListener('mousedown', e => { dragging = true; pick(e); });
+    canvas.addEventListener('mousemove', e => { if (dragging) pick(e); });
+    window.addEventListener('mouseup', () => { dragging = false; });
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); dragging = true; pick(e); }, { passive: false });
+    canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) pick(e); }, { passive: false });
+    canvas.addEventListener('touchend', () => { dragging = false; });
+}
+
+function pickSVRectFromCursor() {
+    const cur = $('rectCursor');
+    const canvas = $('colorRectSV');
+    if (!cur || !canvas) return;
+    const pctX = parseFloat(cur.style.left) / 100 || 0;
+    const pctY = parseFloat(cur.style.top) / 100 || 0;
+    const sat = pctX * 100, val = (1 - pctY) * 100;
+    const [r, g, b] = hsvToRgb(_rectHue, sat, val);
+    cur.style.background = '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+    syncAllColorFields(r, g, b, null);
 }
 
 // ── Markdown Preview ──────────────────────────────────────────────────────
@@ -288,6 +481,7 @@ function parseMarkdown(md) {
         .replace(/`([^`]+)`/g, '<code>$1</code>')
         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
         .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+
         .replace(/^# (.+)$/gm, '<h1>$1</h1>')
         .replace(/^---$/gm, '<hr>')
         .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')

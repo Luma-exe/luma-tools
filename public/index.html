@@ -1201,25 +1201,45 @@
             <div class="tool-panel" id="tool-color-convert">
                 <div class="tool-header">
                     <h2><i class="fas fa-palette"></i> Color Converter</h2>
-                    <p>Convert between HEX, RGB, and HSL color formats</p>
+                    <p>Convert between HEX, RGB, HSL, HSV and CMYK</p>
                 </div>
                 <div class="tool-body">
                     <div class="color-tabs">
                         <button class="color-tab active" onclick="switchColorTab('inputs')"><i class="fas fa-sliders-h"></i> Values</button>
-                        <button class="color-tab" onclick="switchColorTab('wheel')"><i class="fas fa-circle-notch"></i> Color Wheel</button>
+                        <button class="color-tab" onclick="switchColorTab('picker')"><i class="fas fa-circle-half-stroke"></i> Color Picker</button>
                     </div>
+
+                    <!-- ── VALUES TAB ── -->
                     <div class="color-tab-content active" id="colorTabInputs">
                         <div class="color-input-section">
-                            <div class="color-preview-box" id="colorPreview" style="background:#6366f1"></div>
+                            <div class="color-preview-swatch" id="colorPreview" style="background:#6366f1"></div>
                             <div class="color-inputs-grid">
-                                <div class="color-field"><label>HEX</label><input type="text" id="colorHex" value="#6366f1" oninput="updateColorFrom('hex')"></div>
-                                <div class="color-field"><label>RGB</label><input type="text" id="colorRgb" value="99, 102, 241" oninput="updateColorFrom('rgb')"></div>
-                                <div class="color-field"><label>HSL</label><input type="text" id="colorHsl" value="239, 84%, 67%" oninput="updateColorFrom('hsl')"></div>
+                                <div class="color-field"><label>HEX</label><input type="text" id="colorHex" value="#6366f1" oninput="updateColorFrom('hex')" placeholder="#rrggbb"></div>
+                                <div class="color-field"><label>RGB</label><input type="text" id="colorRgb" value="99, 102, 241" oninput="updateColorFrom('rgb')" placeholder="r, g, b"></div>
+                                <div class="color-field"><label>HSL</label><input type="text" id="colorHsl" value="239, 84%, 67%" oninput="updateColorFrom('hsl')" placeholder="h, s%, l%"></div>
+                                <div class="color-field"><label>HSV</label><input type="text" id="colorHsv" value="239, 59%, 95%" oninput="updateColorFrom('hsv')" placeholder="h, s%, v%"></div>
+                                <div class="color-field"><label>CMYK</label><input type="text" id="colorCmyk" value="59%, 58%, 0%, 5%" oninput="updateColorFrom('cmyk')" placeholder="c%, m%, y%, k%"></div>
                             </div>
                         </div>
+                        <div class="color-copy-row">
+                            <button class="color-copy-btn" onclick="copyColorValue('hex')"><i class="fas fa-copy"></i> HEX</button>
+                            <button class="color-copy-btn" onclick="copyColorValue('rgb')"><i class="fas fa-copy"></i> RGB</button>
+                            <button class="color-copy-btn" onclick="copyColorValue('hsl')"><i class="fas fa-copy"></i> HSL</button>
+                            <button class="color-copy-btn" onclick="copyColorValue('hsv')"><i class="fas fa-copy"></i> HSV</button>
+                            <button class="color-copy-btn" onclick="copyColorValue('cmyk')"><i class="fas fa-copy"></i> CMYK</button>
+                        </div>
                     </div>
-                    <div class="color-tab-content" id="colorTabWheel">
-                        <div class="color-wheel-section">
+
+                    <!-- ── PICKER TAB ── -->
+                    <div class="color-tab-content" id="colorTabPicker">
+                        <!-- Wheel / Rectangle toggle -->
+                        <div class="picker-type-toggle">
+                            <button class="picker-type-btn active" id="pickerBtnWheel" onclick="setPickerType('wheel')"><i class="fas fa-circle-notch"></i> Wheel</button>
+                            <button class="picker-type-btn" id="pickerBtnRect" onclick="setPickerType('rect')"><i class="fas fa-square"></i> Rectangle</button>
+                        </div>
+
+                        <!-- Wheel wrapper -->
+                        <div class="color-wheel-section" id="pickerWheelSection">
                             <div class="color-wheel-wrap">
                                 <canvas id="colorWheel" width="240" height="240"></canvas>
                                 <div class="color-wheel-cursor" id="wheelCursor"></div>
@@ -1228,14 +1248,38 @@
                                 <label>Brightness</label>
                                 <input type="range" id="wheelBrightness" min="0" max="100" value="100" oninput="updateWheelBrightness()">
                             </div>
-                            <div style="margin-top:16px">
-                                <div class="color-input-section">
-                                    <div class="color-preview-box" id="colorPreviewWheel" style="background:#6366f1"></div>
-                                    <div class="color-inputs-grid">
-                                        <div class="color-field"><label>HEX</label><input type="text" id="colorHexWheel" value="#6366f1" readonly></div>
-                                        <div class="color-field"><label>RGB</label><input type="text" id="colorRgbWheel" value="99, 102, 241" readonly></div>
-                                    </div>
+                        </div>
+
+                        <!-- Rectangle (SV square + hue strip) wrapper -->
+                        <div class="color-rect-section hidden" id="pickerRectSection">
+                            <div class="color-rect-wrap">
+                                <canvas id="colorRectSV" width="240" height="200" class="color-rect-canvas"></canvas>
+                                <div class="color-rect-cursor" id="rectCursor"></div>
+                            </div>
+                            <div class="color-hue-wrap">
+                                <canvas id="colorHueStrip" width="240" height="18" class="color-hue-canvas"></canvas>
+                                <div class="color-hue-cursor" id="hueCursor"></div>
+                            </div>
+                        </div>
+
+                        <!-- Shared picker outputs -->
+                        <div class="picker-outputs">
+                            <div class="color-input-section">
+                                <div class="color-preview-swatch" id="colorPreviewPicker" style="background:#6366f1"></div>
+                                <div class="color-inputs-grid">
+                                    <div class="color-field"><label>HEX</label><input type="text" id="colorHexPicker" value="#6366f1" readonly></div>
+                                    <div class="color-field"><label>RGB</label><input type="text" id="colorRgbPicker" value="99, 102, 241" readonly></div>
+                                    <div class="color-field"><label>HSL</label><input type="text" id="colorHslPicker" value="239, 84%, 67%" readonly></div>
+                                    <div class="color-field"><label>HSV</label><input type="text" id="colorHsvPicker" value="239, 59%, 95%" readonly></div>
+                                    <div class="color-field"><label>CMYK</label><input type="text" id="colorCmykPicker" value="59%, 58%, 0%, 5%" readonly></div>
                                 </div>
+                            </div>
+                            <div class="color-copy-row">
+                                <button class="color-copy-btn" onclick="copyColorValue('hex', true)"><i class="fas fa-copy"></i> HEX</button>
+                                <button class="color-copy-btn" onclick="copyColorValue('rgb', true)"><i class="fas fa-copy"></i> RGB</button>
+                                <button class="color-copy-btn" onclick="copyColorValue('hsl', true)"><i class="fas fa-copy"></i> HSL</button>
+                                <button class="color-copy-btn" onclick="copyColorValue('hsv', true)"><i class="fas fa-copy"></i> HSV</button>
+                                <button class="color-copy-btn" onclick="copyColorValue('cmyk', true)"><i class="fas fa-copy"></i> CMYK</button>
                             </div>
                         </div>
                     </div>
