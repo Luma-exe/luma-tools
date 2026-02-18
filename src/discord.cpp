@@ -5,13 +5,28 @@
 
 #include "discord.h"
 
-static const string DISCORD_WEBHOOK =
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║                        DISCORD CONFIGURATION                            ║
+// ╠══════════════════════════════════════════════════════════════════════════╣
+// ║  WEBHOOK_URL  — paste your Discord webhook URL here.                    ║
+// ║                 Leave empty ("") to disable Discord logging entirely.   ║
+// ║                                                                         ║
+// ║  MASK_FILENAMES — true  = filenames are obfuscated in logs (default)    ║
+// ║                   false = filenames appear as-is                        ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+static const string WEBHOOK_URL =
     "https://discord.com/api/webhooks/1473500051878838472/"
     "5twIcm0QuHOhO_Uy78KyzYwBnnYXxr7T_2DtqjX9r3xczrQOvVSc7l1-2XmKt0lMLhrC";
+
+static constexpr bool MASK_FILENAMES = true;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Internal: fire-and-forget POST via curl ────────────────────────────────
 
 static void discord_send(const json& payload) {
+    if (WEBHOOK_URL.empty()) return;
     thread([payload]() {
         try {
             string tmp_dir = get_processing_dir();
@@ -23,7 +38,7 @@ static void discord_send(const json& payload) {
             }
 
             string cmd = "curl -s -X POST -H \"Content-Type: application/json\" -d @" +
-                escape_arg(tmp) + " " + escape_arg(DISCORD_WEBHOOK);
+                escape_arg(tmp) + " " + escape_arg(WEBHOOK_URL);
             int code;
             exec_command(cmd, code);
             try { fs::remove(tmp); } catch (...) {}
@@ -49,18 +64,73 @@ static string iso_now() {
 
 // ─── Filename masking ────────────────────────────────────────────────────────
 
-// Shows first 3 chars of the stem, masks the rest with *, keeps the extension.
-// e.g. "document.pdf" -> "doc******.pdf",  "ab.jpg" -> "ab*.jpg"
+// Masks a filename preserving word boundaries.
+// Each word > 3 chars: shows first 3 chars, replaces the rest with * (count
+//   jittered by ±rand(1-7) so the original length can't be inferred).
+// Each word ≤ 3 chars: replaced entirely with rand(1-7) stars (too short to
+//   safely reveal any characters).
+// Spaces between words are kept but their count is randomly 1-3.
+// Extension is always preserved unchanged.
+//
+// e.g. "Luma GTA 5 Intro.mp4"  →  "Lum*  ***  *  ******.mp4"  (one possible output)
 string mask_filename(const string& filename) {
+    if (!MASK_FILENAMES) return filename;
     fs::path p(filename);
     string stem = p.stem().string();
     string ext  = p.extension().string();
 
     if (stem.empty()) return filename;
 
-    size_t visible = (stem.size() < 3) ? stem.size() : 3;
-    string masked  = stem.substr(0, visible) + string(stem.size() - visible, '*');
-    return masked + ext;
+    // Per-call RNG — intentionally non-deterministic so repeated uploads of
+    // the same file produce different masks.
+    static std::mt19937 rng(std::random_device{}());
+    auto rand_int = [&](int lo, int hi) -> int {
+        return std::uniform_int_distribution<int>(lo, hi)(rng);
+    };
+
+    // Split stem on spaces into words.
+    vector<string> words;
+    string buf;
+
+    for (char c : stem) {
+        if (c == ' ') {
+            if (!buf.empty()) {
+                words.push_back(buf);
+                buf.clear();
+            }
+        } else {
+            buf += c;
+        }
+    }
+
+    if (!buf.empty()) words.push_back(buf);
+
+    string result;
+
+    for (size_t i = 0; i < words.size(); i++) {
+        const string& word = words[i];
+        string masked_word;
+
+        if ((int)word.size() <= 3) {
+            // Short word: replace entirety with 1-7 random stars.
+            masked_word = string(rand_int(1, 7), '*');
+        } else {
+            // Longer word: reveal first 3 chars, mask remainder with jitter.
+            int hidden  = (int)word.size() - 3;
+            int jitter  = rand_int(-min(hidden - 1, 3), 7);
+            int stars   = max(1, hidden + jitter);
+            masked_word = word.substr(0, 3) + string(stars, '*');
+        }
+
+        result += masked_word;
+
+        if (i + 1 < words.size()) {
+            // Space count between words: randomly 1-3.
+            result += string(rand_int(1, 3), ' ');
+        }
+    }
+
+    return result + ext;
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -86,7 +156,8 @@ void discord_log_download(const string& title, const string& platform, const str
 }
 
 void discord_log_tool(const string& tool_name, const string& filename) {
-    string desc = "**Tool:** " + tool_name + "\n**File:** " + mask_filename(filename);
+    string display = MASK_FILENAMES ? mask_filename(filename) : filename;
+    string desc = "**Tool:** " + tool_name + "\n**File:** " + display;
     discord_log("\xF0\x9F\x94\xA7 Tool Used", desc, 0x2ECC71);  // green
 }
 

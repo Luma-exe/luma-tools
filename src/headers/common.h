@@ -21,6 +21,8 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <random>
+#include <vector>
 #include <set>
 
 // ─── Type aliases & namespace shortcuts ─────────────────────────────────────
