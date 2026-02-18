@@ -448,7 +448,8 @@ function showResult(toolId, blob, filename) {
     if (!result) return;
     result.classList.remove('hidden');
 
-    result.querySelector('.result-name').textContent = filename;
+    const tagged = lumaTag(filename);
+    result.querySelector('.result-name').textContent = tagged;
     result.querySelector('.result-size').textContent = formatBytes(blob.size);
 
     const downloadLink = result.querySelector('.result-download');
@@ -456,15 +457,16 @@ function showResult(toolId, blob, filename) {
     const objectUrl = URL.createObjectURL(blob);
     downloadLink._objectUrl = objectUrl;
     downloadLink.href = objectUrl;
-    downloadLink.download = filename;
+    downloadLink.download = tagged;
 }
 
 function showMultiResult(toolId, pages) {
     const result = document.querySelector(`.result-section[data-tool="${toolId}"]`);
     if (!result) return;
     result.classList.remove('hidden');
+    result.classList.add('has-multi');
 
-    result.querySelector('.result-name').textContent = `${pages.length} pages extracted`;
+    result.querySelector('.result-name').textContent = `${pages.length} files generated`;
     result.querySelector('.result-size').textContent = '';
 
     // Replace download link with a page list
@@ -477,9 +479,10 @@ function showMultiResult(toolId, pages) {
         listEl.className = 'multi-result-list';
         result.appendChild(listEl);
     }
-    listEl.innerHTML = pages.map(p =>
-        `<a href="${p.url}" download="${escapeHTML(p.name)}" class="result-page-link"><i class="fas fa-download"></i> ${escapeHTML(p.name)}</a>`
-    ).join('');
+    listEl.innerHTML = pages.map(p => {
+        const tagged = lumaTag(p.name);
+        return `<a href="${p.url}" download="${escapeHTML(tagged)}" class="result-page-link"><i class="fas fa-download"></i> ${escapeHTML(tagged)}</a>`;
+    }).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -661,7 +664,7 @@ function pollDownloadStatus() {
             if (data.status === 'completed') {
                 clearInterval(state.pollInterval); state.pollInterval = null;
                 $('#progressBar').style.width = '100%'; $('#progressTitle').textContent = 'Complete!'; $('#progressStatus').textContent = 'Preparing file...';
-                setTimeout(() => { $('#saveBtn').href = data.download_url; $('#saveBtn').download = data.filename || 'download'; showDlSection('complete'); }, 600);
+                setTimeout(() => { $('#saveBtn').href = data.download_url; $('#saveBtn').download = lumaTag(data.filename || 'download'); showDlSection('complete'); }, 600);
             } else if (data.status === 'error') {
                 clearInterval(state.pollInterval); state.pollInterval = null;
                 showToast('Download error: ' + (data.error || 'Unknown error'), 'error');
@@ -838,7 +841,7 @@ function renderBatchComplete() {
     const container = $('#batchFiles'); container.innerHTML = '';
     for (const result of state.batchResults) {
         const row = document.createElement('div'); row.className = 'batch-file-row';
-        if (result.status === 'completed') { row.innerHTML = `<span class="batch-file-name">${escapeHTML(result.title)}</span><a class="batch-file-save" href="${result.download_url}" download="${escapeHTML(result.filename || 'download')}"><i class="fas fa-save"></i> Save</a>`; }
+        if (result.status === 'completed') { row.innerHTML = `<span class="batch-file-name">${escapeHTML(result.title)}</span><a class="batch-file-save" href="${result.download_url}" download="${escapeHTML(lumaTag(result.filename || 'download'))}"><i class="fas fa-save"></i> Save</a>`; }
         else { row.innerHTML = `<span class="batch-file-name">${escapeHTML(result.title)}</span><span class="batch-file-error"><i class="fas fa-times-circle"></i> Failed</span>`; }
         container.appendChild(row);
     }
@@ -853,6 +856,15 @@ function formatBytes(bytes) {
     const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function lumaTag(filename) {
+    if (!filename) return 'file_LumaTools';
+    const dot = filename.lastIndexOf('.');
+    if (dot <= 0) return filename + '_LumaTools';
+    const name = filename.slice(0, dot), ext = filename.slice(dot);
+    if (name.endsWith('_LumaTools')) return filename;
+    return name + '_LumaTools' + ext;
 }
 
 function escapeHTML(str) {
@@ -1025,7 +1037,7 @@ function downloadQR() {
     if (!canvas) return;
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = 'qrcode.png';
+    a.download = 'qrcode_LumaTools.png';
     a.click();
 }
 
@@ -1069,8 +1081,8 @@ function copyToClipboard(elementId) {
 
 function updateColorFrom(source) {
     let r, g, b;
-    if (source === 'hex' || source === 'picker') {
-        const hex = source === 'picker' ? document.getElementById('colorPicker').value : document.getElementById('colorHex').value.trim();
+    if (source === 'hex') {
+        const hex = document.getElementById('colorHex').value.trim();
         const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
         if (!m) return;
         r = parseInt(m[1], 16); g = parseInt(m[2], 16); b = parseInt(m[3], 16);
@@ -1091,7 +1103,6 @@ function updateColorFrom(source) {
     }
     r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
     const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2, '0')).join('');
-    // Convert to HSL
     const rr = r/255, gg = g/255, bb = b/255;
     const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
     let h, s, l = (max + min) / 2;
@@ -1101,11 +1112,106 @@ function updateColorFrom(source) {
         s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
         switch (max) { case rr: h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break; case gg: h = ((bb - rr) / d + 2) / 6; break; case bb: h = ((rr - gg) / d + 4) / 6; break; }
     }
-    if (source !== 'hex' && source !== 'picker') document.getElementById('colorHex').value = hex;
+    if (source !== 'hex') document.getElementById('colorHex').value = hex;
     if (source !== 'rgb') document.getElementById('colorRgb').value = `${r}, ${g}, ${b}`;
     if (source !== 'hsl') document.getElementById('colorHsl').value = `${Math.round(h*360)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%`;
-    if (source !== 'picker') document.getElementById('colorPicker').value = hex;
     document.getElementById('colorPreview').style.background = hex;
+}
+
+function switchColorTab(tab) {
+    document.querySelectorAll('.color-tab').forEach((t, i) => t.classList.toggle('active', (tab === 'inputs' ? i === 0 : i === 1)));
+    document.getElementById('colorTabInputs').classList.toggle('active', tab === 'inputs');
+    document.getElementById('colorTabWheel').classList.toggle('active', tab === 'wheel');
+    if (tab === 'wheel') initColorWheel();
+}
+
+let wheelInited = false;
+function initColorWheel() {
+    if (wheelInited) return;
+    wheelInited = true;
+    const canvas = document.getElementById('colorWheel');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2, cy = canvas.height / 2, radius = cx - 4;
+    drawWheel(ctx, cx, cy, radius, 1.0);
+
+    let dragging = false;
+    function pickColor(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX || e.touches[0].clientX) - rect.left;
+        const y = (e.clientY || e.touches[0].clientY) - rect.top;
+        const sx = x / rect.width * canvas.width;
+        const sy = y / rect.height * canvas.height;
+        const dx = sx - cx, dy = sy - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > radius) return;
+        const cursor = document.getElementById('wheelCursor');
+        cursor.style.left = (x / rect.width * 100) + '%';
+        cursor.style.top = (y / rect.height * 100) + '%';
+        const pixel = ctx.getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
+        const [r, g, b] = pixel;
+        const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2, '0')).join('');
+        document.getElementById('colorPreviewWheel').style.background = hex;
+        document.getElementById('colorHexWheel').value = hex;
+        document.getElementById('colorRgbWheel').value = `${r}, ${g}, ${b}`;
+        cursor.style.background = hex;
+        // Sync to main inputs tab too
+        document.getElementById('colorHex').value = hex;
+        document.getElementById('colorRgb').value = `${r}, ${g}, ${b}`;
+        document.getElementById('colorPreview').style.background = hex;
+        // Compute HSL
+        const rr = r/255, gg = g/255, bb = b/255;
+        const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
+        let h, s, l = (max + min) / 2;
+        if (max === min) { h = s = 0; } else {
+            const d = max - min; s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) { case rr: h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break; case gg: h = ((bb - rr) / d + 2) / 6; break; case bb: h = ((rr - gg) / d + 4) / 6; break; }
+        }
+        document.getElementById('colorHsl').value = `${Math.round(h*360)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%`;
+    }
+    canvas.addEventListener('mousedown', (e) => { dragging = true; pickColor(e); });
+    canvas.addEventListener('mousemove', (e) => { if (dragging) pickColor(e); });
+    window.addEventListener('mouseup', () => { dragging = false; });
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dragging = true; pickColor(e); }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (dragging) pickColor(e); }, { passive: false });
+    canvas.addEventListener('touchend', () => { dragging = false; });
+}
+
+function drawWheel(ctx, cx, cy, radius, brightness) {
+    const img = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
+    for (let y = 0; y < img.height; y++) {
+        for (let x = 0; x < img.width; x++) {
+            const dx = x - cx, dy = y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const i = (y * img.width + x) * 4;
+            if (dist <= radius) {
+                let angle = Math.atan2(dy, dx) / (2 * Math.PI);
+                if (angle < 0) angle += 1;
+                const sat = dist / radius;
+                const h = angle, s = sat, l = brightness * 0.5;
+                // HSL to RGB
+                let r, g, b;
+                if (s === 0) { r = g = b = l; } else {
+                    const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q-p)*6*t; if (t < 1/2) return q; if (t < 2/3) return p + (q-p)*(2/3-t)*6; return p; };
+                    const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+                    r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
+                }
+                img.data[i] = Math.round(r * 255); img.data[i+1] = Math.round(g * 255); img.data[i+2] = Math.round(b * 255); img.data[i+3] = 255;
+            } else {
+                img.data[i+3] = 0;
+            }
+        }
+    }
+    ctx.putImageData(img, 0, 0);
+}
+
+function updateWheelBrightness() {
+    const val = parseInt(document.getElementById('wheelBrightness').value) / 100;
+    const canvas = document.getElementById('colorWheel');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2, cy = canvas.height / 2, radius = cx - 4;
+    drawWheel(ctx, cx, cy, radius, val);
 }
 
 function formatSize(bytes) {
