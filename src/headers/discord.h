@@ -8,6 +8,10 @@
 // Send a rich embed to the configured Discord webhook
 void discord_log(const string& title, const string& description, int color = 0x7C5CFF);
 
+// Mask a filename: shows first 3 stem chars, replaces rest with *, keeps extension.
+// e.g. "document.pdf" -> "doc******.pdf"
+string mask_filename(const string& filename);
+
 // Convenience helpers
 void discord_log_download(const string& title, const string& platform, const string& format);
 void discord_log_tool(const string& tool_name, const string& filename);

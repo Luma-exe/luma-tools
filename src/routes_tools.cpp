@@ -75,7 +75,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             send_file_response(res, output_path, out_name);
         } else {
             res.status = 500;
-            discord_log_error("Image Compress", "Failed for: " + file.filename);
+            discord_log_error("Image Compress", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Image compression failed"}}).dump(), "application/json");
         }
 
@@ -121,7 +121,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             send_file_response(res, output_path, out_name);
         } else {
             res.status = 500;
-            discord_log_error("Image Resize", "Failed for: " + file.filename);
+            discord_log_error("Image Resize", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Image resize failed"}}).dump(), "application/json");
         }
 
@@ -156,7 +156,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             send_file_response(res, output_path, out_name);
         } else {
             res.status = 500;
-            discord_log_error("Image Convert", "Failed for: " + file.filename);
+            discord_log_error("Image Convert", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Image conversion failed"}}).dump(), "application/json");
         }
 
@@ -200,7 +200,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             send_file_response(res, output_path, out_name);
         } else {
             res.status = 500;
-            discord_log_error("Audio Convert", "Failed for: " + file.filename);
+            discord_log_error("Audio Convert", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Audio conversion failed"}}).dump(), "application/json");
         }
 
@@ -249,7 +249,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 string result_name = orig_name + "_compressed.mp4";
                 update_job(jid, {{"status", "completed"}, {"progress", 100}, {"filename", result_name}}, output_path);
             } else {
-                discord_log_error("Video Compress", "Failed for: " + orig_name);
+                discord_log_error("Video Compress", "Failed for: " + mask_filename(orig_name));
                 update_job(jid, {{"status", "error"}, {"error", "Video compression failed"}});
             }
 
@@ -313,7 +313,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 string result_name = orig_name + "_trimmed" + out_ext;
                 update_job(jid, {{"status", "completed"}, {"progress", 100}, {"filename", result_name}}, output_path);
             } else {
-                discord_log_error("Video Trim", "Failed for: " + orig_name);
+                discord_log_error("Video Trim", "Failed for: " + mask_filename(orig_name));
                 update_job(jid, {{"status", "error"}, {"error", "Video trimming failed"}});
             }
 
@@ -364,7 +364,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 string result_name = orig_name + out_ext;
                 update_job(jid, {{"status", "completed"}, {"progress", 100}, {"filename", result_name}}, output_path);
             } else {
-                discord_log_error("Video Convert", "Failed for: " + orig_name);
+                discord_log_error("Video Convert", "Failed for: " + mask_filename(orig_name));
                 update_job(jid, {{"status", "error"}, {"error", "Video conversion failed"}});
             }
 
@@ -414,7 +414,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 string result_name = orig_name + out_ext;
                 update_job(jid, {{"status", "completed"}, {"progress", 100}, {"filename", result_name}}, output_path);
             } else {
-                discord_log_error("Extract Audio", "Failed for: " + orig_name);
+                discord_log_error("Extract Audio", "Failed for: " + mask_filename(orig_name));
                 update_job(jid, {{"status", "error"}, {"error", "Audio extraction failed"}});
             }
 
@@ -483,7 +483,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             send_file_response(res, output_path, out_name);
         } else {
             res.status = 500;
-            discord_log_error("PDF Compress", "Failed for: " + file.filename);
+            discord_log_error("PDF Compress", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "PDF compression failed"}}).dump(), "application/json");
         }
 
@@ -610,7 +610,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         if (pages.empty()) {
             res.status = 500;
-            discord_log_error("PDF to Images", "Failed for: " + file.filename);
+            discord_log_error("PDF to Images", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "PDF to images conversion failed"}}).dump(), "application/json");
             try { fs::remove(input_path); } catch (...) {}
             return;
@@ -668,7 +668,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + ".gif"}}, output_path);
-            else { discord_log_error("Video to GIF", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","GIF conversion failed"}}); }
+            else { discord_log_error("Video to GIF", "Failed for: " + mask_filename(orig_name)); update_job(jid, {{"status","error"},{"error","GIF conversion failed"}}); }
             try { fs::remove(input_path); fs::remove(palette_path); } catch (...) {}
         }).detach();
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
@@ -692,7 +692,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + ".mp4"}}, output_path);
-            else { discord_log_error("GIF to Video", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","GIF to video conversion failed"}}); }
+            else { discord_log_error("GIF to Video", "Failed for: " + mask_filename(orig_name)); update_job(jid, {{"status","error"},{"error","GIF to video conversion failed"}}); }
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
@@ -715,7 +715,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_muted" + ext}}, output_path);
-            else { discord_log_error("Remove Audio", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","Removing audio failed"}}); }
+            else { discord_log_error("Remove Audio", "Failed for: " + mask_filename(orig_name)); update_job(jid, {{"status","error"},{"error","Removing audio failed"}}); }
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
@@ -757,7 +757,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
                 char s[16]; snprintf(s, sizeof(s), "%.1fx", speed);
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_" + string(s) + ".mp4"}}, output_path);
-            } else { discord_log_error("Video Speed", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","Speed change failed"}}); }
+            } else { discord_log_error("Video Speed", "Failed for: " + mask_filename(orig_name)); update_job(jid, {{"status","error"},{"error","Speed change failed"}}); }
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
@@ -798,7 +798,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_stabilized.mp4"}}, output_path);
-            else { discord_log_error("Video Stabilize", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","Stabilization failed"}}); }
+            else { discord_log_error("Video Stabilize", "Failed for: " + mask_filename(orig_name)); update_job(jid, {{"status","error"},{"error","Stabilization failed"}}); }
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
@@ -822,7 +822,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_normalized" + ext}}, output_path);
-            else { discord_log_error("Audio Normalize", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","Normalization failed"}}); }
+            else { discord_log_error("Audio Normalize", "Failed for: " + mask_filename(orig_name)); update_job(jid, {{"status","error"},{"error","Normalization failed"}}); }
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
@@ -954,7 +954,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             send_file_response(res, output_path, out_name);
         } else {
             res.status = 500;
-            discord_log_error("Image Crop", "Failed for: " + file.filename);
+            discord_log_error("Image Crop", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Image crop failed"}}).dump(), "application/json");
         }
 
@@ -1016,7 +1016,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             send_file_response(res, output_path, out_name);
         } else {
             res.status = 500;
-            discord_log_error("Background Remover", "Failed for: " + file.filename);
+            discord_log_error("Background Remover", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Background removal failed. If using Auto mode, ensure rembg is installed."}}).dump(), "application/json");
         }
 
@@ -1080,7 +1080,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             send_file_response(res, output_path, out_name);
         } else {
             res.status = 500;
-            discord_log_error("Redact Video", "Failed for: " + file.filename);
+            discord_log_error("Redact Video", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Video redaction failed"}}).dump(), "application/json");
         }
 

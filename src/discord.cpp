@@ -47,6 +47,22 @@ static string iso_now() {
     return string(buf);
 }
 
+// ─── Filename masking ────────────────────────────────────────────────────────
+
+// Shows first 3 chars of the stem, masks the rest with *, keeps the extension.
+// e.g. "document.pdf" -> "doc******.pdf",  "ab.jpg" -> "ab*.jpg"
+string mask_filename(const string& filename) {
+    fs::path p(filename);
+    string stem = p.stem().string();
+    string ext  = p.extension().string();
+
+    if (stem.empty()) return filename;
+
+    size_t visible = (stem.size() < 3) ? stem.size() : 3;
+    string masked  = stem.substr(0, visible) + string(stem.size() - visible, '*');
+    return masked + ext;
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 void discord_log(const string& title, const string& description, int color) {
@@ -70,11 +86,13 @@ void discord_log_download(const string& title, const string& platform, const str
 }
 
 void discord_log_tool(const string& tool_name, const string& filename) {
-    string desc = "**Tool:** " + tool_name + "\n**File:** " + filename;
+    string desc = "**Tool:** " + tool_name + "\n**File:** " + mask_filename(filename);
     discord_log("\xF0\x9F\x94\xA7 Tool Used", desc, 0x2ECC71);  // green
 }
 
 void discord_log_error(const string& context, const string& error) {
+    // Mask any filename-looking token in the error string (best-effort)
+    // The raw error is preserved for context; callers passing filenames go through mask_filename.
     string desc = "**Context:** " + context + "\n**Error:** " + error;
     discord_log("\xE2\x9D\x8C Error", desc, 0xE74C3C);  // red
 }
