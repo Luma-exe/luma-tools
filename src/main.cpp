@@ -43,6 +43,10 @@ int main() {
         if (!search.empty() && fs::exists(search / ".git")) {
             string git_dir = search.string();
             int rc;
+
+            // Auto-add safe.directory so git works under NSSM/SYSTEM user
+            exec_command("git config --global --add safe.directory " + escape_arg(git_dir), rc);
+
             string commit = exec_command("git -C " + escape_arg(git_dir) + " rev-parse --short HEAD", rc);
             commit.erase(std::remove(commit.begin(), commit.end(), '\n'), commit.end());
             commit.erase(std::remove(commit.begin(), commit.end(), '\r'), commit.end());

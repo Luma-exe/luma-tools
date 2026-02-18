@@ -920,10 +920,71 @@ body {
     .sidebar.open { transform: translateX(0); }
     .sidebar-overlay.open { display: block; }
     .mobile-header { display: flex; }
-    .main-content { margin-left: 0; padding: 72px 16px 16px; }
+    .main-content { margin-left: 0; padding: 72px 12px 12px; }
     .tool-header h2 { font-size: 1.2rem; }
     .thumbnail-container { width: 140px; min-width: 140px; }
     .preset-grid { flex-direction: column; }
     .time-inputs { flex-direction: column; }
     .time-arrow { transform: rotate(90deg); margin: 0; }
+
+    /* Performance: reduce blur on mobile */
+    .sidebar { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .mobile-header { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .tool-body { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(18, 18, 30, 0.85); }
+    .gradient-orb { animation-duration: 30s; opacity: 0.25; }
+
+    /* Touch-friendly sizing (min 44px targets) */
+    .nav-item { padding: 12px 12px; min-height: 44px; }
+    .fmt-btn { padding: 10px 16px; min-height: 44px; }
+    .preset-btn { padding: 14px 8px; min-height: 44px; }
+    .quality-chip { padding: 8px 16px; min-height: 40px; }
+    .process-btn { padding: 16px 24px; min-height: 48px; }
+    .download-btn { padding: 16px 24px; min-height: 48px; }
+    .analyze-btn { padding: 12px 16px; min-height: 44px; }
+
+    /* Fix URL input bar overflow */
+    .input-wrapper { flex-wrap: nowrap; }
+    #urlInput { font-size: 0.8rem; min-width: 0; }
+    .analyze-btn span { display: none; }
+    .analyze-btn i { margin: 0; }
+
+    /* Format tabs responsive */
+    .format-tabs { gap: 6px; }
+    .format-tab { padding: 10px 8px; min-width: 70px; }
+    .format-tab small { display: none; }
+
+    /* Result section stack on mobile */
+    .result-section { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .result-download { width: 100%; justify-content: center; }
+
+    /* File preview responsive */
+    .file-preview { flex-wrap: wrap; gap: 8px; }
+    .file-name { font-size: 0.8rem; }
+
+    /* Media preview stack */
+    .media-preview { flex-direction: column; }
+    .thumbnail-container { width: 100%; min-width: unset; max-width: 200px; }
+
+    /* Playlist items touch targets */
+    .playlist-item { padding: 10px 12px; min-height: 44px; }
+
+    /* Ko-fi button: smaller on mobile, don't overlap toast */
+    .kofi-float { bottom: 16px; right: 16px; height: 40px; padding: 0 12px; }
+    .kofi-icon { font-size: 16px; }
+    .toast { bottom: 70px; right: 16px; left: 16px; }
+
+    /* Footer */
+    .footer { padding: 12px 8px; font-size: 0.7rem; }
+    .footer-kofi { font-size: 0.68rem; }
+
+    /* Slider: bigger thumb for touch */
+    .quality-slider::-webkit-slider-thumb { width: 24px; height: 24px; }
+    .quality-slider::-moz-range-thumb { width: 24px; height: 24px; }
+
+    /* Remove tap highlight */
+    * { -webkit-tap-highlight-color: transparent; }
+
+    /* Upload zone bigger touch area */
+    .upload-zone { padding: 32px 16px; }
+    .upload-zone-content i { font-size: 2rem; }
 }

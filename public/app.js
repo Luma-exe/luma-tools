@@ -49,6 +49,10 @@ function toggleSidebar(forceState) {
     const isOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
     sidebar.classList.toggle('open', isOpen);
     overlay.classList.toggle('open', isOpen);
+    // Prevent body scroll when sidebar is open on mobile
+    if (window.innerWidth <= 768) {
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -956,7 +960,10 @@ function initParticles() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     let width, height;
-    const particles = [], COUNT = 50;
+    const particles = [];
+    const isMobile = window.innerWidth <= 768;
+    const COUNT = isMobile ? 20 : 50;
+    const CONNECT_DIST = isMobile ? 100 : 150;
 
     function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
     function create() { return { x: Math.random() * width, y: Math.random() * height, vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3, size: Math.random() * 2 + 0.5, alpha: Math.random() * 0.3 + 0.05 }; }
@@ -974,9 +981,9 @@ function initParticles() {
             for (let j = i + 1; j < particles.length; j++) {
                 const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 150) {
+                if (dist < CONNECT_DIST) {
                     ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
-                    ctx.strokeStyle = `rgba(124, 92, 255, ${0.05 * (1 - dist / 150)})`; ctx.lineWidth = 0.5; ctx.stroke();
+                    ctx.strokeStyle = `rgba(124, 92, 255, ${0.05 * (1 - dist / CONNECT_DIST)})`; ctx.lineWidth = 0.5; ctx.stroke();
                 }
             }
         }
@@ -990,6 +997,40 @@ function initParticles() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MOBILE SWIPE SUPPORT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initMobileSwipe() {
+    if (window.innerWidth > 768) return;
+
+    let touchStartX = 0, touchStartY = 0, swiping = false;
+    const SWIPE_THRESHOLD = 50;
+    const EDGE_ZONE = 30; // px from left edge to trigger open
+
+    // Swipe right from left edge to open sidebar
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        swiping = touchStartX < EDGE_ZONE || $('#sidebar').classList.contains('open');
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        if (!swiping) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        // Only trigger if horizontal swipe (not vertical scroll)
+        if (dy > Math.abs(dx)) return;
+        const sidebar = $('#sidebar');
+        if (dx > SWIPE_THRESHOLD && !sidebar.classList.contains('open') && touchStartX < EDGE_ZONE) {
+            toggleSidebar(true);
+        } else if (dx < -SWIPE_THRESHOLD && sidebar.classList.contains('open')) {
+            toggleSidebar(false);
+        }
+        swiping = false;
+    }, { passive: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -998,6 +1039,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initUploadZones();
     initDownloader();
     checkServerHealth();
+    initMobileSwipe();
 
     // Initialize default output formats and presets
     document.querySelectorAll('.format-select-grid').forEach(grid => {
