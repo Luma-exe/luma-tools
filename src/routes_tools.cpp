@@ -939,6 +939,60 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
+    // ── POST /api/tools/redact-video ─────────────────────────────────────
+    svr.Post("/api/tools/redact-video", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        string regions_json = req.has_file("regions") ? req.get_file_value("regions").content : "";
+        if (regions_json.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "No redaction regions provided"}}).dump(), "application/json");
+            return;
+        }
+        json regions;
+        try { regions = json::parse(regions_json); } catch (...) {
+            res.status = 400;
+            res.set_content(json({{"error", "Invalid regions JSON"}}).dump(), "application/json");
+            return;
+        }
+        discord_log_tool("Redact Video", file.filename);
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string ext = fs::path(file.filename).extension().string();
+        string output_path = get_processing_dir() + "/" + jid + "_redacted" + ext;
+        // Build FFmpeg filter string
+        vector<string> filters;
+        for (const auto& reg : regions) {
+            int x = reg.value("x", 0), y = reg.value("y", 0), w = reg.value("w", 0), h = reg.value("h", 0);
+            string type = reg.value("type", "box");
+            if (w < 8 || h < 8) continue;
+            if (type == "box") {
+                filters.push_back("drawbox=x=" + to_string(x) + ":y=" + to_string(y) + ":w=" + to_string(w) + ":h=" + to_string(h) + ":color=black@1:t=fill");
+            } else if (type == "blur") {
+                filters.push_back("boxblur=enable='between(t,0,1)',luma_radius=20:luma_power=1:chroma_radius=10:chroma_power=1, crop=x=" + to_string(x) + ":y=" + to_string(y) + ":w=" + to_string(w) + ":h=" + to_string(h));
+            }
+        }
+        string vf = join(filters, ",");
+        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path);
+        if (!vf.empty()) cmd += " -vf \"" + vf + "\"";
+        cmd += " " + escape_arg(output_path);
+        cout << "[Luma Tools] Redact video: " << cmd << endl;
+        int code; exec_command(cmd, code);
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            string out_name = fs::path(file.filename).stem().string() + "_redacted" + ext;
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            discord_log_error("Redact Video", "Failed for: " + file.filename);
+            res.set_content(json({{"error", "Video redaction failed"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
     // ── POST /api/tools/images-to-pdf ───────────────────────────────────────
     svr.Post("/api/tools/images-to-pdf", [](const httplib::Request& req, httplib::Response& res) {
         int count_val = 0;

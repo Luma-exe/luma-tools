@@ -169,6 +169,232 @@ function handleFileSelect(toolId, file) {
 
     // If this is the crop tool, initialize the crop canvas
     if (toolId === 'image-crop') initCropCanvas(file);
+    if (toolId === 'redact') initRedactCanvas(file);
+
+    // Audio/video waveform tools
+    if (toolId === 'audio-convert') initWaveform('audio-convert', file);
+    if (toolId === 'video-extract-audio') initWaveform('video-extract-audio', file);
+    if (toolId === 'video-trim') initWaveform('video-trim', file);
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO/VIDEO WAVEFORM VISUALIZATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+let waveSurfers = {};
+let trimRegion = null;
+
+function initWaveform(toolId, file) {
+    // Clean up previous
+    if (waveSurfers[toolId]) { waveSurfers[toolId].destroy(); waveSurfers[toolId] = null; }
+    let wrap, el;
+    if (toolId === 'audio-convert') {
+        wrap = $('#waveform-audio-convert'); el = $('#waveformAudioConvert');
+    } else if (toolId === 'video-extract-audio') {
+        wrap = $('#waveform-video-extract-audio'); el = $('#waveformVideoExtract');
+    } else if (toolId === 'video-trim') {
+        wrap = $('#waveform-video-trim'); el = $('#waveformVideoTrim');
+    }
+    if (!wrap || !el) return;
+    wrap.style.display = '';
+    el.innerHTML = '';
+    const ws = WaveSurfer.create({
+        container: el,
+        waveColor: '#7c5cff',
+        progressColor: '#6366f1',
+        height: 64,
+        barWidth: 2,
+        barGap: 1,
+        responsive: true,
+        cursorColor: '#222',
+        backend: 'webaudio',
+    });
+    waveSurfers[toolId] = ws;
+    ws.loadBlob(file);
+    if (toolId === 'video-trim') {
+        ws.on('ready', () => {
+            // Add region selection
+            if (trimRegion) trimRegion.remove();
+            trimRegion = ws.addRegion({ start: 0, end: ws.getDuration(), color: 'rgba(124,92,255,0.2)' });
+            $('#waveformTrimStart').textContent = '00:00';
+            $('#waveformTrimEnd').textContent = formatTime(ws.getDuration());
+            trimRegion.on('update-end', () => {
+                $('#trimStart').value = formatTime(trimRegion.start);
+                $('#trimEnd').value = formatTime(trimRegion.end);
+                $('#waveformTrimStart').textContent = formatTime(trimRegion.start);
+                $('#waveformTrimEnd').textContent = formatTime(trimRegion.end);
+            });
+        });
+    }
+    ws.on('error', err => { wrap.style.display = 'none'; });
+}
+
+function formatTime(sec) {
+    sec = Math.max(0, sec);
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+    return (h>0?String(h).padStart(2,'0')+':':'') + String(m).padStart(2,'0')+':' + String(s.toFixed(2)).padStart(5,'0');
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// PRIVACY REDACTION TOOL
+// ═══════════════════════════════════════════════════════════════════════════
+
+let redactImg = null;
+let redactVideo = null;
+let redactRegions = [];
+let redactMode = 'box'; // 'box' or 'blur'
+
+function initRedactCanvas(file) {
+    const wrap = $('#redactCanvasWrap');
+    const canvas = $('#redactCanvas');
+    if (!wrap || !canvas) return;
+    wrap.classList.remove('hidden');
+    redactRegions = [];
+    // Reset tool buttons
+    $('#redactBoxBtn')?.classList.add('active');
+    $('#redactBlurBtn')?.classList.remove('active');
+    redactMode = 'box';
+    // Image or video?
+    if (file.type.startsWith('image/')) {
+        const img = new Image();
+        img.onload = () => {
+            redactImg = img;
+            canvas.width = img.width;
+            canvas.height = img.height;
+            drawRedactCanvas();
+            initRedactDraw(canvas);
+        };
+        img.src = URL.createObjectURL(file);
+    } else if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.preload = 'auto';
+        video.src = URL.createObjectURL(file);
+        video.currentTime = 0;
+        video.onloadeddata = () => {
+            redactVideo = video;
+            // Draw first frame
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            drawRedactCanvas();
+            initRedactDraw(canvas);
+        };
+    }
+}
+
+function drawRedactCanvas() {
+    const canvas = $('#redactCanvas');
+    const ctx = canvas.getContext('2d');
+    // Draw base image/video frame
+    if (redactImg) ctx.drawImage(redactImg, 0, 0, canvas.width, canvas.height);
+    else if (redactVideo) ctx.drawImage(redactVideo, 0, 0, canvas.width, canvas.height);
+    // Draw all regions
+    for (const reg of redactRegions) {
+        if (reg.type === 'box') {
+            ctx.save();
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = '#111';
+            ctx.fillRect(reg.x, reg.y, reg.w, reg.h);
+            ctx.restore();
+        } else if (reg.type === 'blur') {
+            // Simple blur: get region, draw blurred
+            try {
+                const imgData = ctx.getImageData(reg.x, reg.y, reg.w, reg.h);
+                const blurred = blurImageData(imgData, 8);
+                ctx.putImageData(blurred, reg.x, reg.y);
+            } catch {}
+        }
+    }
+}
+
+function initRedactDraw(canvas) {
+    let drawing = false, startX, startY;
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
+        const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
+        return { x: Math.max(0, Math.min(canvas.width, x)), y: Math.max(0, Math.min(canvas.height, y)) };
+    }
+    function onStart(e) {
+        e.preventDefault();
+        drawing = true;
+        const p = getPos(e);
+        startX = p.x; startY = p.y;
+    }
+    function onMove(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        const p = getPos(e);
+        drawRedactCanvas();
+        // Draw preview rect
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.strokeStyle = redactMode === 'box' ? '#111' : '#7c5cff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(startX, startY, p.x - startX, p.y - startY);
+        ctx.restore();
+    }
+    function onEnd(e) {
+        if (!drawing) return;
+        drawing = false;
+        const p = getPos(e);
+        let x = Math.min(startX, p.x), y = Math.min(startY, p.y);
+        let w = Math.abs(p.x - startX), h = Math.abs(p.y - startY);
+        if (w < 8 || h < 8) return; // Ignore tiny
+        redactRegions.push({ type: redactMode, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
+        drawRedactCanvas();
+    }
+    canvas.onmousedown = onStart;
+    canvas.onmousemove = onMove;
+    window.onmouseup = onEnd;
+    canvas.ontouchstart = onStart;
+    canvas.ontouchmove = onMove;
+    canvas.ontouchend = onEnd;
+}
+
+function blurImageData(imgData, radius) {
+    // Simple box blur (not fast, but works for small regions)
+    const { data, width, height } = imgData;
+    const out = new Uint8ClampedArray(data);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            let r=0,g=0,b=0,a=0,n=0;
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    const nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        const i = (ny * width + nx) * 4;
+                        r += data[i]; g += data[i+1]; b += data[i+2]; a += data[i+3]; n++;
+                    }
+                }
+            }
+            const i = (y * width + x) * 4;
+            out[i] = r/n; out[i+1] = g/n; out[i+2] = b/n; out[i+3] = a/n;
+        }
+    }
+    return new ImageData(out, width, height);
+}
+
+// Tool button handlers
+document.addEventListener('DOMContentLoaded', () => {
+    $('#redactBoxBtn')?.addEventListener('click', () => {
+        redactMode = 'box';
+        $('#redactBoxBtn').classList.add('active');
+        $('#redactBlurBtn').classList.remove('active');
+    });
+    $('#redactBlurBtn')?.addEventListener('click', () => {
+        redactMode = 'blur';
+        $('#redactBlurBtn').classList.add('active');
+        $('#redactBoxBtn').classList.remove('active');
+    });
+    $('#redactUndoBtn')?.addEventListener('click', () => {
+        redactRegions.pop();
+        drawRedactCanvas();
+    });
+    $('#redactClearBtn')?.addEventListener('click', () => {
+        redactRegions = [];
+        drawRedactCanvas();
+    });
+});
 }
 
 function handleMultiFiles(toolId, files) {

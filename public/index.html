@@ -28,6 +28,8 @@
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/util.min.js"></script>
+    <!-- Audio waveform visualization -->
+    <script src="https://unpkg.com/wavesurfer.js@7.6.0/dist/wavesurfer.min.js"></script>
     <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -565,6 +567,10 @@
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('video-trim')"><i class="fas fa-times"></i></button>
                     </div>
+                    <div class="waveform-wrap" id="waveform-video-trim" style="display:none;margin-bottom:12px">
+                        <div class="waveform" id="waveformVideoTrim"></div>
+                        <div class="waveform-timer"><span id="waveformTrimStart">00:00</span> &ndash; <span id="waveformTrimEnd">00:00</span></div>
+                    </div>
                     <div class="tool-options">
                         <label class="option-label">Time Range</label>
                         <div class="time-inputs">
@@ -639,6 +645,9 @@
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('video-extract-audio')"><i class="fas fa-times"></i></button>
                     </div>
+                    <div class="waveform-wrap" id="waveform-video-extract-audio" style="display:none;margin-bottom:12px">
+                        <div class="waveform" id="waveformVideoExtract"></div>
+                    </div>
                     <div class="tool-options">
                         <label class="option-label">Audio Format</label>
                         <div class="format-select-grid" data-tool="video-extract-audio">
@@ -672,6 +681,9 @@
                     <div class="file-preview hidden" data-tool="audio-convert">
                         <div class="file-info"><i class="fas fa-music"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('audio-convert')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="waveform-wrap" id="waveform-audio-convert" style="display:none;margin-bottom:12px">
+                        <div class="waveform" id="waveformAudioConvert"></div>
                     </div>
                     <div class="tool-options">
                         <label class="option-label">Output Format</label>
@@ -1249,6 +1261,42 @@
                     <button class="process-btn" onclick="processFile('image-crop')"><i class="fas fa-crop-alt"></i> Crop Image</button>
                     <div class="processing-status hidden" data-tool="image-crop"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Cropping...</span></div>
                     <div class="result-section hidden" data-tool="image-crop">
+                        <span class="result-name"></span><span class="result-size"></span>
+                        <a class="result-download" href="#" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── PRIVACY REDACTION ──────────── -->
+            <div class="tool-panel" id="tool-redact">
+                <div class="tool-header">
+                    <h2><i class="fas fa-user-secret"></i> Privacy Redaction</h2>
+                    <p>Hide sensitive info in images or videos by drawing black boxes or blur regions.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-redact" data-accept="image/*,video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image or video here</p><span>or click to browse</span><small>PNG, JPEG, WebP, MP4, MOV, AVI &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="redact">
+                        <span class="file-name"></span><span class="file-size"></span>
+                        <button class="file-remove" onclick="removeFile('redact')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="redact-canvas-wrap hidden" id="redactCanvasWrap">
+                        <canvas id="redactCanvas"></canvas>
+                        <div class="redact-tools">
+                            <button class="redact-tool-btn active" id="redactBoxBtn" title="Draw black box"><i class="fas fa-square"></i></button>
+                            <button class="redact-tool-btn" id="redactBlurBtn" title="Blur region"><i class="fas fa-water"></i></button>
+                            <button class="redact-tool-btn" id="redactUndoBtn" title="Undo"><i class="fas fa-undo"></i></button>
+                            <button class="redact-tool-btn" id="redactClearBtn" title="Clear all"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="tool-options">
+                        <span class="option-hint">Draw over areas to redact. For videos, redactions apply to all frames.</span>
+                    </div>
+                    <button class="process-btn" onclick="processFile('redact')"><i class="fas fa-user-secret"></i> Apply Redaction</button>
+                    <div class="processing-status hidden" data-tool="redact"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Redacting...</span></div>
+                    <div class="result-section hidden" data-tool="redact">
                         <span class="result-name"></span><span class="result-size"></span>
                         <a class="result-download" href="#" download><i class="fas fa-download"></i> Download</a>
                     </div>
