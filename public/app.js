@@ -42,6 +42,10 @@ function switchTool(toolId) {
     // Close mobile sidebar and scroll to top
     if (window.innerWidth <= 768) toggleSidebar(false);
     window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const mc = $('.main-content');
+    if (mc) mc.scrollTop = 0;
 }
 
 function toggleSidebar(forceState) {
