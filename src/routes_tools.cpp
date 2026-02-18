@@ -835,6 +835,110 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         else res.set_content(json({{"pages", files_json}, {"count", (int)files_json.size()}}).dump(), "application/json");
     });
 
+    // ── POST /api/tools/image-crop ──────────────────────────────────────────
+    svr.Post("/api/tools/image-crop", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        string x_s = req.has_file("x") ? req.get_file_value("x").content : "0";
+        string y_s = req.has_file("y") ? req.get_file_value("y").content : "0";
+        string w_s = req.has_file("w") ? req.get_file_value("w").content : "";
+        string h_s = req.has_file("h") ? req.get_file_value("h").content : "";
+
+        if (w_s.empty() || h_s.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Crop dimensions required"}}).dump(), "application/json");
+            return;
+        }
+
+        discord_log_tool("Image Crop", file.filename);
+
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string ext = fs::path(file.filename).extension().string();
+        string output_path = get_processing_dir() + "/" + jid + "_cropped" + ext;
+
+        // ffmpeg crop filter: crop=w:h:x:y
+        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
+            + " -vf crop=" + w_s + ":" + h_s + ":" + x_s + ":" + y_s
+            + " " + escape_arg(output_path);
+        cout << "[Luma Tools] Image crop: " << cmd << endl;
+        int code;
+        exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            string out_name = fs::path(file.filename).stem().string() + "_cropped" + ext;
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            discord_log_error("Image Crop", "Failed for: " + file.filename);
+            res.set_content(json({{"error", "Image crop failed"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/image-bg-remove ─────────────────────────────────────
+    svr.Post("/api/tools/image-bg-remove", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        string method = "auto";
+        if (req.has_file("method")) method = req.get_file_value("method").content;
+
+        discord_log_tool("Background Remover", file.filename + " (" + method + ")");
+
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string output_path = get_processing_dir() + "/" + jid + "_nobg.png";
+
+        int code;
+        string cmd;
+
+        if (method == "auto") {
+            // Try rembg (Python AI-based background removal)
+            cmd = "rembg i " + escape_arg(input_path) + " " + escape_arg(output_path);
+            cout << "[Luma Tools] BG remove (rembg): " << cmd << endl;
+            exec_command(cmd, code);
+
+            // Fallback: use ffmpeg chromakey on white if rembg not available
+            if (!fs::exists(output_path) || fs::file_size(output_path) == 0) {
+                cout << "[Luma Tools] rembg not available, falling back to chromakey white" << endl;
+                cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
+                    + " -vf \"chromakey=white:0.25:0.08,format=rgba\" "
+                    + escape_arg(output_path);
+                exec_command(cmd, code);
+            }
+        } else if (method == "white") {
+            cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
+                + " -vf \"chromakey=white:0.3:0.1,format=rgba\" "
+                + escape_arg(output_path);
+            cout << "[Luma Tools] BG remove (white): " << cmd << endl;
+            exec_command(cmd, code);
+        } else if (method == "black") {
+            cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
+                + " -vf \"chromakey=black:0.3:0.1,format=rgba\" "
+                + escape_arg(output_path);
+            cout << "[Luma Tools] BG remove (black): " << cmd << endl;
+            exec_command(cmd, code);
+        }
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            string out_name = fs::path(file.filename).stem().string() + "_nobg.png";
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            discord_log_error("Background Remover", "Failed for: " + file.filename);
+            res.set_content(json({{"error", "Background removal failed. If using Auto mode, ensure rembg is installed."}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
     // ── POST /api/tools/images-to-pdf ───────────────────────────────────────
     svr.Post("/api/tools/images-to-pdf", [](const httplib::Request& req, httplib::Response& res) {
         int count_val = 0;

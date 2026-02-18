@@ -35,17 +35,19 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 function switchTool(toolId) {
     state.currentTool = toolId;
-    // Update nav items
     $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tool === toolId));
-    // Show/hide panels
     $$('.tool-panel').forEach(el => el.classList.toggle('active', el.id === 'tool-' + toolId));
-    // Close mobile sidebar and scroll to top
     if (window.innerWidth <= 768) toggleSidebar(false);
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
     const mc = $('.main-content');
     if (mc) mc.scrollTop = 0;
+    // Track recent tools
+    trackRecentTool(toolId);
+    // Clear search
+    const si = $('#sidebarSearch');
+    if (si && si.value) { si.value = ''; filterSidebarTools(); }
 }
 
 function toggleSidebar(forceState) {
@@ -135,6 +137,9 @@ function handleFileSelect(toolId, file) {
 
     // Hide any previous result
     hideResult(toolId);
+
+    // If this is the crop tool, initialize the crop canvas
+    if (toolId === 'image-crop') initCropCanvas(file);
 }
 
 function handleMultiFiles(toolId, files) {
@@ -292,6 +297,16 @@ async function processFile(toolId) {
             break;
         case 'subtitle-extract':
             formData.append('format', getSelectedFmt('subtitle-extract') || 'srt');
+            break;
+        case 'image-crop':
+            if (!state.cropRect) { showToast('Please select a crop region', 'error'); return; }
+            formData.append('x', Math.round(state.cropRect.x).toString());
+            formData.append('y', Math.round(state.cropRect.y).toString());
+            formData.append('w', Math.round(state.cropRect.w).toString());
+            formData.append('h', Math.round(state.cropRect.h).toString());
+            break;
+        case 'image-bg-remove':
+            formData.append('method', getSelectedFmt('bg-remove-method') || 'auto');
             break;
     }
 
@@ -1221,6 +1236,220 @@ function formatSize(bytes) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SIDEBAR SEARCH & RECENT TOOLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function filterSidebarTools() {
+    const q = ($('#sidebarSearch')?.value || '').toLowerCase().trim();
+    const cats = $$('#sidebarNav .nav-category');
+    cats.forEach(cat => {
+        const items = cat.querySelectorAll('.nav-item');
+        let anyVisible = false;
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            const match = !q || text.includes(q);
+            item.classList.toggle('search-hidden', !match);
+            if (match) anyVisible = true;
+        });
+        cat.classList.toggle('search-hidden', !anyVisible);
+    });
+}
+
+function trackRecentTool(toolId) {
+    let recent = JSON.parse(localStorage.getItem('luma-recent-tools') || '[]');
+    recent = recent.filter(t => t !== toolId);
+    recent.unshift(toolId);
+    recent = recent.slice(0, 5);
+    localStorage.setItem('luma-recent-tools', JSON.stringify(recent));
+    renderRecentTools();
+}
+
+function renderRecentTools() {
+    const recent = JSON.parse(localStorage.getItem('luma-recent-tools') || '[]');
+    const section = $('#recentToolsSection');
+    const list = $('#recentToolsList');
+    if (!section || !list || recent.length === 0) return;
+    section.classList.remove('hidden');
+    list.innerHTML = recent.map(toolId => {
+        const orig = document.querySelector(`#sidebarNav .nav-item[data-tool="${toolId}"]`);
+        if (!orig) return '';
+        const icon = orig.querySelector('i')?.className || 'fas fa-tool';
+        const label = orig.querySelector('span')?.textContent || toolId;
+        return `<a class="nav-item" data-tool="${toolId}" onclick="switchTool('${toolId}')"><i class="${icon}"></i><span>${label}</span></a>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THEME TOGGLE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-theme');
+    localStorage.setItem('luma-theme', isLight ? 'light' : 'dark');
+    const icon = $('#themeIcon');
+    if (icon) icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+}
+
+function applyStoredTheme() {
+    const theme = localStorage.getItem('luma-theme');
+    if (theme === 'light') {
+        document.body.classList.add('light-theme');
+        const icon = $('#themeIcon');
+        if (icon) icon.className = 'fas fa-sun';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// IMAGE CROP TOOL
+// ═══════════════════════════════════════════════════════════════════════════
+
+let cropImg = null;
+let cropRatio = 'free';
+
+function initCropCanvas(file) {
+    const wrap = $('#cropCanvasWrap');
+    const canvas = $('#cropCanvas');
+    if (!wrap || !canvas) return;
+    wrap.classList.remove('hidden');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+        cropImg = img;
+        const maxW = wrap.parentElement.clientWidth - 48;
+        const scale = Math.min(1, maxW / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.dataset.scaleX = img.width / canvas.width;
+        canvas.dataset.scaleY = img.height / canvas.height;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // Default crop: full image
+        state.cropRect = { x: 0, y: 0, w: img.width, h: img.height };
+        updateCropSelection(0, 0, canvas.width, canvas.height);
+        initCropDrag(canvas);
+    };
+    img.src = URL.createObjectURL(file);
+}
+
+function setCropRatio(ratio) { cropRatio = ratio; }
+
+function initCropDrag(canvas) {
+    let dragging = false, startX, startY;
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
+        const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
+        return { x: Math.max(0, Math.min(canvas.width, x)), y: Math.max(0, Math.min(canvas.height, y)) };
+    }
+    function onStart(e) {
+        e.preventDefault();
+        dragging = true;
+        const p = getPos(e);
+        startX = p.x; startY = p.y;
+    }
+    function onMove(e) {
+        if (!dragging) return;
+        e.preventDefault();
+        const p = getPos(e);
+        let x = Math.min(startX, p.x), y = Math.min(startY, p.y);
+        let w = Math.abs(p.x - startX), h = Math.abs(p.y - startY);
+        // Enforce ratio
+        if (cropRatio !== 'free') {
+            const parts = cropRatio.split(':').map(Number);
+            const r = parts[0] / parts[1];
+            if (w / h > r) w = h * r; else h = w / r;
+        }
+        w = Math.min(w, canvas.width - x);
+        h = Math.min(h, canvas.height - y);
+        updateCropSelection(x, y, w, h);
+        const sx = parseFloat(canvas.dataset.scaleX);
+        const sy = parseFloat(canvas.dataset.scaleY);
+        state.cropRect = { x: x * sx, y: y * sy, w: w * sx, h: h * sy };
+    }
+    function onEnd() { dragging = false; }
+    canvas.addEventListener('mousedown', onStart);
+    canvas.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    canvas.addEventListener('touchstart', onStart, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    canvas.addEventListener('touchend', onEnd);
+}
+
+function updateCropSelection(x, y, w, h) {
+    const sel = $('#cropSelection');
+    if (!sel) return;
+    sel.style.left = x + 'px'; sel.style.top = y + 'px';
+    sel.style.width = w + 'px'; sel.style.height = h + 'px';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MARKDOWN PREVIEW
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderMarkdownPreview() {
+    const input = $('#markdownInput')?.value || '';
+    const output = $('#markdownOutput');
+    if (!output) return;
+    if (!input.trim()) { output.innerHTML = '<p class="text-muted">Preview will appear here...</p>'; return; }
+    output.innerHTML = parseMarkdown(input);
+}
+
+function parseMarkdown(md) {
+    let html = md
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        // Code blocks
+        .replace(/```([\s\S]*?)```/g, (_, code) => '<pre><code>' + code.trim() + '</code></pre>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Headings
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        // HR
+        .replace(/^---$/gm, '<hr>')
+        // Bold & italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // Strikethrough
+        .replace(/~~(.+?)~~/g, '<del>$1</del>')
+        // Images
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
+        // Links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+        // Blockquotes
+        .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+        // Unordered lists
+        .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
+        // Line breaks → paragraphs
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+    // Wrap loose li's in ul
+    html = html.replace(/(<li>.*?<\/li>)/gs, '<ul>$1</ul>');
+    html = html.replace(/<\/ul>\s*<ul>/g, '');
+    return '<p>' + html + '</p>';
+}
+
+function copyMarkdownHTML() {
+    const output = $('#markdownOutput');
+    if (!output || !output.textContent.trim()) { showToast('Nothing to copy', 'error'); return; }
+    navigator.clipboard.writeText(output.innerHTML).then(() => showToast('HTML copied to clipboard!', 'success'));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SMART DRAG & DROP (auto-detect file type)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function detectToolForFile(file) {
+    const type = file.type || '';
+    const name = file.name.toLowerCase();
+    if (type.startsWith('image/')) return 'image-compress';
+    if (type.startsWith('video/') || name.endsWith('.mkv')) return 'video-compress';
+    if (type.startsWith('audio/')) return 'audio-convert';
+    if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf-compress';
+    return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PARTICLES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1304,11 +1533,49 @@ function initMobileSwipe() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
+    applyStoredTheme();
+    renderRecentTools();
     initParticles();
     initUploadZones();
     initDownloader();
     checkServerHealth();
     initMobileSwipe();
+
+    // Keyboard shortcut: Ctrl+K to search
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            const si = $('#sidebarSearch');
+            if (si) { si.focus(); si.select(); }
+            if (window.innerWidth <= 768 && !$('#sidebar').classList.contains('open')) toggleSidebar(true);
+        }
+    });
+
+    // Global drag & drop auto-detect
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+        if (e.target.closest('.upload-zone')) return;
+        e.preventDefault();
+        const file = e.dataTransfer?.files?.[0];
+        if (!file) return;
+        const toolId = detectToolForFile(file);
+        if (toolId) {
+            switchTool(toolId);
+            setTimeout(() => {
+                state.files[toolId] = file;
+                const preview = document.querySelector(`.file-preview[data-tool="${toolId}"]`);
+                if (preview) {
+                    preview.classList.remove('hidden');
+                    preview.querySelector('.file-name').textContent = file.name;
+                    preview.querySelector('.file-size').textContent = formatBytes(file.size);
+                }
+                const zone = document.getElementById('uz-' + toolId);
+                if (zone) zone.classList.add('hidden');
+                showToast(`File loaded into ${toolId.replace(/-/g, ' ')}`, 'success');
+                if (toolId === 'image-crop') initCropCanvas(file);
+            }, 100);
+        }
+    });
 
     // Initialize default output formats and presets
     document.querySelectorAll('.format-select-grid').forEach(grid => {

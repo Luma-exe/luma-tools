@@ -47,7 +47,22 @@
                 <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
             </div>
 
-            <nav class="sidebar-nav">
+            <!-- Search bar -->
+            <div class="sidebar-search">
+                <div class="search-input-wrap">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="sidebarSearch" placeholder="Search tools..." autocomplete="off" spellcheck="false" oninput="filterSidebarTools()">
+                    <kbd class="search-kbd">Ctrl K</kbd>
+                </div>
+            </div>
+
+            <!-- Recent tools -->
+            <div class="nav-category recent-tools-section hidden" id="recentToolsSection">
+                <div class="nav-category-title">RECENT</div>
+                <div id="recentToolsList"></div>
+            </div>
+
+            <nav class="sidebar-nav" id="sidebarNav">
                 <div class="nav-category">
                     <div class="nav-category-title">DOWNLOAD</div>
                     <a class="nav-item active" data-tool="downloader" onclick="switchTool('downloader')">
@@ -70,6 +85,12 @@
                     </a>
                     <a class="nav-item" data-tool="favicon-generate" onclick="switchTool('favicon-generate')">
                         <i class="fas fa-star"></i><span>Favicon Generator</span>
+                    </a>
+                    <a class="nav-item" data-tool="image-crop" onclick="switchTool('image-crop')">
+                        <i class="fas fa-crop-alt"></i><span>Crop</span>
+                    </a>
+                    <a class="nav-item" data-tool="image-bg-remove" onclick="switchTool('image-bg-remove')">
+                        <i class="fas fa-user-alt"></i><span>Background Remover</span>
                     </a>
                 </div>
                 <div class="nav-category">
@@ -149,10 +170,16 @@
                     <a class="nav-item" data-tool="color-convert" onclick="switchTool('color-convert')">
                         <i class="fas fa-palette"></i><span>Color Converter</span>
                     </a>
+                    <a class="nav-item" data-tool="markdown-preview" onclick="switchTool('markdown-preview')">
+                        <i class="fab fa-markdown"></i><span>Markdown Preview</span>
+                    </a>
                 </div>
             </nav>
 
             <div class="sidebar-footer">
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
                 <div class="server-status" id="serverStatus">
                     <div class="status-ticker">
                         <div class="ticker-track" id="tickerTrack">
@@ -1107,6 +1134,98 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ──────────── IMAGE CROP ──────────── -->
+            <div class="tool-panel" id="tool-image-crop">
+                <div class="tool-header">
+                    <h2><i class="fas fa-crop-alt"></i> Image Crop</h2>
+                    <p>Crop images to a specific region or aspect ratio</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-image-crop" data-accept="image/*" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="image-crop">
+                        <span class="file-name"></span><span class="file-size"></span>
+                        <button class="file-remove" onclick="removeFile('image-crop')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="crop-canvas-wrap hidden" id="cropCanvasWrap">
+                        <canvas id="cropCanvas"></canvas>
+                        <div class="crop-selection" id="cropSelection"></div>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Aspect Ratio</label>
+                        <div class="format-select-grid" data-tool="crop-ratio">
+                            <button class="fmt-btn active" data-fmt="free" onclick="selectOutputFmt(this); setCropRatio('free')">Free</button>
+                            <button class="fmt-btn" data-fmt="1:1" onclick="selectOutputFmt(this); setCropRatio('1:1')">1:1</button>
+                            <button class="fmt-btn" data-fmt="16:9" onclick="selectOutputFmt(this); setCropRatio('16:9')">16:9</button>
+                            <button class="fmt-btn" data-fmt="4:3" onclick="selectOutputFmt(this); setCropRatio('4:3')">4:3</button>
+                            <button class="fmt-btn" data-fmt="9:16" onclick="selectOutputFmt(this); setCropRatio('9:16')">9:16</button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('image-crop')"><i class="fas fa-crop-alt"></i> Crop Image</button>
+                    <div class="processing-status hidden" data-tool="image-crop"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Cropping...</span></div>
+                    <div class="result-section hidden" data-tool="image-crop">
+                        <span class="result-name"></span><span class="result-size"></span>
+                        <a class="result-download" href="#" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── IMAGE BG REMOVER ──────────── -->
+            <div class="tool-panel" id="tool-image-bg-remove">
+                <div class="tool-header">
+                    <h2><i class="fas fa-user-alt"></i> Background Remover</h2>
+                    <p>Remove the background from images and get a transparent PNG</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-image-bg-remove" data-accept="image/*" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="image-bg-remove">
+                        <span class="file-name"></span><span class="file-size"></span>
+                        <button class="file-remove" onclick="removeFile('image-bg-remove')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Method</label>
+                        <div class="format-select-grid" data-tool="bg-remove-method">
+                            <button class="fmt-btn active" data-fmt="auto" onclick="selectOutputFmt(this)">Auto (AI)</button>
+                            <button class="fmt-btn" data-fmt="white" onclick="selectOutputFmt(this)">White BG</button>
+                            <button class="fmt-btn" data-fmt="black" onclick="selectOutputFmt(this)">Black BG</button>
+                        </div>
+                        <span class="option-hint">Auto uses AI-powered removal. White/Black removes solid color backgrounds.</span>
+                    </div>
+                    <button class="process-btn" onclick="processFile('image-bg-remove')"><i class="fas fa-user-alt"></i> Remove Background</button>
+                    <div class="processing-status hidden" data-tool="image-bg-remove"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Removing background...</span></div>
+                    <div class="result-section hidden" data-tool="image-bg-remove">
+                        <span class="result-name"></span><span class="result-size"></span>
+                        <a class="result-download" href="#" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── MARKDOWN PREVIEW ──────────── -->
+            <div class="tool-panel" id="tool-markdown-preview">
+                <div class="tool-header">
+                    <h2><i class="fab fa-markdown"></i> Markdown Preview</h2>
+                    <p>Write Markdown and see a live-rendered HTML preview</p>
+                </div>
+                <div class="tool-body">
+                    <div class="markdown-split">
+                        <div class="markdown-editor-pane">
+                            <label class="option-label">Markdown Input</label>
+                            <textarea id="markdownInput" class="text-area-input mono" rows="16" placeholder="# Hello World\n\nType your **Markdown** here..." oninput="renderMarkdownPreview()"></textarea>
+                        </div>
+                        <div class="markdown-preview-pane">
+                            <label class="option-label">Preview</label>
+                            <div class="markdown-rendered" id="markdownOutput"><p class="text-muted">Preview will appear here...</p></div>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="copyMarkdownHTML()"><i class="fas fa-copy"></i> Copy as HTML</button>
                 </div>
             </div>
 
