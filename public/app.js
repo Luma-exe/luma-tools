@@ -69,6 +69,25 @@ function switchTool(toolId) {
     state.currentTool = toolId;
     $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tool === toolId));
     $$('.tool-panel').forEach(el => el.classList.toggle('active', el.id === 'tool-' + toolId));
+
+    // Show browser/server badge in the tool header
+    const navItem = document.querySelector(`.nav-item[data-tool="${toolId}"]`);
+    const panel = document.getElementById('tool-' + toolId);
+    if (navItem && panel) {
+        const loc = navItem.dataset.location; // 'browser' | 'server'
+        // Remove old badge
+        panel.querySelectorAll('.tool-location-badge').forEach(b => b.remove());
+        if (loc) {
+            const badge = document.createElement('span');
+            badge.className = 'tool-location-badge loc-' + loc;
+            badge.title = loc === 'browser' ? 'Runs entirely in your browser — files never leave your device' : 'Processed on our server — file is uploaded, then deleted';
+            badge.innerHTML = loc === 'browser'
+                ? '<i class="fas fa-lock"></i> In your browser'
+                : '<i class="fas fa-server"></i> On our server';
+            const header = panel.querySelector('.tool-header');
+            if (header) header.appendChild(badge);
+        }
+    }
     if (window.innerWidth <= 768) toggleSidebar(false);
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
@@ -570,6 +589,34 @@ async function processFileServer(toolId) {
         case 'image-bg-remove':
             formData.append('method', getSelectedFmt('bg-remove-method') || 'auto');
             break;
+        case 'redact': {
+            // Images: export canvas directly — no server needed
+            if (file.type.startsWith('image/')) {
+                const canvas = $('#redactCanvas');
+                if (!canvas || canvas.width === 0) { showToast('Please draw at least one redaction region', 'error'); return; }
+                showProcessing(toolId, true);
+                canvas.toBlob(blob => {
+                    if (!blob) { showProcessing(toolId, false); showToast('Failed to export image', 'error'); return; }
+                    const ext = file.name.endsWith('.png') ? '.png' : '.jpg';
+                    const baseName = file.name.replace(/\.[^.]+$/, '') + '_redacted' + ext;
+                    showResult(toolId, blob, baseName);
+                    showProcessing(toolId, false);
+                }, file.type.startsWith('image/png') ? 'image/png' : 'image/jpeg', 0.95);
+                return;
+            }
+            // Videos: send to backend with regions JSON
+            if (redactRegions.length === 0) { showToast('Please draw at least one redaction region', 'error'); return; }
+            formData.append('regions', JSON.stringify(redactRegions));
+            // Route to redact-video endpoint instead of /api/tools/redact
+            showProcessing(toolId, true);
+            try {
+                const res = await fetch('/api/tools/redact-video', { method: 'POST', body: formData });
+                if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Redaction failed'); }
+                const blob = await res.blob();
+                showResult(toolId, blob, file.name.replace(/\.[^.]+$/, '') + '_redacted' + (file.name.match(/\.[^.]+$/)?.[0] || '.mp4'));
+            } catch (err) { showToast(err.message, 'error'); } finally { showProcessing(toolId, false); }
+            return;
+        }
     }
 
     showProcessing(toolId, true);
