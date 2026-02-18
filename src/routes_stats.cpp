@@ -287,8 +287,33 @@ load();
 
         if (pos != string::npos) {
             pw = body.substr(pos + 9);
-            // URL-decode '+' as space
-            for (auto& c : pw) if (c == '+') c = ' ';
+
+            // Full URL-decode: '+' -> space, %XX -> char
+            string decoded;
+            for (size_t i = 0; i < pw.size(); ) {
+                if (pw[i] == '+') {
+                    decoded += ' ';
+                    i++;
+                } else if (pw[i] == '%' && i + 2 < pw.size()) {
+                    int val = 0;
+                    auto hex = [](char c) -> int {
+                        if (c >= '0' && c <= '9') return c - '0';
+                        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+                        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+                        return -1;
+                    };
+                    int hi = hex(pw[i+1]), lo = hex(pw[i+2]);
+                    if (hi >= 0 && lo >= 0) {
+                        decoded += (char)((hi << 4) | lo);
+                        i += 3;
+                    } else {
+                        decoded += pw[i++];
+                    }
+                } else {
+                    decoded += pw[i++];
+                }
+            }
+            pw = decoded;
         }
 
         if (pw == stats_password()) {
