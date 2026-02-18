@@ -88,7 +88,11 @@
             <div class="sidebar-footer">
                 <div class="server-status" id="serverStatus">
                     <span class="status-dot"></span>
-                    <span class="status-text">Checking...</span>
+                    <div class="status-ticker">
+                        <div class="ticker-track" id="tickerTrack">
+                            <span class="status-text">Checking...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -602,7 +606,13 @@
                 </div>
             </div>
 
-            <footer class="footer"><p>Powered by <strong>C++ & FFmpeg</strong> &mdash; Built with <i class="fas fa-heart"></i> by Luma</p></footer>
+            <footer class="footer">
+                <div class="footer-ticker">
+                    <div class="ticker-track" id="footerTickerTrack">
+                        <span>Powered by <strong>C++ & FFmpeg</strong> &mdash; Built with <i class="fas fa-heart"></i> by Luma</span>
+                    </div>
+                </div>
+            </footer>
         </main>
     </div>
 

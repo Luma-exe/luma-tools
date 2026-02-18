@@ -163,14 +163,42 @@ body {
     border-top: 1px solid var(--glass-border);
 }
 
-.server-status { display: flex; align-items: center; gap: 8px; }
+.server-status { display: flex; align-items: center; gap: 8px; overflow: hidden; }
 .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
     background: var(--text-muted); animation: blink 1.5s ease-in-out infinite;
 }
 .status-dot.online { background: var(--success); animation: none; }
 .status-dot.offline { background: var(--error); animation: none; }
-.status-text { font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono); }
+.status-text { font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; }
+
+/* Scrolling ticker */
+.status-ticker {
+    overflow: hidden;
+    flex: 1;
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.ticker-track {
+    display: inline-flex; gap: 24px;
+    white-space: nowrap;
+    animation: ticker-scroll 20s linear infinite;
+}
+.ticker-track .ticker-item {
+    font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono);
+    display: inline-flex; align-items: center; gap: 5px;
+}
+.ticker-track .ticker-item .ticker-label { color: var(--text-secondary); }
+.ticker-track .ticker-item .ticker-ok { color: var(--success); }
+.ticker-track .ticker-item .ticker-err { color: var(--error); }
+.ticker-track .ticker-item .ticker-ver { color: var(--accent); }
+.ticker-track .ticker-sep {
+    font-size: 0.6rem; color: var(--glass-border); user-select: none;
+}
+@keyframes ticker-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 /* ─── Mobile Header ───────────────────────────────────────────────────────── */
@@ -785,9 +813,20 @@ body {
 .footer {
     margin-top: 40px; padding: 16px;
     text-align: center; font-size: 0.75rem; color: var(--text-muted);
+    overflow: hidden;
 }
 .footer strong { color: var(--text-secondary); }
 .footer i.fa-heart { color: var(--accent-3); }
+.footer-ticker {
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+.footer-ticker .ticker-track {
+    animation: ticker-scroll 25s linear infinite;
+}
+.footer-ticker .ticker-item { font-size: 0.75rem; }
+.footer-ticker .ticker-sep { font-size: 0.65rem; }
 
 /* ─── Toast ───────────────────────────────────────────────────────────────── */
 .toast {

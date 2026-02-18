@@ -847,20 +847,51 @@ function showToast(message, type = 'info') {
 async function checkServerHealth() {
     const statusEl = $('#serverStatus');
     if (!statusEl) return;
-    const dot = statusEl.querySelector('.status-dot'), text = statusEl.querySelector('.status-text');
+    const dot = statusEl.querySelector('.status-dot');
+    const tickerTrack = $('#tickerTrack');
+    const footerTrack = $('#footerTickerTrack');
     try {
         const res = await fetch('/api/health');
         const data = await res.json();
         if (data.status === 'ok') {
             dot.className = 'status-dot online';
-            let info = [];
-            if (data.yt_dlp_available) info.push('yt-dlp ' + data.yt_dlp_version);
-            if (data.ffmpeg_available) info.push('FFmpeg');
-            text.textContent = info.length ? info.join(' | ') : 'Online';
+
+            // Build ticker items
+            const items = [];
+            items.push({ label: 'Server', value: data.server || 'Online', ok: true });
+            items.push({ label: 'FFmpeg', value: data.ffmpeg_available ? 'Available' : 'Missing', ok: data.ffmpeg_available });
+            items.push({ label: 'yt-dlp', value: data.yt_dlp_available ? ('v' + data.yt_dlp_version) : 'Missing', ok: data.yt_dlp_available });
+            items.push({ label: 'Ghostscript', value: data.ghostscript_available ? 'Available' : 'Not Found', ok: data.ghostscript_available });
+            if (data.git_commit && data.git_commit !== 'unknown') {
+                const branch = data.git_branch && data.git_branch !== 'unknown' ? data.git_branch : '';
+                items.push({ label: 'Version', value: branch ? `${branch}@${data.git_commit}` : data.git_commit, ver: true });
+            }
+
+            // Render ticker HTML (duplicate for seamless loop)
+            const renderItems = (arr) => arr.map(i =>
+                `<span class="ticker-item"><span class="ticker-label">${i.label}:</span> ` +
+                `<span class="${i.ver ? 'ticker-ver' : (i.ok ? 'ticker-ok' : 'ticker-err')}">${i.value}</span></span>`
+            ).join('<span class="ticker-sep">•</span>');
+
+            const once = renderItems(items);
+            const html = once + '<span class="ticker-sep">│</span>' + once + '<span class="ticker-sep">│</span>';
+
+            if (tickerTrack) tickerTrack.innerHTML = html;
+
+            // Footer ticker: add "Built with ❤ by Luma" to items
+            if (footerTrack) {
+                const footerItems = [...items, { label: 'Built with ♥ by', value: 'Luma', ver: true }];
+                const fOnce = renderItems(footerItems);
+                footerTrack.innerHTML = fOnce + '<span class="ticker-sep">│</span>' + fOnce + '<span class="ticker-sep">│</span>';
+            }
         } else {
-            dot.className = 'status-dot offline'; text.textContent = 'Server error';
+            dot.className = 'status-dot offline';
+            if (tickerTrack) tickerTrack.innerHTML = '<span class="status-text">Server error</span>';
         }
-    } catch { dot.className = 'status-dot offline'; text.textContent = 'Server offline'; }
+    } catch {
+        dot.className = 'status-dot offline';
+        if (tickerTrack) tickerTrack.innerHTML = '<span class="status-text">Server offline</span>';
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

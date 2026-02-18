@@ -507,7 +507,9 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             {"yt_dlp_version", version.empty() ? "not installed" : version},
             {"yt_dlp_available", !version.empty()},
             {"ffmpeg_available", !g_ffmpeg_exe.empty()},
-            {"ghostscript_available", !g_ghostscript_path.empty()}
+            {"ghostscript_available", !g_ghostscript_path.empty()},
+            {"git_commit", g_git_commit.empty() ? "unknown" : g_git_commit},
+            {"git_branch", g_git_branch.empty() ? "unknown" : g_git_branch}
         };
         res.set_content(response.dump(), "application/json");
     });

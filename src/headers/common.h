@@ -54,6 +54,8 @@ extern string g_ffmpeg_exe;        // Full path to ffmpeg executable
 extern string g_deno_path;         // Full path to deno executable
 extern string g_ytdlp_path;       // Full path or command for yt-dlp
 extern string g_ghostscript_path;  // Full path to ghostscript executable
+extern string g_git_commit;        // Short git commit hash (set at startup)
+extern string g_git_branch;        // Git branch name (set at startup)
 
 // ─── Safe JSON accessors (handles null values) ──────────────────────────────
 

@@ -19,6 +19,34 @@ int main() {
     string dl_dir = get_downloads_dir();
     cout << "[Luma Tools] Downloads directory: " << fs::absolute(dl_dir) << endl;
 
+    // ── Read git info ────────────────────────────────────────────────────────
+    {
+        // Walk upward to find .git directory
+        auto exe_dir = fs::absolute(".");
+        auto search = exe_dir;
+        while (!search.empty() && search.has_parent_path()) {
+            if (fs::exists(search / ".git")) break;
+            auto parent = search.parent_path();
+            if (parent == search) { search = ""; break; }
+            search = parent;
+        }
+        if (!search.empty() && fs::exists(search / ".git")) {
+            string git_dir = search.string();
+            int rc;
+            string commit = exec_command("git -C " + escape_arg(git_dir) + " rev-parse --short HEAD", rc);
+            commit.erase(std::remove(commit.begin(), commit.end(), '\n'), commit.end());
+            commit.erase(std::remove(commit.begin(), commit.end(), '\r'), commit.end());
+            if (rc == 0 && !commit.empty()) g_git_commit = commit;
+
+            string branch = exec_command("git -C " + escape_arg(git_dir) + " rev-parse --abbrev-ref HEAD", rc);
+            branch.erase(std::remove(branch.begin(), branch.end(), '\n'), branch.end());
+            branch.erase(std::remove(branch.begin(), branch.end(), '\r'), branch.end());
+            if (rc == 0 && !branch.empty()) g_git_branch = branch;
+
+            cout << "[Luma Tools] Git: " << g_git_branch << "@" << g_git_commit << endl;
+        }
+    }
+
     // ── Refresh PATH from system registry ────────────────────────────────────
     refresh_system_path();
 
