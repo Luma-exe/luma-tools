@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 </head>
 <body>
     <!-- Animated background -->
@@ -49,6 +50,12 @@
                     <a class="nav-item" data-tool="image-convert" onclick="switchTool('image-convert')">
                         <i class="fas fa-exchange-alt"></i><span>Convert</span>
                     </a>
+                    <a class="nav-item" data-tool="metadata-strip" onclick="switchTool('metadata-strip')">
+                        <i class="fas fa-eraser"></i><span>Metadata Strip</span>
+                    </a>
+                    <a class="nav-item" data-tool="favicon-generate" onclick="switchTool('favicon-generate')">
+                        <i class="fas fa-star"></i><span>Favicon Generator</span>
+                    </a>
                 </div>
                 <div class="nav-category">
                     <div class="nav-category-title">VIDEO</div>
@@ -64,11 +71,35 @@
                     <a class="nav-item" data-tool="video-extract-audio" onclick="switchTool('video-extract-audio')">
                         <i class="fas fa-volume-up"></i><span>Extract Audio</span>
                     </a>
+                    <a class="nav-item" data-tool="video-to-gif" onclick="switchTool('video-to-gif')">
+                        <i class="fas fa-magic"></i><span>To GIF</span>
+                    </a>
+                    <a class="nav-item" data-tool="gif-to-video" onclick="switchTool('gif-to-video')">
+                        <i class="fas fa-photo-video"></i><span>GIF to Video</span>
+                    </a>
+                    <a class="nav-item" data-tool="video-remove-audio" onclick="switchTool('video-remove-audio')">
+                        <i class="fas fa-volume-mute"></i><span>Remove Audio</span>
+                    </a>
+                    <a class="nav-item" data-tool="video-speed" onclick="switchTool('video-speed')">
+                        <i class="fas fa-tachometer-alt"></i><span>Speed Change</span>
+                    </a>
+                    <a class="nav-item" data-tool="video-frame" onclick="switchTool('video-frame')">
+                        <i class="fas fa-camera"></i><span>Frame Extract</span>
+                    </a>
+                    <a class="nav-item" data-tool="video-stabilize" onclick="switchTool('video-stabilize')">
+                        <i class="fas fa-hand-paper"></i><span>Stabilize</span>
+                    </a>
+                    <a class="nav-item" data-tool="subtitle-extract" onclick="switchTool('subtitle-extract')">
+                        <i class="fas fa-closed-captioning"></i><span>Subtitles</span>
+                    </a>
                 </div>
                 <div class="nav-category">
                     <div class="nav-category-title">AUDIO</div>
                     <a class="nav-item" data-tool="audio-convert" onclick="switchTool('audio-convert')">
                         <i class="fas fa-headphones"></i><span>Convert</span>
+                    </a>
+                    <a class="nav-item" data-tool="audio-normalize" onclick="switchTool('audio-normalize')">
+                        <i class="fas fa-balance-scale-right"></i><span>Normalize</span>
                     </a>
                 </div>
                 <div class="nav-category">
@@ -81,6 +112,27 @@
                     </a>
                     <a class="nav-item" data-tool="pdf-to-images" onclick="switchTool('pdf-to-images')">
                         <i class="fas fa-images"></i><span>PDF to Images</span>
+                    </a>
+                    <a class="nav-item" data-tool="images-to-pdf" onclick="switchTool('images-to-pdf')">
+                        <i class="fas fa-file-image"></i><span>Images to PDF</span>
+                    </a>
+                </div>
+                <div class="nav-category">
+                    <div class="nav-category-title">UTILITY</div>
+                    <a class="nav-item" data-tool="qr-generate" onclick="switchTool('qr-generate')">
+                        <i class="fas fa-qrcode"></i><span>QR Code</span>
+                    </a>
+                    <a class="nav-item" data-tool="hash-generate" onclick="switchTool('hash-generate')">
+                        <i class="fas fa-fingerprint"></i><span>Hash Generator</span>
+                    </a>
+                    <a class="nav-item" data-tool="base64" onclick="switchTool('base64')">
+                        <i class="fas fa-code"></i><span>Base64</span>
+                    </a>
+                    <a class="nav-item" data-tool="json-format" onclick="switchTool('json-format')">
+                        <i class="fas fa-brackets-curly"></i><span>JSON Formatter</span>
+                    </a>
+                    <a class="nav-item" data-tool="color-convert" onclick="switchTool('color-convert')">
+                        <i class="fas fa-palette"></i><span>Color Converter</span>
                     </a>
                 </div>
             </nav>
@@ -602,6 +654,418 @@
                         <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
                         <a class="result-download" download><i class="fas fa-download"></i> Download ZIP</a>
                     </div>
+                </div>
+            </div>
+
+            <!-- ──────────── METADATA STRIP ──────────── -->
+            <div class="tool-panel" id="tool-metadata-strip">
+                <div class="tool-header">
+                    <h2><i class="fas fa-eraser"></i> Metadata Strip</h2>
+                    <p>Remove EXIF data, GPS coordinates, camera info and other metadata from files</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-metadata-strip" data-accept="image/*,video/*,audio/*" data-max="209715200">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your file here</p><span>or click to browse</span><small>Images, Videos, Audio &mdash; Max 200 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,video/*,audio/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="metadata-strip">
+                        <div class="file-info"><i class="fas fa-file"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('metadata-strip')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <button class="process-btn" onclick="processFile('metadata-strip')"><i class="fas fa-eraser"></i> Strip Metadata</button>
+                    <div class="processing-status hidden" data-tool="metadata-strip"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="metadata-strip">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── FAVICON GENERATOR ──────────── -->
+            <div class="tool-panel" id="tool-favicon-generate">
+                <div class="tool-header">
+                    <h2><i class="fas fa-star"></i> Favicon Generator</h2>
+                    <p>Generate favicons in all standard sizes from a single image</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-favicon-generate" data-accept="image/*" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP &mdash; Square image recommended &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="favicon-generate">
+                        <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('favicon-generate')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <button class="process-btn" onclick="processFile('favicon-generate')"><i class="fas fa-star"></i> Generate Favicons</button>
+                    <div class="processing-status hidden" data-tool="favicon-generate"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Generating...</span></div>
+                    <div class="result-section hidden" data-tool="favicon-generate">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO TO GIF ──────────── -->
+            <div class="tool-panel" id="tool-video-to-gif">
+                <div class="tool-header">
+                    <h2><i class="fas fa-magic"></i> Video to GIF</h2>
+                    <p>Convert video clips into high-quality animated GIFs</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-to-gif" data-accept="video/*" data-max="209715200">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 200 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-to-gif">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-to-gif')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">FPS</label>
+                        <div class="slider-group"><input type="range" min="5" max="30" value="15" class="quality-slider" id="gifFps" oninput="document.getElementById('gifFpsVal').textContent=this.value+' fps'"><span class="slider-value" id="gifFpsVal">15 fps</span></div>
+                        <label class="option-label" style="margin-top:12px">Width (px)</label>
+                        <div class="slider-group"><input type="range" min="120" max="1280" value="480" step="10" class="quality-slider" id="gifWidth" oninput="document.getElementById('gifWidthVal').textContent=this.value+'px'"><span class="slider-value" id="gifWidthVal">480px</span></div>
+                        <small class="option-hint">Height auto-scales to keep aspect ratio</small>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-to-gif')"><i class="fas fa-magic"></i> Convert to GIF</button>
+                    <div class="processing-status hidden" data-tool="video-to-gif"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="video-to-gif">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── GIF TO VIDEO ──────────── -->
+            <div class="tool-panel" id="tool-gif-to-video">
+                <div class="tool-header">
+                    <h2><i class="fas fa-photo-video"></i> GIF to Video</h2>
+                    <p>Convert animated GIFs into MP4 videos for smaller file sizes</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-gif-to-video" data-accept=".gif,image/gif" data-max="104857600">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your GIF here</p><span>or click to browse</span><small>GIF files &mdash; Max 100 MB</small></div>
+                        <input type="file" class="upload-input" accept=".gif,image/gif">
+                    </div>
+                    <div class="file-preview hidden" data-tool="gif-to-video">
+                        <div class="file-info"><i class="fas fa-file-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('gif-to-video')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <button class="process-btn" onclick="processFile('gif-to-video')"><i class="fas fa-photo-video"></i> Convert to MP4</button>
+                    <div class="processing-status hidden" data-tool="gif-to-video"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="gif-to-video">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO REMOVE AUDIO ──────────── -->
+            <div class="tool-panel" id="tool-video-remove-audio">
+                <div class="tool-header">
+                    <h2><i class="fas fa-volume-mute"></i> Remove Audio</h2>
+                    <p>Strip the audio track from a video, keeping only the visuals</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-remove-audio" data-accept="video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-remove-audio">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-remove-audio')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-remove-audio')"><i class="fas fa-volume-mute"></i> Remove Audio</button>
+                    <div class="processing-status hidden" data-tool="video-remove-audio"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="video-remove-audio">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO SPEED ──────────── -->
+            <div class="tool-panel" id="tool-video-speed">
+                <div class="tool-header">
+                    <h2><i class="fas fa-tachometer-alt"></i> Video Speed Change</h2>
+                    <p>Speed up or slow down your video (0.25x to 4x)</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-speed" data-accept="video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-speed">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-speed')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Speed</label>
+                        <div class="slider-group"><input type="range" min="0.25" max="4" value="2" step="0.25" class="quality-slider" id="videoSpeed" oninput="document.getElementById('videoSpeedVal').textContent=this.value+'x'"><span class="slider-value" id="videoSpeedVal">2x</span></div>
+                        <div class="preset-grid" data-tool="video-speed-presets" style="margin-top:8px">
+                            <button class="preset-btn" onclick="document.getElementById('videoSpeed').value=0.5;document.getElementById('videoSpeedVal').textContent='0.5x'"><span>0.5x</span><small>Slow</small></button>
+                            <button class="preset-btn" onclick="document.getElementById('videoSpeed').value=1.5;document.getElementById('videoSpeedVal').textContent='1.5x'"><span>1.5x</span><small>Faster</small></button>
+                            <button class="preset-btn active" onclick="document.getElementById('videoSpeed').value=2;document.getElementById('videoSpeedVal').textContent='2x'"><span>2x</span><small>Double</small></button>
+                            <button class="preset-btn" onclick="document.getElementById('videoSpeed').value=4;document.getElementById('videoSpeedVal').textContent='4x'"><span>4x</span><small>Max</small></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-speed')"><i class="fas fa-tachometer-alt"></i> Change Speed</button>
+                    <div class="processing-status hidden" data-tool="video-speed"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="video-speed">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO FRAME EXTRACT ──────────── -->
+            <div class="tool-panel" id="tool-video-frame">
+                <div class="tool-header">
+                    <h2><i class="fas fa-camera"></i> Video Frame Extract</h2>
+                    <p>Capture a single frame from any video at a specific timestamp</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-frame" data-accept="video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-frame">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-frame')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Timestamp</label>
+                        <div class="time-inputs">
+                            <div class="time-group" style="flex:1"><label>Time</label><input type="text" id="frameTimestamp" placeholder="00:00:05" value="00:00:00"></div>
+                        </div>
+                        <small class="option-hint">Format: HH:MM:SS or HH:MM:SS.mmm</small>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-frame')"><i class="fas fa-camera"></i> Extract Frame</button>
+                    <div class="processing-status hidden" data-tool="video-frame"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="video-frame">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── VIDEO STABILIZE ──────────── -->
+            <div class="tool-panel" id="tool-video-stabilize">
+                <div class="tool-header">
+                    <h2><i class="fas fa-hand-paper"></i> Video Stabilize</h2>
+                    <p>Reduce camera shake and jitter from handheld footage</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-video-stabilize" data-accept="video/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="video-stabilize">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('video-stabilize')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <button class="process-btn" onclick="processFile('video-stabilize')"><i class="fas fa-hand-paper"></i> Stabilize Video</button>
+                    <div class="processing-status hidden" data-tool="video-stabilize"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="video-stabilize">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── SUBTITLE EXTRACT ──────────── -->
+            <div class="tool-panel" id="tool-subtitle-extract">
+                <div class="tool-header">
+                    <h2><i class="fas fa-closed-captioning"></i> Subtitle Extract</h2>
+                    <p>Extract embedded subtitle tracks from video files</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-subtitle-extract" data-accept="video/*,.mkv,.mp4,.avi" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MKV, MP4, AVI (with embedded subs) &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.mkv,.mp4,.avi">
+                    </div>
+                    <div class="file-preview hidden" data-tool="subtitle-extract">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('subtitle-extract')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Output Format</label>
+                        <div class="format-select-grid" data-tool="subtitle-extract">
+                            <button class="fmt-btn active" data-fmt="srt" onclick="selectOutputFmt(this)">SRT</button>
+                            <button class="fmt-btn" data-fmt="vtt" onclick="selectOutputFmt(this)">VTT</button>
+                            <button class="fmt-btn" data-fmt="ass" onclick="selectOutputFmt(this)">ASS</button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('subtitle-extract')"><i class="fas fa-closed-captioning"></i> Extract Subtitles</button>
+                    <div class="processing-status hidden" data-tool="subtitle-extract"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="subtitle-extract">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── AUDIO NORMALIZE ──────────── -->
+            <div class="tool-panel" id="tool-audio-normalize">
+                <div class="tool-header">
+                    <h2><i class="fas fa-balance-scale-right"></i> Audio Normalize</h2>
+                    <p>Automatically adjust audio volume to a consistent level (EBU R128)</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-audio-normalize" data-accept="audio/*,video/*" data-max="209715200">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your audio file here</p><span>or click to browse</span><small>MP3, WAV, FLAC, AAC, M4A, MP4 &mdash; Max 200 MB</small></div>
+                        <input type="file" class="upload-input" accept="audio/*,video/*,.mp3,.wav,.flac,.ogg,.aac,.m4a">
+                    </div>
+                    <div class="file-preview hidden" data-tool="audio-normalize">
+                        <div class="file-info"><i class="fas fa-music"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('audio-normalize')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <button class="process-btn" onclick="processFile('audio-normalize')"><i class="fas fa-balance-scale-right"></i> Normalize Audio</button>
+                    <div class="processing-status hidden" data-tool="audio-normalize"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="audio-normalize">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── IMAGES TO PDF ──────────── -->
+            <div class="tool-panel" id="tool-images-to-pdf">
+                <div class="tool-header">
+                    <h2><i class="fas fa-file-image"></i> Images to PDF</h2>
+                    <p>Combine multiple images into a single PDF document</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone multi" id="uz-images-to-pdf" data-accept="image/*" data-max="104857600">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop images here</p><span>or click to browse (select multiple)</span><small>PNG, JPEG, WebP, BMP &mdash; Max 100 MB total</small></div>
+                        <input type="file" class="upload-input" accept="image/*" multiple>
+                    </div>
+                    <div class="multi-file-list hidden" data-tool="images-to-pdf"></div>
+                    <button class="process-btn" onclick="processFile('images-to-pdf')"><i class="fas fa-file-image"></i> Create PDF</button>
+                    <div class="processing-status hidden" data-tool="images-to-pdf"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="images-to-pdf">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── QR CODE GENERATOR ──────────── -->
+            <div class="tool-panel" id="tool-qr-generate">
+                <div class="tool-header">
+                    <h2><i class="fas fa-qrcode"></i> QR Code Generator</h2>
+                    <p>Generate QR codes from text, URLs, or any data</p>
+                </div>
+                <div class="tool-body">
+                    <div class="text-tool-input">
+                        <label class="option-label">Content</label>
+                        <textarea id="qrInput" class="text-area-input" rows="3" placeholder="Enter text, URL, email, phone number..."></textarea>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Size</label>
+                        <div class="slider-group"><input type="range" min="3" max="10" value="6" class="quality-slider" id="qrSize" oninput="document.getElementById('qrSizeVal').textContent=(['Tiny','','Small','','Medium','','Large',''][this.value-3]||'XL')"><span class="slider-value" id="qrSizeVal">Large</span></div>
+                    </div>
+                    <button class="process-btn" onclick="generateQR()"><i class="fas fa-qrcode"></i> Generate QR Code</button>
+                    <div class="qr-output hidden" id="qrOutput">
+                        <div class="qr-canvas-wrap" id="qrCanvasWrap"></div>
+                        <button class="process-btn" style="margin-top:12px" onclick="downloadQR()"><i class="fas fa-download"></i> Download PNG</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── HASH GENERATOR ──────────── -->
+            <div class="tool-panel" id="tool-hash-generate">
+                <div class="tool-header">
+                    <h2><i class="fas fa-fingerprint"></i> Hash Generator</h2>
+                    <p>Calculate MD5, SHA1 and SHA256 checksums of any file</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-hash-generate" data-accept="*/*" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop any file here</p><span>or click to browse</span><small>Any file type &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input">
+                    </div>
+                    <div class="file-preview hidden" data-tool="hash-generate">
+                        <div class="file-info"><i class="fas fa-file"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('hash-generate')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <button class="process-btn" onclick="processFile('hash-generate')"><i class="fas fa-fingerprint"></i> Generate Hashes</button>
+                    <div class="processing-status hidden" data-tool="hash-generate"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="hash-results hidden" id="hashResults"></div>
+                </div>
+            </div>
+
+            <!-- ──────────── BASE64 ──────────── -->
+            <div class="tool-panel" id="tool-base64">
+                <div class="tool-header">
+                    <h2><i class="fas fa-code"></i> Base64 Encode / Decode</h2>
+                    <p>Convert text or files to and from Base64 encoding</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options">
+                        <label class="option-label">Mode</label>
+                        <div class="format-select-grid" data-tool="base64-mode">
+                            <button class="fmt-btn active" data-fmt="encode" onclick="selectOutputFmt(this)">Encode</button>
+                            <button class="fmt-btn" data-fmt="decode" onclick="selectOutputFmt(this)">Decode</button>
+                        </div>
+                    </div>
+                    <div class="text-tool-input">
+                        <label class="option-label">Input</label>
+                        <textarea id="base64Input" class="text-area-input" rows="5" placeholder="Paste text here..."></textarea>
+                    </div>
+                    <button class="process-btn" onclick="processBase64()"><i class="fas fa-code"></i> Convert</button>
+                    <div class="text-tool-input" style="margin-top:16px">
+                        <label class="option-label">Output</label>
+                        <textarea id="base64Output" class="text-area-input" rows="5" readonly placeholder="Result will appear here..."></textarea>
+                        <button class="copy-btn hidden" id="base64CopyBtn" onclick="copyToClipboard('base64Output')"><i class="fas fa-copy"></i> Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── JSON FORMATTER ──────────── -->
+            <div class="tool-panel" id="tool-json-format">
+                <div class="tool-header">
+                    <h2><i class="fas fa-brackets-curly"></i> JSON Formatter</h2>
+                    <p>Format, validate, and beautify JSON data</p>
+                </div>
+                <div class="tool-body">
+                    <div class="text-tool-input">
+                        <label class="option-label">Input JSON</label>
+                        <textarea id="jsonInput" class="text-area-input mono" rows="8" placeholder='{"key": "value", "nested": {"a":1}}'></textarea>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Indent</label>
+                        <div class="format-select-grid" data-tool="json-indent">
+                            <button class="fmt-btn" data-fmt="2" onclick="selectOutputFmt(this)">2 Spaces</button>
+                            <button class="fmt-btn active" data-fmt="4" onclick="selectOutputFmt(this)">4 Spaces</button>
+                            <button class="fmt-btn" data-fmt="tab" onclick="selectOutputFmt(this)">Tabs</button>
+                            <button class="fmt-btn" data-fmt="0" onclick="selectOutputFmt(this)">Minify</button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="formatJSON()"><i class="fas fa-check"></i> Format JSON</button>
+                    <div class="text-tool-input" style="margin-top:16px">
+                        <label class="option-label">Output</label>
+                        <textarea id="jsonOutput" class="text-area-input mono" rows="10" readonly placeholder="Formatted JSON will appear here..."></textarea>
+                        <button class="copy-btn hidden" id="jsonCopyBtn" onclick="copyToClipboard('jsonOutput')"><i class="fas fa-copy"></i> Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── COLOR CONVERTER ──────────── -->
+            <div class="tool-panel" id="tool-color-convert">
+                <div class="tool-header">
+                    <h2><i class="fas fa-palette"></i> Color Converter</h2>
+                    <p>Convert between HEX, RGB, and HSL color formats</p>
+                </div>
+                <div class="tool-body">
+                    <div class="color-input-section">
+                        <div class="color-preview-box" id="colorPreview" style="background:#6366f1"></div>
+                        <div class="color-inputs-grid">
+                            <div class="color-field"><label>HEX</label><input type="text" id="colorHex" value="#6366f1" oninput="updateColorFrom('hex')"></div>
+                            <div class="color-field"><label>RGB</label><input type="text" id="colorRgb" value="99, 102, 241" oninput="updateColorFrom('rgb')"></div>
+                            <div class="color-field"><label>HSL</label><input type="text" id="colorHsl" value="239, 84%, 67%" oninput="updateColorFrom('hsl')"></div>
+                        </div>
+                    </div>
+                    <div class="color-picker-wrap"><input type="color" id="colorPicker" value="#6366f1" oninput="updateColorFrom('picker')"></div>
                 </div>
             </div>
 

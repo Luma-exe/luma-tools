@@ -229,9 +229,10 @@ function toggleAspectLock() {
 
 async function processFile(toolId) {
     // Multi-file tools
-    if (toolId === 'pdf-merge') {
+    if (toolId === 'pdf-merge' || toolId === 'images-to-pdf') {
         const files = state.multiFiles[toolId];
-        if (!files || files.length < 2) { showToast('Please select at least 2 PDF files', 'error'); return; }
+        if (toolId === 'pdf-merge' && (!files || files.length < 2)) { showToast('Please select at least 2 PDF files', 'error'); return; }
+        if (toolId === 'images-to-pdf' && (!files || files.length < 1)) { showToast('Please select at least 1 image', 'error'); return; }
         return processMultiFile(toolId, files);
     }
 
@@ -279,12 +280,27 @@ async function processFile(toolId) {
             formData.append('format', getSelectedFmt('pdf-to-images') || 'png');
             formData.append('dpi', $('#pdfDpi').value || '200');
             break;
+        case 'video-to-gif':
+            formData.append('fps', $('#gifFps').value || '15');
+            formData.append('width', $('#gifWidth').value || '480');
+            break;
+        case 'video-speed':
+            formData.append('speed', $('#videoSpeed').value || '2');
+            break;
+        case 'video-frame':
+            formData.append('timestamp', $('#frameTimestamp').value || '00:00:00');
+            break;
+        case 'subtitle-extract':
+            formData.append('format', getSelectedFmt('subtitle-extract') || 'srt');
+            break;
     }
 
     // Show processing
     showProcessing(toolId, true);
 
-    const isAsync = toolId.startsWith('video-');
+    const asyncTools = ['video-compress','video-trim','video-convert','video-extract-audio',
+        'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize'];
+    const isAsync = asyncTools.includes(toolId);
 
     try {
         const endpoint = '/api/tools/' + toolId;
@@ -307,9 +323,12 @@ async function processFile(toolId) {
             // Synchronous — check content type
             const contentType = res.headers.get('content-type') || '';
             if (contentType.includes('application/json')) {
-                // JSON response (e.g. pdf-to-images multi-page)
                 const data = await res.json();
-                if (data.pages && data.pages.length > 0) {
+                if (data.hashes) {
+                    // Hash generator — show hash results
+                    showHashResults(toolId, data);
+                } else if (data.pages && data.pages.length > 0) {
+                    // Multi-page results (pdf-to-images, favicon-generate)
                     showMultiResult(toolId, data.pages);
                 } else {
                     throw new Error('No output files');
@@ -954,6 +973,145 @@ function initTickerDrag(track) {
     track.addEventListener('pointermove', onPointerMove);
     track.addEventListener('pointerup', onPointerUp);
     track.addEventListener('pointercancel', onPointerUp);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FRONTEND-ONLY TOOLS (QR, Base64, JSON, Color)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showHashResults(toolId, data) {
+    showProcessing(toolId, false);
+    const container = document.getElementById('hashResults');
+    if (!container) return;
+    let html = `<div class="hash-result-header"><i class="fas fa-file"></i> <strong>${data.filename}</strong> <span>(${formatSize(data.size)})</span></div>`;
+    for (const [algo, hash] of Object.entries(data.hashes)) {
+        html += `<div class="hash-row"><span class="hash-algo">${algo}</span><code class="hash-value">${hash}</code><button class="hash-copy" onclick="navigator.clipboard.writeText('${hash}');showToast('Copied!','success')"><i class="fas fa-copy"></i></button></div>`;
+    }
+    container.innerHTML = html;
+    container.classList.remove('hidden');
+}
+
+function generateQR() {
+    const text = document.getElementById('qrInput').value.trim();
+    if (!text) { showToast('Please enter some text', 'error'); return; }
+    const size = parseInt(document.getElementById('qrSize').value) || 6;
+    try {
+        const qr = qrcode(0, 'M');
+        qr.addData(text);
+        qr.make();
+        const cellSize = size;
+        const margin = 4;
+        const moduleCount = qr.getModuleCount();
+        const totalSize = moduleCount * cellSize + margin * 2;
+        const wrap = document.getElementById('qrCanvasWrap');
+        wrap.innerHTML = '';
+        const canvas = document.createElement('canvas');
+        canvas.width = totalSize; canvas.height = totalSize;
+        canvas.id = 'qrCanvas';
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, totalSize, totalSize);
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < moduleCount; r++)
+            for (let c = 0; c < moduleCount; c++)
+                if (qr.isDark(r, c)) ctx.fillRect(c * cellSize + margin, r * cellSize + margin, cellSize, cellSize);
+        wrap.appendChild(canvas);
+        document.getElementById('qrOutput').classList.remove('hidden');
+    } catch (e) { showToast('QR generation failed: ' + e.message, 'error'); }
+}
+
+function downloadQR() {
+    const canvas = document.getElementById('qrCanvas');
+    if (!canvas) return;
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'qrcode.png';
+    a.click();
+}
+
+function processBase64() {
+    const mode = getSelectedFmt('base64-mode') || 'encode';
+    const input = document.getElementById('base64Input').value;
+    if (!input) { showToast('Please enter some text', 'error'); return; }
+    try {
+        let result;
+        if (mode === 'encode') {
+            result = btoa(unescape(encodeURIComponent(input)));
+        } else {
+            result = decodeURIComponent(escape(atob(input.trim())));
+        }
+        document.getElementById('base64Output').value = result;
+        document.getElementById('base64CopyBtn').classList.remove('hidden');
+    } catch (e) { showToast('Conversion failed — invalid input', 'error'); }
+}
+
+function formatJSON() {
+    const input = document.getElementById('jsonInput').value.trim();
+    if (!input) { showToast('Please enter some JSON', 'error'); return; }
+    try {
+        const parsed = JSON.parse(input);
+        const indent = getSelectedFmt('json-indent') || '4';
+        let result;
+        if (indent === '0') result = JSON.stringify(parsed);
+        else if (indent === 'tab') result = JSON.stringify(parsed, null, '\t');
+        else result = JSON.stringify(parsed, null, parseInt(indent));
+        document.getElementById('jsonOutput').value = result;
+        document.getElementById('jsonCopyBtn').classList.remove('hidden');
+        showToast('JSON formatted successfully', 'success');
+    } catch (e) { showToast('Invalid JSON: ' + e.message, 'error'); }
+}
+
+function copyToClipboard(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    navigator.clipboard.writeText(el.value).then(() => showToast('Copied to clipboard!', 'success'));
+}
+
+function updateColorFrom(source) {
+    let r, g, b;
+    if (source === 'hex' || source === 'picker') {
+        const hex = source === 'picker' ? document.getElementById('colorPicker').value : document.getElementById('colorHex').value.trim();
+        const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+        if (!m) return;
+        r = parseInt(m[1], 16); g = parseInt(m[2], 16); b = parseInt(m[3], 16);
+    } else if (source === 'rgb') {
+        const parts = document.getElementById('colorRgb').value.split(',').map(s => parseInt(s.trim()));
+        if (parts.length < 3 || parts.some(isNaN)) return;
+        [r, g, b] = parts;
+    } else if (source === 'hsl') {
+        const parts = document.getElementById('colorHsl').value.replace(/%/g, '').split(',').map(s => parseFloat(s.trim()));
+        if (parts.length < 3 || parts.some(isNaN)) return;
+        const [h, s, l] = [parts[0] / 360, parts[1] / 100, parts[2] / 100];
+        if (s === 0) { r = g = b = Math.round(l * 255); }
+        else {
+            const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q-p)*6*t; if (t < 1/2) return q; if (t < 2/3) return p + (q-p)*(2/3-t)*6; return p; };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+            r = Math.round(hue2rgb(p, q, h + 1/3) * 255); g = Math.round(hue2rgb(p, q, h) * 255); b = Math.round(hue2rgb(p, q, h - 1/3) * 255);
+        }
+    }
+    r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
+    const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2, '0')).join('');
+    // Convert to HSL
+    const rr = r/255, gg = g/255, bb = b/255;
+    const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
+    let h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) { case rr: h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break; case gg: h = ((bb - rr) / d + 2) / 6; break; case bb: h = ((rr - gg) / d + 4) / 6; break; }
+    }
+    if (source !== 'hex' && source !== 'picker') document.getElementById('colorHex').value = hex;
+    if (source !== 'rgb') document.getElementById('colorRgb').value = `${r}, ${g}, ${b}`;
+    if (source !== 'hsl') document.getElementById('colorHsl').value = `${Math.round(h*360)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%`;
+    if (source !== 'picker') document.getElementById('colorPicker').value = hex;
+    document.getElementById('colorPreview').style.background = hex;
+}
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
