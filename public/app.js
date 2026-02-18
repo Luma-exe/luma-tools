@@ -2121,6 +2121,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initGlobalDrop();
     initInstallPrompt();
 
+    // Show start/landing page on first load (overrides any cached panel state)
+    switchTool('landing');
+
     // Keyboard shortcut: Ctrl+K to search
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
