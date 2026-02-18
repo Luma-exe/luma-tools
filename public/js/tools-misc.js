@@ -310,3 +310,173 @@ function copyMarkdownHTML() {
     if (!output || !output.textContent.trim()) { showToast('Nothing to copy', 'error'); return; }
     navigator.clipboard.writeText(output.innerHTML).then(() => showToast('HTML copied to clipboard!', 'success'));
 }
+
+// ── Word Counter ──────────────────────────────────────────────────────────
+
+function updateWordCount() {
+    const text = ($('wcInput') || {}).value || '';
+    const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+    const chars = text.length;
+    const charsNoSpace = text.replace(/\s/g, '').length;
+    const lines = text === '' ? 0 : text.split('\n').length;
+    const sentences = text.trim() === '' ? 0 : (text.match(/[^.!?]*[.!?]+/g) || []).length;
+    const paragraphs = text.trim() === '' ? 0 : text.split(/\n\s*\n/).filter(p => p.trim()).length || (text.trim() ? 1 : 0);
+
+    // Average reading speed ~238 wpm, speaking ~130 wpm
+    const readSecs = Math.round(words / 238 * 60);
+    const speakSecs = Math.round(words / 130 * 60);
+
+    function fmtTime(s) {
+        if (s < 60) return s + ' sec';
+        const m = Math.floor(s / 60), rs = s % 60;
+        return rs > 0 ? `${m} min ${rs} sec` : `${m} min`;
+    }
+
+    const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+    set('wcWords', words.toLocaleString());
+    set('wcChars', chars.toLocaleString());
+    set('wcCharsNoSpace', charsNoSpace.toLocaleString());
+    set('wcLines', lines.toLocaleString());
+    set('wcSentences', sentences.toLocaleString());
+    set('wcParagraphs', paragraphs.toLocaleString());
+    set('wcReadTime', fmtTime(readSecs));
+    set('wcSpeakTime', fmtTime(speakSecs));
+}
+
+// ── Diff Checker ──────────────────────────────────────────────────────────
+
+let _diffView = 'split';
+
+function setDiffView(view) {
+    _diffView = view;
+    document.getElementById('diffViewSplit')?.classList.toggle('active', view === 'split');
+    document.getElementById('diffViewUnified')?.classList.toggle('active', view === 'unified');
+    renderDiff();
+}
+
+function runDiff() {
+    const a = ($('diffOriginal') || {}).value || '';
+    const b = ($('diffChanged') || {}).value || '';
+    if (!a && !b) {
+        $('diffStats')?.classList.add('hidden');
+        $('diffOutput')?.classList.add('hidden');
+        return;
+    }
+    renderDiff();
+}
+
+function computeLineDiff(aLines, bLines) {
+    // Myers-style LCS-based line diff
+    const n = aLines.length, m = bLines.length;
+    const max = n + m;
+    const v = new Array(2 * max + 1).fill(0);
+    const trace = [];
+
+    for (let d = 0; d <= max; d++) {
+        trace.push([...v]);
+        for (let k = -d; k <= d; k += 2) {
+            let x;
+            if (k === -d || (k !== d && v[k - 1 + max] < v[k + 1 + max])) {
+                x = v[k + 1 + max];
+            } else {
+                x = v[k - 1 + max] + 1;
+            }
+            let y = x - k;
+            while (x < n && y < m && aLines[x] === bLines[y]) { x++; y++; }
+            v[k + max] = x;
+            if (x >= n && y >= m) {
+                // backtrack
+                const ops = [];
+                let cx = x, cy = y;
+                for (let dd = d; dd > 0; dd--) {
+                    const tv = trace[dd];
+                    let ck = cx - cy;
+                    let prevK;
+                    if (ck === -dd || (ck !== dd && tv[ck - 1 + max] < tv[ck + 1 + max])) {
+                        prevK = ck + 1;
+                    } else {
+                        prevK = ck - 1;
+                    }
+                    const prevX = tv[prevK + max];
+                    const prevY = prevX - prevK;
+                    while (cx > prevX + (prevK === ck - 1 ? 1 : 0) && cy > prevY + (prevK === ck + 1 ? 1 : 0)) {
+                        ops.push({ type: 'equal', a: cx - 1, b: cy - 1 }); cx--; cy--;
+                    }
+                    if (prevK === ck + 1) { ops.push({ type: 'insert', b: cy - 1 }); cy--; }
+                    else { ops.push({ type: 'delete', a: cx - 1 }); cx--; }
+                }
+                while (cx > 0 && cy > 0) { ops.push({ type: 'equal', a: cx - 1, b: cy - 1 }); cx--; cy--; }
+                return ops.reverse();
+            }
+        }
+    }
+    // Fallback: all changed
+    const ops = [];
+    aLines.forEach((_, i) => ops.push({ type: 'delete', a: i }));
+    bLines.forEach((_, i) => ops.push({ type: 'insert', b: i }));
+    return ops;
+}
+
+function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderDiff() {
+    const aText = ($('diffOriginal') || {}).value || '';
+    const bText = ($('diffChanged') || {}).value || '';
+    const aLines = aText.split('\n');
+    const bLines = bText.split('\n');
+
+    const ops = computeLineDiff(aLines, bLines);
+
+    let added = 0, removed = 0, unchanged = 0;
+    ops.forEach(op => { if (op.type === 'insert') added++; else if (op.type === 'delete') removed++; else unchanged++; });
+
+    const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+    set('diffAddedCount', added);
+    set('diffRemovedCount', removed);
+    set('diffUnchangedCount', unchanged);
+    $('diffStats')?.classList.remove('hidden');
+    $('diffOutput')?.classList.remove('hidden');
+
+    const result = $('diffResult');
+    if (!result) return;
+
+    if (_diffView === 'unified') {
+        let html = '<div class="diff-unified">';
+        let lineNumA = 1, lineNumB = 1;
+        ops.forEach(op => {
+            if (op.type === 'equal') {
+                html += `<div class="diff-line diff-equal"><span class="diff-ln">${lineNumA}</span><span class="diff-ln">${lineNumB}</span><span class="diff-sign"> </span><code>${esc(aLines[op.a])}</code></div>`;
+                lineNumA++; lineNumB++;
+            } else if (op.type === 'delete') {
+                html += `<div class="diff-line diff-del"><span class="diff-ln">${lineNumA}</span><span class="diff-ln"></span><span class="diff-sign">−</span><code>${esc(aLines[op.a])}</code></div>`;
+                lineNumA++;
+            } else {
+                html += `<div class="diff-line diff-ins"><span class="diff-ln"></span><span class="diff-ln">${lineNumB}</span><span class="diff-sign">+</span><code>${esc(bLines[op.b])}</code></div>`;
+                lineNumB++;
+            }
+        });
+        result.innerHTML = html + '</div>';
+    } else {
+        // Split view
+        let leftHtml = '<div class="diff-split-pane">';
+        let rightHtml = '<div class="diff-split-pane">';
+        let lineNumA = 1, lineNumB = 1;
+        ops.forEach(op => {
+            if (op.type === 'equal') {
+                const row = `<div class="diff-line diff-equal"><span class="diff-ln">${lineNumA++}</span><code>${esc(aLines[op.a])}</code></div>`;
+                const rowB = `<div class="diff-line diff-equal"><span class="diff-ln">${lineNumB++}</span><code>${esc(bLines[op.b])}</code></div>`;
+                leftHtml += row; rightHtml += rowB;
+            } else if (op.type === 'delete') {
+                leftHtml += `<div class="diff-line diff-del"><span class="diff-ln">${lineNumA++}</span><code>${esc(aLines[op.a])}</code></div>`;
+                rightHtml += `<div class="diff-line diff-placeholder"></div>`;
+            } else {
+                leftHtml += `<div class="diff-line diff-placeholder"></div>`;
+                rightHtml += `<div class="diff-line diff-ins"><span class="diff-ln">${lineNumB++}</span><code>${esc(bLines[op.b])}</code></div>`;
+            }
+        });
+        result.innerHTML = `<div class="diff-split-wrap">${leftHtml}</div>${rightHtml}</div></div>`;
+    }
+}
+

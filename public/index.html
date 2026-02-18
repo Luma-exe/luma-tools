@@ -181,6 +181,12 @@
                     <a class="nav-item" data-tool="markdown-preview" data-location="browser" onclick="switchTool('markdown-preview')">
                         <i class="fab fa-markdown"></i><span>Markdown Preview</span>
                     </a>
+                    <a class="nav-item" data-tool="diff-checker" data-location="browser" onclick="switchTool('diff-checker')">
+                        <i class="fas fa-code-compare"></i><span>Diff Checker</span>
+                    </a>
+                    <a class="nav-item" data-tool="word-counter" data-location="browser" onclick="switchTool('word-counter')">
+                        <i class="fas fa-align-left"></i><span>Word Counter</span>
+                    </a>
                 </div>
             </nav>
 
@@ -1339,6 +1345,96 @@
                     <div class="result-section hidden" data-tool="image-bg-remove">
                         <span class="result-name"></span><span class="result-size"></span>
                         <a class="result-download" href="#" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── DIFF CHECKER ──────────── -->
+            <div class="tool-panel" id="tool-diff-checker">
+                <div class="tool-header">
+                    <h2><i class="fas fa-code-compare"></i> Diff Checker</h2>
+                    <p>Compare two blocks of text or code with clean line-by-line highlighting</p>
+                </div>
+                <div class="tool-body">
+                    <div class="diff-inputs">
+                        <div class="diff-input-pane">
+                            <div class="diff-pane-header">
+                                <label class="option-label">Original</label>
+                                <button class="diff-clear-btn" onclick="document.getElementById('diffOriginal').value='';runDiff()"><i class="fas fa-times"></i> Clear</button>
+                            </div>
+                            <textarea id="diffOriginal" class="text-area-input mono diff-textarea" rows="14" placeholder="Paste original text here..." oninput="runDiff()"></textarea>
+                        </div>
+                        <div class="diff-input-pane">
+                            <div class="diff-pane-header">
+                                <label class="option-label">Changed</label>
+                                <button class="diff-clear-btn" onclick="document.getElementById('diffChanged').value='';runDiff()"><i class="fas fa-times"></i> Clear</button>
+                            </div>
+                            <textarea id="diffChanged" class="text-area-input mono diff-textarea" rows="14" placeholder="Paste changed text here..." oninput="runDiff()"></textarea>
+                        </div>
+                    </div>
+                    <div class="diff-stats hidden" id="diffStats">
+                        <span class="diff-stat added"><i class="fas fa-plus"></i> <span id="diffAddedCount">0</span> added</span>
+                        <span class="diff-stat removed"><i class="fas fa-minus"></i> <span id="diffRemovedCount">0</span> removed</span>
+                        <span class="diff-stat unchanged"><i class="fas fa-equals"></i> <span id="diffUnchangedCount">0</span> unchanged</span>
+                    </div>
+                    <div class="diff-output hidden" id="diffOutput">
+                        <div class="diff-pane-header">
+                            <label class="option-label">Diff Result</label>
+                            <div class="diff-view-toggle">
+                                <button class="diff-view-btn active" id="diffViewSplit" onclick="setDiffView('split')"><i class="fas fa-columns"></i> Split</button>
+                                <button class="diff-view-btn" id="diffViewUnified" onclick="setDiffView('unified')"><i class="fas fa-list"></i> Unified</button>
+                            </div>
+                        </div>
+                        <div class="diff-result" id="diffResult"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── WORD COUNTER ──────────── -->
+            <div class="tool-panel" id="tool-word-counter">
+                <div class="tool-header">
+                    <h2><i class="fas fa-align-left"></i> Word Counter &amp; Reading Time</h2>
+                    <p>Count words, characters, sentences and estimate reading time</p>
+                </div>
+                <div class="tool-body">
+                    <div class="wc-stats" id="wcStats">
+                        <div class="wc-stat-card">
+                            <span class="wc-stat-value" id="wcWords">0</span>
+                            <span class="wc-stat-label">Words</span>
+                        </div>
+                        <div class="wc-stat-card">
+                            <span class="wc-stat-value" id="wcChars">0</span>
+                            <span class="wc-stat-label">Characters</span>
+                        </div>
+                        <div class="wc-stat-card">
+                            <span class="wc-stat-value" id="wcCharsNoSpace">0</span>
+                            <span class="wc-stat-label">Chars (no spaces)</span>
+                        </div>
+                        <div class="wc-stat-card">
+                            <span class="wc-stat-value" id="wcLines">0</span>
+                            <span class="wc-stat-label">Lines</span>
+                        </div>
+                        <div class="wc-stat-card">
+                            <span class="wc-stat-value" id="wcSentences">0</span>
+                            <span class="wc-stat-label">Sentences</span>
+                        </div>
+                        <div class="wc-stat-card wc-stat-reading">
+                            <span class="wc-stat-value" id="wcReadTime">0 sec</span>
+                            <span class="wc-stat-label">Reading time</span>
+                        </div>
+                        <div class="wc-stat-card wc-stat-reading">
+                            <span class="wc-stat-value" id="wcSpeakTime">0 sec</span>
+                            <span class="wc-stat-label">Speaking time</span>
+                        </div>
+                        <div class="wc-stat-card">
+                            <span class="wc-stat-value" id="wcParagraphs">0</span>
+                            <span class="wc-stat-label">Paragraphs</span>
+                        </div>
+                    </div>
+                    <textarea id="wcInput" class="text-area-input wc-textarea" rows="14" placeholder="Paste or type your text here to get live statistics..." oninput="updateWordCount()"></textarea>
+                    <div class="wc-actions">
+                        <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('wcInput').value).then(()=>showToast('Copied!','success'))"><i class="fas fa-copy"></i> Copy text</button>
+                        <button class="copy-btn" onclick="document.getElementById('wcInput').value='';updateWordCount()"><i class="fas fa-trash-alt"></i> Clear</button>
                     </div>
                 </div>
             </div>
