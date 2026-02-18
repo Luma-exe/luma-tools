@@ -111,7 +111,13 @@ string exec_command(const string& cmd, int& exit_code) {
         result += buffer.data();
     }
 
-    exit_code = 0;
+    // Capture the real process exit code
+#ifdef _WIN32
+    exit_code = _pclose(pipe.release());
+#else
+    int raw = pclose(pipe.release());
+    exit_code = WIFEXITED(raw) ? WEXITSTATUS(raw) : -1;
+#endif
     return result;
 }
 

@@ -45,12 +45,12 @@ int main() {
             string commit = exec_command("git -C " + escape_arg(git_dir) + " rev-parse --short HEAD", rc);
             commit.erase(std::remove(commit.begin(), commit.end(), '\n'), commit.end());
             commit.erase(std::remove(commit.begin(), commit.end(), '\r'), commit.end());
-            if (rc == 0 && !commit.empty()) g_git_commit = commit;
+            if (rc == 0 && !commit.empty() && commit.find("fatal") == string::npos) g_git_commit = commit;
 
             string branch = exec_command("git -C " + escape_arg(git_dir) + " rev-parse --abbrev-ref HEAD", rc);
             branch.erase(std::remove(branch.begin(), branch.end(), '\n'), branch.end());
             branch.erase(std::remove(branch.begin(), branch.end(), '\r'), branch.end());
-            if (rc == 0 && !branch.empty()) g_git_branch = branch;
+            if (rc == 0 && !branch.empty() && branch.find("fatal") == string::npos) g_git_branch = branch;
 
             cout << "[Luma Tools] Git: " << g_git_branch << "@" << g_git_commit << endl;
         }
