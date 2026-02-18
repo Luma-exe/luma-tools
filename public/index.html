@@ -209,7 +209,21 @@
                     </div>
 
                     <div class="landing-about">
-                        <p>LumaTools was built out of frustration with bloated online converters that are riddled with ads, upload limits, and privacy concerns. Every tool here runs either <strong>directly in your browser</strong> using WebAssembly, or on a lightweight C++ backend — no data leaves your machine unless it has to.</p>
+                        <p>LumaTools was built out of frustration with bloated online converters full of ads and upload limits. We're upfront about how it works: <strong>almost every tool runs in your browser</strong>. Your files are processed locally using WebAssembly (FFmpeg in the browser) — they never leave your machine. The only tools that use our server are the ones that have to: video processing (trim, compress, to-GIF, etc.), PDF tools (Ghostscript), and the media downloader (yt-dlp). We don't store or log your files.</p>
+                    </div>
+
+                    <div class="landing-behind">
+                        <h3>Behind the scenes</h3>
+                        <div class="landing-behind-grid">
+                            <div class="landing-behind-card in-browser">
+                                <span class="landing-behind-badge"><i class="fas fa-lock"></i> In your browser</span>
+                                <p>Image compress, resize, convert, crop, background remove, metadata strip. Audio convert (under ~50MB). Favicon generator. QR, Base64, JSON, color tools. Your data never leaves your device.</p>
+                            </div>
+                            <div class="landing-behind-card on-server">
+                                <span class="landing-behind-badge"><i class="fas fa-server"></i> On our server</span>
+                                <p>All video tools (compress, trim, to-GIF, speed, stabilize, etc.), PDF compress/merge/to-images, audio normalize, media downloader (YouTube, etc.), hash generator. Files are processed and deleted; we don't keep them.</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="landing-drop-cta">
@@ -231,8 +245,8 @@
                         </div>
                         <div class="landing-feature">
                             <div class="landing-feature-icon"><i class="fas fa-microchip"></i></div>
-                            <h3>Client-Side Power</h3>
-                            <p>Image and audio tools run entirely in your browser via FFmpeg.wasm. Your files never leave your computer — zero upload, total privacy.</p>
+                            <h3>Mostly in the browser</h3>
+                            <p>Image and small-audio tools run entirely in your browser (FFmpeg.wasm). Video and PDF tools run on our server because they need native FFmpeg and Ghostscript — we're transparent about which is which.</p>
                         </div>
                         <div class="landing-feature">
                             <div class="landing-feature-icon"><i class="fas fa-download"></i></div>

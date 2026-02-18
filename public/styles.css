@@ -271,6 +271,38 @@ body {
 }
 .landing-about strong { color: var(--text-primary); }
 
+.landing-behind {
+    margin: 0 auto; max-width: 640px;
+}
+.landing-behind h3 {
+    font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--text-muted); margin-bottom: 14px; text-align: center;
+}
+.landing-behind-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.landing-behind-card {
+    padding: 18px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;
+}
+.landing-behind-card.in-browser { border-left: 3px solid var(--success); }
+.landing-behind-card.on-server { border-left: 3px solid var(--accent); }
+.landing-behind-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+.landing-behind-card.in-browser .landing-behind-badge { color: var(--success); }
+.landing-behind-card.on-server .landing-behind-badge { color: var(--accent); }
+.landing-behind-card p { margin: 0; }
+
+@media (max-width: 768px) {
+    .landing-behind-grid { grid-template-columns: 1fr; }
+}
+
 .landing-drop-cta {
     text-align: center;
     padding: 36px 24px;
