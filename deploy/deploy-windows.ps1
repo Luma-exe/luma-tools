@@ -93,7 +93,7 @@ if ($hasWinget) {
 
 # --- Step 1: Install Python ---------------------------------------------------
 
-Write-Step "1/8" "Installing Python..."
+Write-Step "1/9" "Installing Python..."
 
 # Try to find real Python (not the Store alias)
 $pythonExe = Find-RealPython
@@ -153,7 +153,7 @@ if ($pythonExe) {
 
 # --- Step 2: Install CMake ----------------------------------------------------
 
-Write-Step "2/8" "Installing CMake..."
+Write-Step "2/9" "Installing CMake..."
 
 Refresh-Path
 $hasCMake = (Test-CommandExists "cmake") -or (Test-Path "C:\Program Files\CMake\bin\cmake.exe")
@@ -184,7 +184,7 @@ if ($hasCMake) {
 
 # --- Step 3: Install FFmpeg ---------------------------------------------------
 
-Write-Step "3/8" "Installing FFmpeg..."
+Write-Step "3/9" "Installing FFmpeg..."
 
 $ffmpegDir = "C:\ffmpeg"
 $ffmpegExe = "$ffmpegDir\bin\ffmpeg.exe"
@@ -228,7 +228,61 @@ if ($hasFFmpeg) {
 
 # --- Step 4: Install Visual Studio Build Tools --------------------------------
 
-Write-Step "4/8" "Checking C++ Build Tools..."
+Write-Step "4/9" "Installing Ghostscript..."
+
+$gsDir = "C:\ghostscript"
+$gsExe = $null
+
+# Check common locations
+$gsSearchPaths = @(
+    "$gsDir\bin\gswin64c.exe",
+    "C:\Program Files\gs\*\bin\gswin64c.exe",
+    "C:\Program Files (x86)\gs\*\bin\gswin32c.exe"
+)
+foreach ($pattern in $gsSearchPaths) {
+    $found = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) { $gsExe = $found.FullName; break }
+}
+if (-not $gsExe) { $gsExe = Get-Command gswin64c.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source }
+
+if ($gsExe) {
+    Write-Host "    Ghostscript found: $gsExe" -ForegroundColor Green
+} else {
+    Write-Host "    Downloading Ghostscript..." -ForegroundColor Cyan
+    $gsInstaller = "$env:TEMP\gs-installer.exe"
+    # Ghostscript 10.04.0 (latest stable as of 2026)
+    Invoke-WebRequest -Uri "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10040/gs10040w64.exe" -OutFile $gsInstaller -UseBasicParsing
+    Write-Host "    Installing Ghostscript (silent)..." -ForegroundColor Cyan
+    Start-Process -FilePath $gsInstaller -ArgumentList "/S /D=$gsDir" -Wait -NoNewWindow
+    Remove-Item $gsInstaller -Force -ErrorAction SilentlyContinue
+
+    # Add to system PATH
+    $gsBin = "$gsDir\bin"
+    if (Test-Path $gsBin) {
+        $machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine')
+        if ($machinePath -notlike "*$gsBin*") {
+            [System.Environment]::SetEnvironmentVariable('Path', "$machinePath;$gsBin", 'Machine')
+        }
+        Write-Host "    Ghostscript installed to $gsDir" -ForegroundColor Green
+    } else {
+        # Some installer versions use a versioned subfolder
+        $gsBinAlt = Get-ChildItem "$gsDir\gs*\bin" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($gsBinAlt) {
+            $machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine')
+            if ($machinePath -notlike "*$($gsBinAlt.FullName)*") {
+                [System.Environment]::SetEnvironmentVariable('Path', "$machinePath;$($gsBinAlt.FullName)", 'Machine')
+            }
+            Write-Host "    Ghostscript installed to $($gsBinAlt.FullName)" -ForegroundColor Green
+        } else {
+            Write-Host "    WARNING: Ghostscript install path not found. PDF tools may not work." -ForegroundColor Yellow
+        }
+    }
+    Refresh-Path
+}
+
+# --- Step 5: Install Visual Studio Build Tools --------------------------------
+
+Write-Step "5/9" "Checking C++ Build Tools..."
 
 $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $hasMSVC = $false
@@ -251,7 +305,7 @@ if (-not $hasMSVC) {
 
 # --- Step 5: Install yt-dlp ---------------------------------------------------
 
-Write-Step "5/8" "Installing yt-dlp..."
+Write-Step "6/9" "Installing yt-dlp..."
 
 Refresh-Path
 
@@ -312,7 +366,7 @@ if ($ytdlpVer) {
 
 # --- Step 6: Copy project files and build -------------------------------------
 
-Write-Step "6/8" "Copying project to $InstallDir and building..."
+Write-Step "7/9" "Copying project to $InstallDir and building..."
 
 $scriptDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
@@ -363,7 +417,7 @@ if (Test-Path "build\Release\luma-tools.exe") {
 
 # --- Step 7: Install Caddy + configure firewall -------------------------------
 
-Write-Step "7/8" "Setting up Caddy (HTTPS reverse proxy) and firewall..."
+Write-Step "8/9" "Setting up Caddy (HTTPS reverse proxy) and firewall..."
 
 $caddyDir = "C:\caddy"
 $caddyExe = "$caddyDir\caddy.exe"
@@ -414,7 +468,7 @@ foreach ($rule in $rules) {
 
 # --- Step 8: Create Windows Services -----------------------------------------
 
-Write-Step "8/8" "Creating Windows services (auto-start on boot)..."
+Write-Step "9/9" "Creating Windows services (auto-start on boot)..."
 
 # Install NSSM (Non-Sucking Service Manager) for service management
 $nssmDir = "C:\nssm"
