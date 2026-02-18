@@ -117,8 +117,8 @@ string mask_filename(const string& filename) {
         } else {
             // Longer word: reveal first 3 chars, mask remainder with jitter.
             int hidden  = (int)word.size() - 3;
-            int jitter  = rand_int(-min(hidden - 1, 3), 7);
-            int stars   = max(1, hidden + jitter);
+            int jitter  = rand_int(-std::min(hidden - 1, 3), 7);
+            int stars   = std::max(1, hidden + jitter);
             masked_word = word.substr(0, 3) + string(stars, '*');
         }
 
