@@ -268,5 +268,6 @@ luma-tools/
 
 ## License
 
-AGPL-3.0 — see [LICENSE](LICENSE) for full terms.
+[Business Source License 1.1](LICENSE) — personal, non-commercial use only.
+Converts to AGPL v3 on **February 18, 2031**.
 
