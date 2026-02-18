@@ -198,7 +198,10 @@ int main() {
     cout << "[Luma Tools] Press Ctrl+C to stop" << endl;
 
     // Log server start to Discord
-    string discord_ver = g_git_branch + "@" + g_git_commit;
+    string discord_ver;
+    if (g_git_commit != "unknown") {
+        discord_ver = g_git_branch + "@" + g_git_commit;
+    }
     discord_log_server_start(port, discord_ver, g_update_status);
 
     if (!svr.listen("0.0.0.0", port)) {
