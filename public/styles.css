@@ -1711,8 +1711,7 @@ body {
     display: flex; align-items: center; gap: 8px;
     padding: 8px 12px;
     background: rgba(124, 92, 255, 0.13);
-    border: 1px solid rgba(124, 92, 255, 0.35);
-    border-left: 2px solid var(--accent);
+    border: 1px solid rgba(124, 92, 255, 0.18);
     border-radius: var(--radius-xs);
     color: var(--accent-light); font-size: 0.78rem; font-weight: 600;
     cursor: pointer; transition: all var(--transition);
@@ -1721,7 +1720,6 @@ body {
 .install-app-btn:hover {
     background: rgba(124, 92, 255, 0.22);
     border-color: var(--accent);
-    border-left-color: var(--accent);
 }
 .install-app-btn i { font-size: 0.85rem; }
 
