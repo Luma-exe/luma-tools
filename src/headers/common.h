@@ -24,6 +24,7 @@
 #include <random>
 #include <vector>
 #include <set>
+#include <functional>
 
 // ─── Type aliases & namespace shortcuts ─────────────────────────────────────
 
@@ -42,6 +43,7 @@ using std::endl;
 using std::array;
 using std::unique_ptr;
 using std::lock_guard;
+using std::function;
 using std::ofstream;
 using std::ifstream;
 using std::istringstream;

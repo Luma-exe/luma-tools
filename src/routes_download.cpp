@@ -296,7 +296,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
             // Discord log
             auto plat = detect_platform(url);
-            discord_log_download(title, plat.name, format);
+            discord_log_download(title, plat.name, format, client_ip);
 
             update_download_status(download_id, {
                 {"status", "starting"}, {"progress", 0},

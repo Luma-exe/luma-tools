@@ -1,214 +1,279 @@
 /**
- * Luma Tools — Stats API + dashboard route handlers
+ * Luma Tools - Stats API + dashboard route handlers
  *
- * GET  /stats              → password-protected dashboard HTML page
- * GET  /api/stats?range=today|week|month|all&kind=tool|download|
- *                           → JSON summary
- * POST /api/stats/digest   → trigger an immediate Discord digest
- *
- * Password is set via the STATS_PASSWORD env var (default: "luma").
- * Always change this in production.
+ * GET  /stats                  -> password-protected dashboard HTML
+ * POST /stats/login            -> cookie auth
+ * GET  /stats/logout           -> clear cookie
+ * GET  /api/stats              -> JSON summary   (auth required)
+ * GET  /api/stats/timeseries   -> day-by-day counts (auth required)
+ * GET  /api/stats/visitors     -> unique visitor count (auth required)
+ * GET  /api/stats/events       -> event counts (auth required)
+ * POST /api/stats/event        -> record client-side event (PUBLIC)
+ * POST /api/stats/digest       -> trigger Discord digest (auth required)
  */
 
 #include "common.h"
 #include "stats.h"
 #include "routes.h"
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+// =============================================================================
+// Auth helpers
+// =============================================================================
 
-// Returns the stats password from the STATS_PASSWORD environment variable.
-// Returns an empty string if the variable is not set — stats will be disabled.
 static string stats_password() {
     const char* env = std::getenv("STATS_PASSWORD");
     return env ? string(env) : "";
 }
 
-// ─── Simple cookie auth ───────────────────────────────────────────────────────
-
 static bool is_authed(const httplib::Request& req) {
     string pw = stats_password();
     if (pw.empty()) return false;
-
     auto it = req.headers.find("Cookie");
     if (it == req.headers.end()) return false;
-
-    string cookie = it->second;
-    string token  = "stats_auth=" + pw;
-    return cookie.find(token) != string::npos;
+    return it->second.find("stats_auth=" + pw) != string::npos;
 }
 
-// ─── Route registration ───────────────────────────────────────────────────────
+static string url_decode(const string& s) {
+    string out;
+    for (size_t i = 0; i < s.size(); ) {
+        if (s[i] == '+') { out += ' '; i++; }
+        else if (s[i] == '%' && i + 2 < s.size()) {
+            auto hex = [](char c) -> int {
+                if (c >= '0' && c <= '9') return c - '0';
+                if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+                if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+                return -1;
+            };
+            int hi = hex(s[i+1]), lo = hex(s[i+2]);
+            if (hi >= 0 && lo >= 0) { out += (char)((hi << 4) | lo); i += 3; }
+            else { out += s[i++]; }
+        } else { out += s[i++]; }
+    }
+    return out;
+}
 
-void register_stats_routes(httplib::Server& svr) {
+static pair<int64_t,int64_t> parse_range(const string& range) {
+    if (range == "today") { int64_t s = stat_today_start(); return {s, s + 86399}; }
+    if (range == "week")  return {stat_days_ago(7),  INT64_MAX};
+    if (range == "month") return {stat_days_ago(30), INT64_MAX};
+    return {0, INT64_MAX};
+}
 
-    // ── GET /stats — serve dashboard (or login form) ─────────────────────────
-    svr.Get("/stats", [](const httplib::Request& req, httplib::Response& res) {
-        if (stats_password().empty()) {
-            res.status = 503;
-            res.set_content("Stats dashboard is disabled. Set the STATS_PASSWORD environment variable to enable it.", "text/plain");
-            return;
-        }
+// =============================================================================
+// Login HTML
+// =============================================================================
 
-        if (!is_authed(req)) {
-            // Show login form
-            string html = R"html(<!DOCTYPE html>
+static string login_html(bool show_error) {
+    return string(R"HTML(<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Luma Tools — Stats</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Luma Tools - Stats</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    background: #0d0d12;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: #e0e0e8;
-  }
-  .card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.09);
-    border-radius: 16px;
-    padding: 40px 36px;
-    width: 340px;
-    text-align: center;
-  }
-  h1 { font-size: 1.4rem; margin-bottom: 8px; }
-  p  { font-size: 0.85rem; color: #888; margin-bottom: 24px; }
-  input {
-    width: 100%; padding: 12px 14px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px; color: #e0e0e8;
-    font-size: 1rem; margin-bottom: 14px;
-  }
-  button {
-    width: 100%; padding: 12px;
-    background: #7c5cff; border: none;
-    border-radius: 8px; color: #fff;
-    font-size: 1rem; font-weight: 600;
-    cursor: pointer;
-  }
-  button:hover { background: #6a4ee8; }
-  .err { color: #ff6b6b; font-size: 0.85rem; margin-top: 10px; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+     background:#09090f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e2e2ea}
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+      border-radius:18px;padding:44px 40px;width:360px;text-align:center}
+.logo{font-size:2.2rem;margin-bottom:10px}
+h1{font-size:1.3rem;margin-bottom:6px}
+p{font-size:.85rem;color:#555;margin-bottom:28px}
+input{width:100%;padding:13px 15px;background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#e2e2ea;
+      font-size:1rem;margin-bottom:14px;outline:none}
+input:focus{border-color:rgba(124,92,255,.6)}
+button{width:100%;padding:13px;background:#7c5cff;border:none;border-radius:10px;
+       color:#fff;font-size:1rem;font-weight:600;cursor:pointer}
+button:hover{background:#6a4ee8}
+.err{color:#f87171;font-size:.85rem;margin-top:12px}
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>📊 Stats Dashboard</h1>
+  <div class="logo">&#x1F4CA;</div>
+  <h1>Stats Dashboard</h1>
   <p>Enter the stats password to continue.</p>
   <form method="POST" action="/stats/login">
     <input type="password" name="password" placeholder="Password" autofocus>
     <button type="submit">Sign in</button>
   </form>
-)html";
-            if (req.has_param("err")) html += R"(<p class="err">Incorrect password.</p>)";
-            html += "</div></body></html>";
-            res.set_content(html, "text/html");
-            return;
-        }
+)HTML") + (show_error ? R"HTML(<p class="err">Incorrect password.</p>)HTML" : "") + R"HTML(
+</div>
+</body>
+</html>)HTML";
+}
 
-        // Serve full dashboard shell — data loaded via JS from /api/stats
-        string html = R"html(<!DOCTYPE html>
+// =============================================================================
+// Dashboard HTML
+// =============================================================================
+
+static const char* DASHBOARD_HTML = R"HTML(<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Luma Tools — Stats</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Luma Tools - Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    min-height: 100vh;
-    background: #0d0d12;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: #e0e0e8;
-    padding: 32px 24px;
-  }
-  h1 { font-size: 1.6rem; margin-bottom: 6px; }
-  .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 28px; }
-  .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
-  .controls select, .controls button {
-    padding: 9px 16px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px; color: #e0e0e8;
-    font-size: 0.9rem; cursor: pointer;
-  }
-  .controls button.active, .controls button:hover {
-    background: rgba(124,92,255,0.25);
-    border-color: rgba(124,92,255,0.5);
-  }
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
-  .stat-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px; padding: 20px 16px; text-align: center;
-  }
-  .stat-card .val { font-size: 2rem; font-weight: 700; color: #7c5cff; }
-  .stat-card .lbl { font-size: 0.8rem; color: #888; margin-top: 4px; }
-  .section { margin-bottom: 32px; }
-  .section h2 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 10px 14px; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  th { color: #888; font-weight: 500; }
-  .bar-wrap { background: rgba(255,255,255,0.06); border-radius: 4px; height: 8px; flex: 1; overflow: hidden; }
-  .bar { background: #7c5cff; height: 100%; border-radius: 4px; transition: width 0.4s; }
-  .bar-row { display: flex; align-items: center; gap: 10px; }
-  .digest-btn {
-    padding: 10px 20px;
-    background: rgba(124,92,255,0.2);
-    border: 1px solid rgba(124,92,255,0.4);
-    border-radius: 8px; color: #e0e0e8;
-    font-size: 0.9rem; cursor: pointer;
-  }
-  .digest-btn:hover { background: rgba(124,92,255,0.35); }
-  .toast {
-    position: fixed; bottom: 24px; right: 24px;
-    background: #1e1e2e; border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px; padding: 12px 18px;
-    font-size: 0.9rem; opacity: 0; transition: opacity 0.3s;
-    pointer-events: none;
-  }
-  .toast.show { opacity: 1; }
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090f;--surface:rgba(255,255,255,.04);--border:rgba(255,255,255,.08);
+  --purple:#7c5cff;--purple-dim:rgba(124,92,255,.18);--text:#e2e2ea;--muted:#666;
+}
+body{background:var(--bg);color:var(--text);
+     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+     min-height:100vh;padding:0 0 60px}
+.header{padding:28px 32px 0;max-width:1300px;margin:auto;
+        display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-size:1.4rem;font-weight:700;display:flex;align-items:center;gap:10px}
+.logout{font-size:.8rem;color:var(--muted);text-decoration:none;padding:6px 14px;
+        border:1px solid var(--border);border-radius:8px}
+.logout:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+.rangebar{padding:16px 32px 0;max-width:1300px;margin:auto;
+          display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.range-btn{padding:7px 16px;background:var(--surface);border:1px solid var(--border);
+           border-radius:8px;color:var(--muted);font-size:.875rem;cursor:pointer}
+.range-btn.active,.range-btn:hover{background:var(--purple-dim);
+  border-color:rgba(124,92,255,.5);color:var(--text)}
+.digest-btn{margin-left:auto;padding:7px 16px;background:rgba(255,255,255,.05);
+            border:1px solid var(--border);border-radius:8px;color:var(--muted);
+            font-size:.875rem;cursor:pointer}
+.digest-btn:hover{background:var(--purple-dim);border-color:rgba(124,92,255,.5);color:var(--text)}
+.main{padding:24px 32px 0;max-width:1300px;margin:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:28px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+      padding:22px 18px;text-align:center}
+.card .val{font-size:2rem;font-weight:700;color:var(--purple)}
+.card.green .val{color:#34d399}
+.card.red   .val{color:#f87171}
+.card.blue  .val{color:#60a5fa}
+.card .lbl{font-size:.78rem;color:var(--muted);margin-top:5px;letter-spacing:.02em}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px}
+@media(max-width:820px){.charts-grid{grid-template-columns:1fr}}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px}
+.chart-box h2{font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;
+              letter-spacing:.07em;margin-bottom:16px}
+.chart-full{grid-column:1/-1}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+         padding:22px;margin-bottom:20px}
+.section h2{font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:16px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 12px;font-size:.875rem;
+      border-bottom:1px solid rgba(255,255,255,.05)}
+th{color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:none}
+.bar-bg{background:rgba(255,255,255,.07);border-radius:4px;height:7px;flex:1;overflow:hidden}
+.bar-fill{background:var(--purple);height:100%;border-radius:4px;transition:width .4s}
+.bar-row{display:flex;align-items:center;gap:10px}
+.toast{position:fixed;bottom:24px;right:24px;background:#1e1e2e;
+       border:1px solid rgba(255,255,255,.1);border-radius:10px;
+       padding:12px 20px;font-size:.875rem;opacity:0;
+       transition:opacity .3s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1}
+.loading{color:var(--muted);font-size:.875rem;padding:16px 0;text-align:center}
 </style>
 </head>
 <body>
-<h1>📊 Stats Dashboard</h1>
-<p class="subtitle">Luma Tools usage analytics</p>
-
-<div class="controls">
-  <button class="active" data-range="today">Today</button>
-  <button data-range="week">7 Days</button>
-  <button data-range="month">30 Days</button>
-  <button data-range="all">All Time</button>
-  <select id="kindSelect">
-    <option value="">All</option>
-    <option value="tool">Tools Only</option>
-    <option value="download">Downloads Only</option>
-  </select>
-  <button class="digest-btn" id="digestBtn">📬 Send Digest Now</button>
+<div class="header">
+  <h1>&#x1F4CA; Luma Tools Analytics</h1>
+  <a class="logout" href="/stats/logout">Sign out</a>
 </div>
 
-<div class="cards">
-  <div class="stat-card"><div class="val" id="cTotal">—</div><div class="lbl">Total Requests</div></div>
-  <div class="stat-card"><div class="val" id="cTools">—</div><div class="lbl">Tool Uses</div></div>
-  <div class="stat-card"><div class="val" id="cDownloads">—</div><div class="lbl">Downloads</div></div>
-  <div class="stat-card"><div class="val" id="cErrors">—</div><div class="lbl">Errors</div></div>
+<div class="rangebar">
+  <button class="range-btn active" data-range="today">Today</button>
+  <button class="range-btn" data-range="week">Last 7 Days</button>
+  <button class="range-btn" data-range="month">Last 30 Days</button>
+  <button class="range-btn" data-range="all">All Time</button>
+  <button class="digest-btn" id="digestBtn">&#x1F4EC; Send Digest</button>
 </div>
 
-<div class="section">
-  <h2>Top Items</h2>
-  <table id="topTable">
-    <thead><tr><th>#</th><th>Name</th><th>Count</th><th style="width:40%">Bar</th></tr></thead>
-    <tbody id="topBody"></tbody>
-  </table>
+<div class="main">
+  <div class="cards">
+    <div class="card">       <div class="val" id="cTotal">-</div>    <div class="lbl">Total Requests</div></div>
+    <div class="card green"> <div class="val" id="cTools">-</div>    <div class="lbl">Tool Uses</div></div>
+    <div class="card blue">  <div class="val" id="cDownloads">-</div><div class="lbl">Downloads</div></div>
+    <div class="card">       <div class="val" id="cVisitors">-</div> <div class="lbl">Unique Visitors</div></div>
+    <div class="card red">   <div class="val" id="cErrors">-</div>   <div class="lbl">Errors</div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-box chart-full">
+      <h2>Requests Over Time</h2>
+      <canvas id="lineChart" height="90"></canvas>
+    </div>
+    <div class="chart-box">
+      <h2>Tool Distribution</h2>
+      <canvas id="donutChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <h2>Top Download Platforms</h2>
+      <canvas id="barChart"></canvas>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Top Tools</h2>
+    <table>
+      <thead><tr><th>#</th><th>Tool</th><th>Count</th><th style="width:38%">Usage</th></tr></thead>
+      <tbody id="toolsBody"><tr><td colspan="4" class="loading">Loading...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="section" id="eventsSection" style="display:none">
+    <h2>Tracked Events</h2>
+    <table>
+      <thead><tr><th>Event</th><th>Count</th></tr></thead>
+      <tbody id="eventsBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
+Chart.defaults.color = '#666';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
+const PURPLE = '#7c5cff';
+const PURPLE_ALPHA = 'rgba(124,92,255,0.18)';
+const PALETTE = ['#7c5cff','#34d399','#60a5fa','#f87171','#fbbf24','#a78bfa','#6ee7b7','#93c5fd'];
+
+let lineChart, donutChart, barChart;
+
+function initCharts() {
+  lineChart = new Chart(document.getElementById('lineChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Requests', data: [],
+      borderColor: PURPLE, backgroundColor: PURPLE_ALPHA,
+      fill: true, tension: 0.4, pointRadius: 3, pointHoverRadius: 6 }]},
+    options: { responsive: true, plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { precision: 0 } }
+      }}
+  });
+
+  donutChart = new Chart(document.getElementById('donutChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE, borderWidth: 2, borderColor: '#09090f' }]},
+    options: { responsive: true, cutout: '65%',
+      plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 14 } } }}
+  });
+
+  barChart = new Chart(document.getElementById('barChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE, borderRadius: 6 }]},
+    options: { responsive: true, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { precision: 0 } },
+        y: { grid: { display: false } }
+      }}
+  });
+}
+
 let currentRange = 'today';
-let currentKind  = '';
 
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -218,104 +283,123 @@ function showToast(msg) {
 }
 
 async function load() {
-  const res  = await fetch(`/api/stats?range=${currentRange}&kind=${currentKind}`);
-  const data = await res.json();
+  try {
+    const [allData, toolsData, dlData, tsData, visitData, evData] = await Promise.all([
+      fetch(`/api/stats?range=${currentRange}`).then(r => r.json()),
+      fetch(`/api/stats?range=${currentRange}&kind=tool`).then(r => r.json()),
+      fetch(`/api/stats?range=${currentRange}&kind=download`).then(r => r.json()),
+      fetch(`/api/stats/timeseries?range=${currentRange}`).then(r => r.json()),
+      fetch(`/api/stats/visitors?range=${currentRange}`).then(r => r.json()),
+      fetch(`/api/stats/events?range=${currentRange}`).then(r => r.json()),
+    ]);
 
-  document.getElementById('cTotal').textContent     = data.total     ?? '—';
-  document.getElementById('cErrors').textContent    = data.failures  ?? '—';
+    document.getElementById('cTotal').textContent     = allData.total     ?? '-';
+    document.getElementById('cTools').textContent     = toolsData.total   ?? '-';
+    document.getElementById('cDownloads').textContent = dlData.total      ?? '-';
+    document.getElementById('cVisitors').textContent  = visitData.unique  ?? '-';
+    document.getElementById('cErrors').textContent    = allData.failures  ?? '-';
 
-  // Fetch sub-totals for tools & downloads separately
-  const [rt, rd] = await Promise.all([
-    fetch(`/api/stats?range=${currentRange}&kind=tool`).then(r => r.json()),
-    fetch(`/api/stats?range=${currentRange}&kind=download`).then(r => r.json()),
-  ]);
-  document.getElementById('cTools').textContent     = rt.total     ?? '—';
-  document.getElementById('cDownloads').textContent = rd.total     ?? '—';
+    if (tsData.days && tsData.days.length > 0) {
+      lineChart.data.labels = tsData.days.map(d => d.date);
+      lineChart.data.datasets[0].data = tsData.days.map(d => d.count);
+      lineChart.update();
+    }
 
-  // Top table
-  const tbody = document.getElementById('topBody');
-  tbody.innerHTML = '';
-  const items = data.by_name ?? [];
-  const max   = items[0]?.[1] ?? 1;
-  items.slice(0, 20).forEach(([name, count], i) => {
-    const pct = Math.round((count / max) * 100);
-    const tr  = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i + 1}</td>
-      <td>${name}</td>
-      <td>${count}</td>
-      <td><div class="bar-row"><div class="bar-wrap"><div class="bar" style="width:${pct}%"></div></div></div></td>
-    `;
-    tbody.appendChild(tr);
-  });
+    const topTools = (toolsData.by_name || []).slice(0, 8);
+    donutChart.data.labels = topTools.map(([n]) => n);
+    donutChart.data.datasets[0].data = topTools.map(([,c]) => c);
+    donutChart.data.datasets[0].backgroundColor = PALETTE.slice(0, topTools.length);
+    donutChart.update();
+
+    const topDl = (dlData.by_name || []).slice(0, 8);
+    barChart.data.labels = topDl.map(([n]) => n);
+    barChart.data.datasets[0].data = topDl.map(([,c]) => c);
+    barChart.data.datasets[0].backgroundColor = PALETTE.slice(0, topDl.length);
+    barChart.update();
+
+    const tbody = document.getElementById('toolsBody');
+    tbody.innerHTML = '';
+    const items = toolsData.by_name || [];
+    const max   = items[0]?.[1] ?? 1;
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="loading">No data for this range.</td></tr>';
+    } else {
+      items.slice(0, 25).forEach(([name, count], i) => {
+        const pct = Math.round((count / max) * 100);
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td style="color:var(--muted)">' + (i+1) + '</td>' +
+          '<td><code style="font-size:.82rem">' + name + '</code></td>' +
+          '<td>' + count + '</td>' +
+          '<td><div class="bar-row"><div class="bar-bg"><div class="bar-fill" style="width:' + pct + '%"></div></div></div></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    const evSection = document.getElementById('eventsSection');
+    const evBody    = document.getElementById('eventsBody');
+    const evItems   = evData.events || [];
+    if (evItems.length === 0) {
+      evSection.style.display = 'none';
+    } else {
+      evSection.style.display = '';
+      evBody.innerHTML = '';
+      evItems.forEach(([name, count]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td><code style="font-size:.82rem">' + name + '</code></td><td>' + count + '</td>';
+        evBody.appendChild(tr);
+      });
+    }
+  } catch(e) {
+    showToast('Error: ' + e.message);
+  }
 }
 
-document.querySelectorAll('[data-range]').forEach(btn => {
+document.querySelectorAll('.range-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-range]').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentRange = btn.dataset.range;
     load();
   });
 });
 
-document.getElementById('kindSelect').addEventListener('change', e => {
-  currentKind = e.target.value;
-  load();
-});
-
 document.getElementById('digestBtn').addEventListener('click', async () => {
   const res = await fetch('/api/stats/digest', { method: 'POST' });
-  if (res.ok) showToast('Digest sent to Discord!');
-  else        showToast('Failed to send digest.');
+  showToast(res.ok ? 'Digest sent to Discord!' : 'Failed to send digest.');
 });
 
+initCharts();
 load();
 </script>
 </body>
-</html>)html";
-        res.set_content(html, "text/html");
+</html>)HTML";
+
+// =============================================================================
+// Route registration
+// =============================================================================
+
+void register_stats_routes(httplib::Server& svr) {
+
+    // GET /stats
+    svr.Get("/stats", [](const httplib::Request& req, httplib::Response& res) {
+        if (stats_password().empty()) {
+            res.status = 503;
+            res.set_content("Stats dashboard disabled. Set STATS_PASSWORD.", "text/plain");
+            return;
+        }
+        if (!is_authed(req)) {
+            res.set_content(login_html(req.has_param("err")), "text/html");
+            return;
+        }
+        res.set_content(DASHBOARD_HTML, "text/html");
     });
 
-    // ── POST /stats/login — handle password form ──────────────────────────────
+    // POST /stats/login
     svr.Post("/stats/login", [](const httplib::Request& req, httplib::Response& res) {
         string body = req.body;
         string pw;
-
-        // Parse application/x-www-form-urlencoded "password=..."
         auto pos = body.find("password=");
-
-        if (pos != string::npos) {
-            pw = body.substr(pos + 9);
-
-            // Full URL-decode: '+' -> space, %XX -> char
-            string decoded;
-            for (size_t i = 0; i < pw.size(); ) {
-                if (pw[i] == '+') {
-                    decoded += ' ';
-                    i++;
-                } else if (pw[i] == '%' && i + 2 < pw.size()) {
-                    int val = 0;
-                    auto hex = [](char c) -> int {
-                        if (c >= '0' && c <= '9') return c - '0';
-                        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-                        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-                        return -1;
-                    };
-                    int hi = hex(pw[i+1]), lo = hex(pw[i+2]);
-                    if (hi >= 0 && lo >= 0) {
-                        decoded += (char)((hi << 4) | lo);
-                        i += 3;
-                    } else {
-                        decoded += pw[i++];
-                    }
-                } else {
-                    decoded += pw[i++];
-                }
-            }
-            pw = decoded;
-        }
-
+        if (pos != string::npos) pw = url_decode(body.substr(pos + 9));
         if (pw == stats_password()) {
             res.set_header("Set-Cookie", "stats_auth=" + stats_password() + "; Path=/; HttpOnly");
             res.set_header("Location", "/stats");
@@ -326,51 +410,80 @@ load();
         }
     });
 
-    // ── GET /api/stats — JSON query ───────────────────────────────────────────
-    svr.Get("/api/stats", [](const httplib::Request& req, httplib::Response& res) {
-        if (!is_authed(req)) {
-            res.status = 401;
-            res.set_content(json({{"error", "Unauthorized"}}).dump(), "application/json");
-            return;
-        }
+    // GET /stats/logout
+    svr.Get("/stats/logout", [](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Set-Cookie", "stats_auth=; Path=/; HttpOnly; Max-Age=0");
+        res.set_header("Location", "/stats");
+        res.status = 302;
+    });
 
+    // GET /api/stats
+    svr.Get("/api/stats", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
         string range = req.has_param("range") ? req.get_param_value("range") : "today";
         string kind  = req.has_param("kind")  ? req.get_param_value("kind")  : "";
-
-        int64_t from_unix = 0;
-        int64_t to_unix   = std::numeric_limits<int64_t>::max();
-
-        if      (range == "today") { from_unix = stat_today_start(); to_unix = from_unix + 86399; }
-        else if (range == "week")  { from_unix = stat_days_ago(7);  }
-        else if (range == "month") { from_unix = stat_days_ago(30); }
-        // "all" uses defaults (0 to max)
-
+        auto [from_unix, to_unix] = parse_range(range);
         auto s = stat_query(from_unix, to_unix, kind);
-
         json by_name_arr = json::array();
-
-        for (auto& [name, count] : s.by_name) {
-            by_name_arr.push_back({name, count});
-        }
-
-        json resp = {
-            {"total",     s.total},
-            {"successes", s.successes},
-            {"failures",  s.failures},
-            {"by_name",   by_name_arr}
-        };
+        for (auto& [n, c] : s.by_name) by_name_arr.push_back({n, c});
+        json resp = {{"total",s.total},{"successes",s.successes},{"failures",s.failures},{"by_name",by_name_arr}};
         res.set_content(resp.dump(), "application/json");
     });
 
-    // ── POST /api/stats/digest — trigger digest manually ─────────────────────
-    svr.Post("/api/stats/digest", [](const httplib::Request& req, httplib::Response& res) {
-        if (!is_authed(req)) {
-            res.status = 401;
-            res.set_content(json({{"error", "Unauthorized"}}).dump(), "application/json");
-            return;
-        }
+    // GET /api/stats/timeseries
+    svr.Get("/api/stats/timeseries", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        string range = req.has_param("range") ? req.get_param_value("range") : "week";
+        string kind  = req.has_param("kind")  ? req.get_param_value("kind")  : "";
+        auto [from_unix, to_unix] = parse_range(range);
+        auto buckets = stat_timeseries(from_unix, to_unix, kind);
+        json days = json::array();
+        for (auto& b : buckets) days.push_back({{"date",b.date},{"count",b.count}});
+        res.set_content(json({{"days",days}}).dump(), "application/json");
+    });
 
+    // GET /api/stats/visitors
+    svr.Get("/api/stats/visitors", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        string range = req.has_param("range") ? req.get_param_value("range") : "today";
+        auto [from_unix, to_unix] = parse_range(range);
+        res.set_content(json({{"unique", stat_unique_visitors(from_unix, to_unix)}}).dump(), "application/json");
+    });
+
+    // GET /api/stats/events
+    svr.Get("/api/stats/events", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        string range = req.has_param("range") ? req.get_param_value("range") : "today";
+        auto [from_unix, to_unix] = parse_range(range);
+        auto ev = stat_events(from_unix, to_unix);
+        json arr = json::array();
+        for (auto& [n, c] : ev) arr.push_back({n, c});
+        res.set_content(json({{"events",arr}}).dump(), "application/json");
+    });
+
+    // POST /api/stats/event  (PUBLIC - called from user browsers)
+    svr.Post("/api/stats/event", [](const httplib::Request& req, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        try {
+            auto body = json::parse(req.body);
+            string name = body.value("name", "");
+            if (!name.empty() && name.size() <= 64) stat_record_event(name);
+        } catch (...) {}
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // OPTIONS /api/stats/event  (CORS preflight)
+    svr.Options("/api/stats/event", [](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        res.status = 204;
+    });
+
+    // POST /api/stats/digest
+    svr.Post("/api/stats/digest", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
         thread([]() { stat_send_daily_digest(); }).detach();
-        res.set_content(json({{"ok", true}}).dump(), "application/json");
+        res.set_content(R"({"ok":true})", "application/json");
     });
 }

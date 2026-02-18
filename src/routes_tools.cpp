@@ -42,7 +42,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             try { quality = std::stoi(req.get_file_value("quality").content); } catch (...) {}
         }
 
-        discord_log_tool("Image Compress", file.filename);
+        discord_log_tool("Image Compress", file.filename, req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -100,7 +100,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             return;
         }
 
-        discord_log_tool("Image Resize", file.filename);
+        discord_log_tool("Image Resize", file.filename, req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -139,7 +139,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "png";
 
-        discord_log_tool("Image Convert", file.filename + " -> " + format);
+        discord_log_tool("Image Convert", file.filename + " -> " + format, req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -174,7 +174,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
 
-        discord_log_tool("Audio Convert", file.filename + " -> " + format);
+        discord_log_tool("Audio Convert", file.filename + " -> " + format, req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -218,7 +218,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string preset = req.has_file("preset") ? req.get_file_value("preset").content : "medium";
 
-        discord_log_tool("Video Compress", file.filename + " (" + preset + ")");
+        discord_log_tool("Video Compress", file.filename + " (" + preset + ")", req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -278,7 +278,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             return;
         }
 
-        discord_log_tool("Video Trim (" + mode + ")", file.filename + " [" + start + " -> " + end + "]");
+        discord_log_tool("Video Trim (" + mode + ")", file.filename + " [" + start + " -> " + end + "]", req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -334,7 +334,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp4";
 
-        discord_log_tool("Video Convert", file.filename + " -> " + format);
+        discord_log_tool("Video Convert", file.filename + " -> " + format, req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -385,7 +385,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
 
-        discord_log_tool("Extract Audio", file.filename + " -> " + format);
+        discord_log_tool("Extract Audio", file.filename + " -> " + format, req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -464,7 +464,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string level = req.has_file("level") ? req.get_file_value("level").content : "ebook";
 
-        discord_log_tool("PDF Compress", file.filename + " (" + level + ")");
+        discord_log_tool("PDF Compress", file.filename + " (" + level + ")", req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -510,7 +510,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             return;
         }
 
-        discord_log_tool("PDF Merge", to_string(count_val) + " files");
+        discord_log_tool("PDF Merge", to_string(count_val) + " files", req.remote_addr);
 
         string jid = generate_job_id();
         string proc_dir = get_processing_dir();
@@ -576,7 +576,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string format = req.has_file("format") ? req.get_file_value("format").content : "png";
         string dpi = req.has_file("dpi") ? req.get_file_value("dpi").content : "200";
 
-        discord_log_tool("PDF to Images", file.filename + " (" + format + ", " + dpi + " DPI)");
+        discord_log_tool("PDF to Images", file.filename + " (" + format + ", " + dpi + " DPI)", req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -646,7 +646,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         int fps = 15; if (req.has_file("fps")) try { fps = std::stoi(req.get_file_value("fps").content); } catch (...) {}
         int width = 480; if (req.has_file("width")) try { width = std::stoi(req.get_file_value("width").content); } catch (...) {}
 
-        discord_log_tool("Video to GIF", file.filename);
+        discord_log_tool("Video to GIF", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string proc_dir = get_processing_dir();
@@ -678,7 +678,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Post("/api/tools/gif-to-video", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        discord_log_tool("GIF to Video", file.filename);
+        discord_log_tool("GIF to Video", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string output_path = get_processing_dir() + "/" + jid + "_out.mp4";
@@ -702,7 +702,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Post("/api/tools/video-remove-audio", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        discord_log_tool("Remove Audio", file.filename);
+        discord_log_tool("Remove Audio", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
@@ -729,7 +729,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         if (req.has_file("speed")) try { speed = std::stod(req.get_file_value("speed").content); } catch (...) {}
         if (speed < 0.25) speed = 0.25; if (speed > 4.0) speed = 4.0;
-        discord_log_tool("Video Speed", file.filename + " (" + to_string(speed) + "x)");
+        discord_log_tool("Video Speed", file.filename + " (" + to_string(speed) + "x)", req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string output_path = get_processing_dir() + "/" + jid + "_out.mp4";
@@ -768,7 +768,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
         string timestamp = req.has_file("timestamp") ? req.get_file_value("timestamp").content : "00:00:00";
-        discord_log_tool("Frame Extract", file.filename + " @ " + timestamp);
+        discord_log_tool("Frame Extract", file.filename + " @ " + timestamp, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string output_path = get_processing_dir() + "/" + jid + "_frame.png";
@@ -785,7 +785,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Post("/api/tools/video-stabilize", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        discord_log_tool("Video Stabilize", file.filename);
+        discord_log_tool("Video Stabilize", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string output_path = get_processing_dir() + "/" + jid + "_out.mp4";
@@ -808,7 +808,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Post("/api/tools/audio-normalize", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        discord_log_tool("Audio Normalize", file.filename);
+        discord_log_tool("Audio Normalize", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
@@ -833,7 +833,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "srt";
-        discord_log_tool("Subtitle Extract", file.filename);
+        discord_log_tool("Subtitle Extract", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string output_path = get_processing_dir() + "/" + jid + "_subs." + format;
@@ -850,7 +850,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Post("/api/tools/metadata-strip", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        discord_log_tool("Metadata Strip", file.filename);
+        discord_log_tool("Metadata Strip", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
@@ -873,7 +873,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Post("/api/tools/favicon-generate", [dl_dir](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        discord_log_tool("Favicon Generator", file.filename);
+        discord_log_tool("Favicon Generator", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string proc_dir = get_processing_dir();
@@ -934,7 +934,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             return;
         }
 
-        discord_log_tool("Image Crop", file.filename);
+        discord_log_tool("Image Crop", file.filename, req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -974,7 +974,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         if (req.has_file("method")) method = req.get_file_value("method").content;
 
-        discord_log_tool("Background Remover", file.filename + " (" + method + ")");
+        discord_log_tool("Background Remover", file.filename + " (" + method + ")", req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -1047,7 +1047,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             return;
         }
 
-        discord_log_tool("Redact Video", file.filename);
+        discord_log_tool("Redact Video", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
@@ -1093,7 +1093,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         if (req.has_file("count")) try { count_val = std::stoi(req.get_file_value("count").content); } catch (...) {}
         if (count_val < 1) { res.status = 400; res.set_content(json({{"error","At least 1 image required"}}).dump(),"application/json"); return; }
-        discord_log_tool("Images to PDF", to_string(count_val) + " images");
+        discord_log_tool("Images to PDF", to_string(count_val) + " images", req.remote_addr);
         string jid = generate_job_id();
         string proc_dir = get_processing_dir();
         // Convert all images to JPEG and probe dimensions
@@ -1176,7 +1176,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Post("/api/tools/hash-generate", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        discord_log_tool("Hash Generator", file.filename);
+        discord_log_tool("Hash Generator", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         json hashes;

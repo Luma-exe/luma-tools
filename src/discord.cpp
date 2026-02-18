@@ -151,21 +151,21 @@ void discord_log(const string& title, const string& description, int color) {
     discord_send(payload);
 }
 
-void discord_log_download(const string& title, const string& platform, const string& format) {
-    stat_record("download", platform, true);
+void discord_log_download(const string& title, const string& platform, const string& format, const string& ip) {
+    stat_record("download", platform, true, ip);
     string desc = "**Platform:** " + platform + "\n**Format:** " + format + "\n**Title:** " + title;
     discord_log("\xF0\x9F\x93\xA5 Download Started", desc, 0x3498DB);  // blue
 }
 
-void discord_log_tool(const string& tool_name, const string& filename) {
-    stat_record("tool", tool_name, true);
+void discord_log_tool(const string& tool_name, const string& filename, const string& ip) {
+    stat_record("tool", tool_name, true, ip);
     string display = MASK_FILENAMES ? mask_filename(filename) : filename;
     string desc = "**Tool:** " + tool_name + "\n**File:** " + display;
     discord_log("\xF0\x9F\x94\xA7 Tool Used", desc, 0x2ECC71);  // green
 }
 
-void discord_log_error(const string& context, const string& error) {
-    stat_record("tool", context, false);
+void discord_log_error(const string& context, const string& error, const string& ip) {
+    stat_record("tool", context, false, ip);
     string desc = "**Context:** " + context + "\n**Error:** " + error;
     discord_log("\xE2\x9D\x8C Error", desc, 0xE74C3C);  // red
 }

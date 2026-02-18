@@ -1611,5 +1611,27 @@
         navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
     </script>
+    <!-- Click event tracking -->
+    <script>
+    (function() {
+        function trackEvent(name) {
+            fetch('/api/stats/event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            }).catch(() => {});
+        }
+        document.addEventListener('click', function(e) {
+            var el = e.target.closest('a');
+            if (!el) return;
+            var href = el.getAttribute('href') || '';
+            if (href.includes('ko-fi.com')) {
+                trackEvent('kofi_click');
+            } else if (href.includes('github.com/Luma-exe') || el.closest('[href*="github.com/Luma-exe"]')) {
+                trackEvent('github_click');
+            }
+        }, true);
+    })();
+    </script>
 </body>
 </html>
