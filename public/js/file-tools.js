@@ -399,7 +399,7 @@ function pollJobStatus(toolId, jobId) {
                 if (!fileRes.ok) throw new Error('Failed to download result');
                 const blob = await fileRes.blob();
                 const filename = getFilenameFromResponse(fileRes) || 'processed_file';
-                showResult(toolId, blob, filename);
+                showResult(toolId, blob, filename, jobId);
             } catch (err) { showToast(err.message, 'error'); }
             showProcessing(toolId, false);
         } else if (data.status === 'error' || data.status === 'not_found' || data.status === 'timeout') {
@@ -446,7 +446,7 @@ function showProcessing(toolId, show) {
 const IMAGE_EXTS = /\.(png|jpe?g|webp|gif|bmp|tiff?|ico|avif)$/i;
 const VIDEO_EXTS = /\.(mp4|webm|mov|avi|mkv|ogv|ogg)$/i;
 
-function showResult(toolId, blob, filename) {
+function showResult(toolId, blob, filename, jobId = null) {
     const result = document.querySelector(`.result-section[data-tool="${toolId}"]`);
 
     if (!result) return;
@@ -511,12 +511,12 @@ function showResult(toolId, blob, filename) {
             pane.className = 'notes-preview-pane';
 
             // Helper: copy button
-            const makeCopyBtn = () => {
+            const makeCopyBtn = (getText) => {
                 const btn = document.createElement('button');
                 btn.className = 'notes-toggle-btn notes-copy-btn';
                 btn.innerHTML = '<i class="fas fa-copy"></i> Copy Text';
                 btn.addEventListener('click', () => {
-                    navigator.clipboard.writeText(text).then(() => {
+                    navigator.clipboard.writeText(getText()).then(() => {
                         btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
                         setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy Text'; }, 2000);
                     }).catch(() => showToast('Copy failed', 'error'));
@@ -524,15 +524,84 @@ function showResult(toolId, blob, filename) {
                 return btn;
             };
 
+            // Helper: compare button (only if jobId available)
+            const makeCompareBtn = (notesText) => {
+                if (!jobId) return null;
+                const btn = document.createElement('button');
+                btn.className = 'notes-toggle-btn notes-compare-btn';
+                btn.innerHTML = '<i class="fas fa-columns"></i> Compare';
+                btn.addEventListener('click', async () => {
+                    // Remove any existing compare view
+                    pane.querySelectorAll('.notes-compare-split').forEach(el => el.remove());
+                    const existingSplit = pane.querySelector('.notes-compare-split');
+                    if (existingSplit) { existingSplit.remove(); return; }
+
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                    try {
+                        const resp = await fetch(`/api/tools/raw-text/${jobId}`);
+                        if (!resp.ok) throw new Error('Source text not available');
+                        const srcText = await resp.text();
+
+                        const split = document.createElement('div');
+                        split.className = 'notes-compare-split';
+
+                        // Left: AI notes
+                        const leftCol = document.createElement('div');
+                        leftCol.className = 'notes-compare-col';
+                        const leftHdr = document.createElement('div');
+                        leftHdr.className = 'notes-compare-header';
+                        leftHdr.innerHTML = '<i class="fas fa-robot"></i> AI Notes';
+                        const leftBody = document.createElement('div');
+                        leftBody.className = isMarkdown ? 'notes-rendered notes-compare-body' : 'notes-compare-body';
+                        if (isMarkdown) leftBody.innerHTML = parseMarkdown(notesText);
+                        else leftBody.textContent = notesText;
+                        leftCol.appendChild(leftHdr);
+                        leftCol.appendChild(leftBody);
+
+                        // Right: source PDF text
+                        const rightCol = document.createElement('div');
+                        rightCol.className = 'notes-compare-col';
+                        const rightHdr = document.createElement('div');
+                        rightHdr.className = 'notes-compare-header';
+                        rightHdr.innerHTML = '<i class="fas fa-file-pdf"></i> Source PDF Text';
+                        const rightBody = document.createElement('pre');
+                        rightBody.className = 'notes-raw notes-compare-body';
+                        rightBody.textContent = srcText;
+                        rightCol.appendChild(rightHdr);
+                        rightCol.appendChild(rightBody);
+
+                        split.appendChild(leftCol);
+                        split.appendChild(rightCol);
+                        pane.appendChild(split);
+
+                        btn.innerHTML = '<i class="fas fa-times"></i> Close Compare';
+                        btn.disabled = false;
+                        btn.onclick = () => { split.remove(); btn.innerHTML = '<i class="fas fa-columns"></i> Compare'; btn.onclick = null; };
+                    } catch (err) {
+                        showToast(err.message, 'error');
+                        btn.innerHTML = '<i class="fas fa-columns"></i> Compare';
+                        btn.disabled = false;
+                    }
+                });
+                return btn;
+            };
+
             if (isMarkdown) {
-                // Toggle bar with view buttons + copy button pushed right
+                // Toggle bar with view buttons + copy + compare pushed right
                 const toggleBar = document.createElement('div');
                 toggleBar.className = 'notes-preview-toggle';
                 toggleBar.innerHTML =
                     '<button class="notes-toggle-btn active" data-view="rendered"><i class="fas fa-eye"></i> Rendered</button>' +
                     '<button class="notes-toggle-btn" data-view="raw"><i class="fas fa-code"></i> Raw</button>';
-                const copyBtn = makeCopyBtn();
-                copyBtn.style.marginLeft = 'auto';
+
+                const spacer = document.createElement('span');
+                spacer.style.marginLeft = 'auto';
+                toggleBar.appendChild(spacer);
+
+                const compareBtn = makeCompareBtn(text);
+                if (compareBtn) toggleBar.appendChild(compareBtn);
+                const copyBtn = makeCopyBtn(() => text);
                 toggleBar.appendChild(copyBtn);
                 pane.appendChild(toggleBar);
 
@@ -561,12 +630,18 @@ function showResult(toolId, blob, filename) {
                     }
                 });
             } else {
-                // Plain text — toolbar with copy button
+                // Plain text — toolbar with compare + copy buttons
                 const toggleBar = document.createElement('div');
                 toggleBar.className = 'notes-preview-toggle';
                 toggleBar.innerHTML = '<span class="notes-toggle-label"><i class="fas fa-align-left"></i> Plain Text</span>';
-                const copyBtn = makeCopyBtn();
-                copyBtn.style.marginLeft = 'auto';
+
+                const spacer = document.createElement('span');
+                spacer.style.marginLeft = 'auto';
+                toggleBar.appendChild(spacer);
+
+                const compareBtn = makeCompareBtn(text);
+                if (compareBtn) toggleBar.appendChild(compareBtn);
+                const copyBtn = makeCopyBtn(() => text);
                 toggleBar.appendChild(copyBtn);
                 pane.appendChild(toggleBar);
 

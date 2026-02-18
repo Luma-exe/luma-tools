@@ -447,6 +447,20 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         send_file_response(res, path, filename);
     });
 
+    // ── GET /api/tools/raw-text/:id — get raw extracted text for comparison ─
+    svr.Get(R"(/api/tools/raw-text/(.+))", [](const httplib::Request& req, httplib::Response& res) {
+        string id = req.matches[1];
+        string raw = get_job_raw_text(id);
+
+        if (raw.empty()) {
+            res.status = 404;
+            res.set_content(json({{"error", "Raw text not found"}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(raw, "text/plain; charset=utf-8");
+    });
+
     // ── POST /api/tools/pdf-compress ────────────────────────────────────────
     svr.Post("/api/tools/pdf-compress", [](const httplib::Request& req, httplib::Response& res) {
         if (g_ghostscript_path.empty()) {
@@ -1735,6 +1749,9 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             // Truncate to ~12 000 chars to stay within token limits
             if (text.size() > 12000) text = text.substr(0, 12000) + "\n\n[... truncated ...]";
+
+            // Store raw text in memory so the client can fetch it for comparison
+            update_job_raw_text(jid, text);
 
             update_job(jid, {{"status","processing"},{"progress",40},{"stage","Generating study notes with AI..."}});
 

@@ -29,6 +29,7 @@ static set<string> active_ips;
 static mutex jobs_mutex;
 static map<string, json> job_status_map;
 static map<string, string> job_results_map;
+static map<string, string> job_raw_text_map;
 static int job_counter = 0;
 
 // ─── JSON helpers ───────────────────────────────────────────────────────────
@@ -395,6 +396,17 @@ string get_job_result_path(const string& id) {
     lock_guard<mutex> lock(jobs_mutex);
 
     if (job_results_map.count(id)) return job_results_map[id];
+    return "";
+}
+
+void update_job_raw_text(const string& id, const string& raw_text) {
+    lock_guard<mutex> lock(jobs_mutex);
+    job_raw_text_map[id] = raw_text;
+}
+
+string get_job_raw_text(const string& id) {
+    lock_guard<mutex> lock(jobs_mutex);
+    if (job_raw_text_map.count(id)) return job_raw_text_map[id];
     return "";
 }
 

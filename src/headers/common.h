@@ -113,6 +113,8 @@ string generate_job_id();
 void   update_job(const string& id, const json& status, const string& result_path = "");
 json   get_job(const string& id);
 string get_job_result_path(const string& id);
+void   update_job_raw_text(const string& id, const string& raw_text);
+string get_job_raw_text(const string& id);
 
 // ─── File processing helpers ────────────────────────────────────────────────
 
