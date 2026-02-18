@@ -52,14 +52,7 @@
                 <div class="search-input-wrap">
                     <i class="fas fa-search"></i>
                     <input type="text" id="sidebarSearch" placeholder="Search tools..." autocomplete="off" spellcheck="false" oninput="filterSidebarTools()">
-                    <kbd class="search-kbd">Ctrl K</kbd>
                 </div>
-            </div>
-
-            <!-- Recent tools -->
-            <div class="nav-category recent-tools-section hidden" id="recentToolsSection">
-                <div class="nav-category-title">RECENT</div>
-                <div id="recentToolsList"></div>
             </div>
 
             <nav class="sidebar-nav" id="sidebarNav">
@@ -177,9 +170,6 @@
             </nav>
 
             <div class="sidebar-footer">
-                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark theme">
-                    <i class="fas fa-moon" id="themeIcon"></i>
-                </button>
                 <div class="server-status" id="serverStatus">
                     <div class="status-ticker">
                         <div class="ticker-track" id="tickerTrack">

@@ -43,8 +43,6 @@ function switchTool(toolId) {
     document.body.scrollTop = 0;
     const mc = $('.main-content');
     if (mc) mc.scrollTop = 0;
-    // Track recent tools
-    trackRecentTool(toolId);
     // Clear search
     const si = $('#sidebarSearch');
     if (si && si.value) { si.value = ''; filterSidebarTools(); }
@@ -1236,7 +1234,7 @@ function formatSize(bytes) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SIDEBAR SEARCH & RECENT TOOLS
+// SIDEBAR SEARCH
 // ═══════════════════════════════════════════════════════════════════════════
 
 function filterSidebarTools() {
@@ -1255,49 +1253,6 @@ function filterSidebarTools() {
     });
 }
 
-function trackRecentTool(toolId) {
-    let recent = JSON.parse(localStorage.getItem('luma-recent-tools') || '[]');
-    recent = recent.filter(t => t !== toolId);
-    recent.unshift(toolId);
-    recent = recent.slice(0, 5);
-    localStorage.setItem('luma-recent-tools', JSON.stringify(recent));
-    renderRecentTools();
-}
-
-function renderRecentTools() {
-    const recent = JSON.parse(localStorage.getItem('luma-recent-tools') || '[]');
-    const section = $('#recentToolsSection');
-    const list = $('#recentToolsList');
-    if (!section || !list || recent.length === 0) return;
-    section.classList.remove('hidden');
-    list.innerHTML = recent.map(toolId => {
-        const orig = document.querySelector(`#sidebarNav .nav-item[data-tool="${toolId}"]`);
-        if (!orig) return '';
-        const icon = orig.querySelector('i')?.className || 'fas fa-tool';
-        const label = orig.querySelector('span')?.textContent || toolId;
-        return `<a class="nav-item" data-tool="${toolId}" onclick="switchTool('${toolId}')"><i class="${icon}"></i><span>${label}</span></a>`;
-    }).join('');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// THEME TOGGLE
-// ═══════════════════════════════════════════════════════════════════════════
-
-function toggleTheme() {
-    const isLight = document.body.classList.toggle('light-theme');
-    localStorage.setItem('luma-theme', isLight ? 'light' : 'dark');
-    const icon = $('#themeIcon');
-    if (icon) icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
-}
-
-function applyStoredTheme() {
-    const theme = localStorage.getItem('luma-theme');
-    if (theme === 'light') {
-        document.body.classList.add('light-theme');
-        const icon = $('#themeIcon');
-        if (icon) icon.className = 'fas fa-sun';
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // IMAGE CROP TOOL
@@ -1533,8 +1488,6 @@ function initMobileSwipe() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
-    applyStoredTheme();
-    renderRecentTools();
     initParticles();
     initUploadZones();
     initDownloader();

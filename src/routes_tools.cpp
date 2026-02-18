@@ -906,23 +906,23 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             cout << "[Luma Tools] BG remove (rembg): " << cmd << endl;
             exec_command(cmd, code);
 
-            // Fallback: use ffmpeg chromakey on white if rembg not available
+            // Fallback: use ffmpeg colorkey on white if rembg not available
             if (!fs::exists(output_path) || fs::file_size(output_path) == 0) {
-                cout << "[Luma Tools] rembg not available, falling back to chromakey white" << endl;
+                cout << "[Luma Tools] rembg not available, falling back to colorkey white" << endl;
                 cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
-                    + " -vf \"chromakey=white:0.25:0.08,format=rgba\" "
+                    + " -vf \"colorkey=white:0.3:0.15,format=rgba\" "
                     + escape_arg(output_path);
                 exec_command(cmd, code);
             }
         } else if (method == "white") {
             cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
-                + " -vf \"chromakey=white:0.3:0.1,format=rgba\" "
+                + " -vf \"colorkey=white:0.3:0.15,format=rgba\" "
                 + escape_arg(output_path);
             cout << "[Luma Tools] BG remove (white): " << cmd << endl;
             exec_command(cmd, code);
         } else if (method == "black") {
             cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
-                + " -vf \"chromakey=black:0.3:0.1,format=rgba\" "
+                + " -vf \"colorkey=black:0.3:0.15,format=rgba\" "
                 + escape_arg(output_path);
             cout << "[Luma Tools] BG remove (black): " << cmd << endl;
             exec_command(cmd, code);
