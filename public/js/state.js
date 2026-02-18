@@ -22,6 +22,7 @@ const state = {
     jobPolls: {},
     droppedFiles: [],
     droppedCategory: null,
+    pendingBatch: {},
     resolvingTitles: false,
     resolveAborted: false,
     aspectLock: false,

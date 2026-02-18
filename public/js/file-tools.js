@@ -132,6 +132,14 @@ async function processFile(toolId) {
         return processMultiFile(toolId, files);
     }
 
+    // If the user configured settings on a pending batch, launch it now
+    if (state.pendingBatch[toolId] && state.pendingBatch[toolId].length > 1) {
+        const batchFiles = state.pendingBatch[toolId];
+        delete state.pendingBatch[toolId];
+        batchQueue.start(toolId, batchFiles);
+        return;
+    }
+
     if (WASM_TOOLS[toolId]) {
         const file = state.files[toolId];
 
@@ -457,7 +465,7 @@ function showMultiResult(toolId, pages) {
     // clear stale elements
     result.querySelectorAll('.result-preview, .result-actions, .multi-result-list, .result-zip-btn, .multi-thumb-strip').forEach(el => el.remove());
 
-    // ── right-side actions wrapper (ZIP button + optional thumb strip) ───────
+    // ── right-side actions wrapper (ZIP button only) ────────────────
     const actions = document.createElement('div');
     actions.className = 'result-actions result-actions--multi';
 
@@ -466,28 +474,6 @@ function showMultiResult(toolId, pages) {
     zipBtn.innerHTML = '<i class="fas fa-file-zipper"></i> Download All as ZIP';
     zipBtn.addEventListener('click', () => downloadMultiAsZip(pages, toolId));
     actions.appendChild(zipBtn);
-
-    if (isImageSet) {
-        const strip = document.createElement('div');
-        strip.className = 'multi-thumb-strip';
-        pages.slice(0, 8).forEach(p => {
-            const img = document.createElement('img');
-            img.className = 'multi-thumb';
-            img.src = p.url;
-            img.alt = p.name;
-            img.title = p.name;
-            strip.appendChild(img);
-        });
-
-        if (pages.length > 8) {
-            const more = document.createElement('div');
-            more.className = 'multi-thumb-more';
-            more.textContent = `+${pages.length - 8}`;
-            strip.appendChild(more);
-        }
-
-        actions.appendChild(strip);
-    }
 
     result.appendChild(actions);
 
@@ -640,7 +626,14 @@ function onQuickActionSelect(toolId) {
     $('quickActionBackdrop').classList.remove('visible');
 
     if (files.length > 1) {
-        batchQueue.start(toolId, files);
+        // Load the first file into the tool so the user can configure settings,
+        // then store the full list as a pending batch — it launches when they click Process.
+        switchTool(toolId);
+        setTimeout(() => {
+            handleFileSelect(toolId, files[0]);
+            state.pendingBatch[toolId] = files;
+            showToast(`${files.length} files queued — configure settings then press the button to batch process`, 'info');
+        }, 100);
     } else if (files.length === 1) {
         switchTool(toolId);
         setTimeout(() => {
