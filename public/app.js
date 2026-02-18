@@ -847,15 +847,11 @@ function showToast(message, type = 'info') {
 async function checkServerHealth() {
     const statusEl = $('#serverStatus');
     if (!statusEl) return;
-    const dot = statusEl.querySelector('.status-dot');
     const tickerTrack = $('#tickerTrack');
-    const footerTrack = $('#footerTickerTrack');
     try {
         const res = await fetch('/api/health');
         const data = await res.json();
         if (data.status === 'ok') {
-            dot.className = 'status-dot online';
-
             // Build ticker items
             const items = [];
             items.push({ label: 'Server', value: data.server || 'Online', ok: true });
@@ -877,19 +873,10 @@ async function checkServerHealth() {
             const html = once + '<span class="ticker-sep">│</span>' + once + '<span class="ticker-sep">│</span>';
 
             if (tickerTrack) tickerTrack.innerHTML = html;
-
-            // Footer ticker: add "Built with ❤ by Luma" to items
-            if (footerTrack) {
-                const footerItems = [...items, { label: 'Built with ♥ by', value: 'Luma', ver: true }];
-                const fOnce = renderItems(footerItems);
-                footerTrack.innerHTML = fOnce + '<span class="ticker-sep">│</span>' + fOnce + '<span class="ticker-sep">│</span>';
-            }
         } else {
-            dot.className = 'status-dot offline';
             if (tickerTrack) tickerTrack.innerHTML = '<span class="status-text">Server error</span>';
         }
     } catch {
-        dot.className = 'status-dot offline';
         if (tickerTrack) tickerTrack.innerHTML = '<span class="status-text">Server offline</span>';
     }
 }
