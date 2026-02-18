@@ -58,8 +58,18 @@ const FILE_TOOL_MAP = {
         { id: 'audio-trim',      label: 'Trim',       icon: 'fas fa-cut' },
     ],
     'pdf': [
-        { id: 'pdf-compress',  label: 'Compress',   icon: 'fas fa-file-pdf' },
-        { id: 'pdf-to-images', label: 'To Images',  icon: 'fas fa-images' },
-        { id: 'pdf-split',     label: 'Split',       icon: 'fas fa-scissors' },
+        { id: 'pdf-compress',     label: 'Compress',     icon: 'fas fa-file-pdf' },
+        { id: 'pdf-to-images',    label: 'To Images',    icon: 'fas fa-images' },
+        { id: 'pdf-split',        label: 'Split',        icon: 'fas fa-scissors' },
+        { id: 'ai-study-notes',   label: 'Study Notes',  icon: 'fas fa-brain' },
+    ],
+    'markdown': [
+        { id: 'markdown-to-pdf',  label: 'To PDF',       icon: 'fab fa-markdown' },
+    ],
+    'csv': [
+        { id: 'csv-json',         label: 'To JSON',      icon: 'fas fa-exchange-alt' },
+    ],
+    'json': [
+        { id: 'csv-json',         label: 'To CSV',       icon: 'fas fa-exchange-alt' },
     ],
 };

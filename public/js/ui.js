@@ -104,6 +104,14 @@ function selectWmPos(btn) {
     btn.classList.add('active');
 }
 
+// Generic pill selector used by csv-json, study-notes-format, etc.
+function selectPill(groupId, btn) {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    group.querySelectorAll('.fmt-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
 function toggleAspectLock() {
     state.aspectLock = !state.aspectLock;
     const lock = $('dimLock');

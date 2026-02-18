@@ -11,6 +11,8 @@ string g_ffmpeg_exe;
 string g_deno_path;
 string g_ytdlp_path;
 string g_ghostscript_path;
+string g_pandoc_path;
+string g_openai_key;
 string g_git_commit = "unknown";
 string g_git_branch = "unknown";
 string g_hostname;
@@ -291,6 +293,29 @@ string find_ghostscript() {
     auto gs = find_executable("gs");
 
     if (!gs.empty()) return gs;
+#endif
+    return "";
+}
+
+string find_pandoc() {
+    auto p = find_executable("pandoc");
+    if (!p.empty()) return p;
+#ifdef _WIN32
+    const char* pf = std::getenv("ProgramFiles");
+    string progfiles = pf ? pf : "C:\\Program Files";
+    string candidate = progfiles + "\\Pandoc\\pandoc.exe";
+    if (fs::exists(candidate)) return candidate;
+    const char* pf86 = std::getenv("ProgramFiles(x86)");
+    if (pf86) {
+        candidate = string(pf86) + "\\Pandoc\\pandoc.exe";
+        if (fs::exists(candidate)) return candidate;
+    }
+    // Local appdata
+    const char* appdata = std::getenv("LOCALAPPDATA");
+    if (appdata) {
+        candidate = string(appdata) + "\\Pandoc\\pandoc.exe";
+        if (fs::exists(candidate)) return candidate;
+    }
 #endif
     return "";
 }

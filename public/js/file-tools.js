@@ -259,6 +259,19 @@ async function processFileServer(toolId) {
             formData.append('position', posBtn?.dataset.pos || 'bottom-right');
             break;
         }
+        case 'markdown-to-pdf':
+            // no extra params needed — file is the only input
+            break;
+        case 'csv-json': {
+            const dirPill = document.querySelector('#csv-json-direction .fmt-pill.active');
+            formData.append('direction', dirPill?.dataset.val || 'csv-to-json');
+            break;
+        }
+        case 'ai-study-notes': {
+            const fmtPill = document.querySelector('#study-notes-format .fmt-pill.active');
+            formData.append('format', fmtPill?.dataset.val || 'markdown');
+            break;
+        }
         case 'redact': {
             if (file.type.startsWith('image/')) {
                 const canvas = $('redactCanvas');
@@ -294,7 +307,7 @@ async function processFileServer(toolId) {
 
     const asyncTools = ['video-compress','video-trim','video-convert','video-extract-audio',
         'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize',
-        'audio-trim'];
+        'audio-trim','ai-study-notes'];
     const isAsync = asyncTools.includes(toolId);
 
     try {

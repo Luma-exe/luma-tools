@@ -142,6 +142,26 @@ int main() {
         cerr << "[Luma Tools] WARNING: Ghostscript not found. PDF tools will be limited." << endl;
     }
 
+    // ── Find Pandoc (for Markdown → PDF) ─────────────────────────────────────
+    g_pandoc_path = find_pandoc();
+
+    if (!g_pandoc_path.empty()) {
+        cout << "[Luma Tools] Pandoc found: " << g_pandoc_path << endl;
+    } else {
+        cerr << "[Luma Tools] WARNING: Pandoc not found. Markdown to PDF will be unavailable." << endl;
+    }
+
+    // ── OpenAI key (for AI Study Notes) ──────────────────────────────────────
+    {
+        const char* key = std::getenv("OPENAI_KEY");
+        if (key && key[0]) {
+            g_openai_key = key;
+            cout << "[Luma Tools] OpenAI key loaded from environment." << endl;
+        } else {
+            cerr << "[Luma Tools] WARNING: OPENAI_KEY not set. AI Study Notes will be unavailable." << endl;
+        }
+    }
+
     // ── Add ffmpeg & deno directories to process PATH ────────────────────────
     {
         string current_path;

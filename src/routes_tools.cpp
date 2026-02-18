@@ -1409,4 +1409,357 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         }
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
+
+    // ── POST /api/tools/markdown-to-pdf ─────────────────────────────────────
+    // Accepts a .md/.txt file, pre-processes Obsidian syntax, runs pandoc.
+    svr.Post("/api/tools/markdown-to-pdf", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_pandoc_path.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "Pandoc is not installed on this server."}}).dump(), "application/json");
+            return;
+        }
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        discord_log_tool("Markdown to PDF", file.filename, req.remote_addr);
+
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+        string md_path  = proc + "/" + jid + "_in.md";
+        string pdf_path = proc + "/" + jid + "_out.pdf";
+
+        // ── Pre-process Obsidian-flavoured Markdown ──────────────────────────
+        string src = file.content;
+
+        // 1. Strip YAML frontmatter (--- ... ---)
+        if (src.substr(0, 3) == "---") {
+            auto end = src.find("\n---", 3);
+            if (end != string::npos) src = src.substr(end + 4);
+        }
+        // 2. Wikilinks [[Page]] → **Page**, [[Page|Alias]] → **Alias**
+        {
+            string out; size_t i = 0;
+            while (i < src.size()) {
+                if (i + 1 < src.size() && src[i] == '[' && src[i+1] == '[') {
+                    auto close = src.find("]]", i + 2);
+                    if (close != string::npos) {
+                        string inner = src.substr(i + 2, close - i - 2);
+                        auto pipe = inner.find('|');
+                        string label = (pipe != string::npos) ? inner.substr(pipe + 1) : inner;
+                        out += "**" + label + "**";
+                        i = close + 2;
+                        continue;
+                    }
+                }
+                out += src[i++];
+            }
+            src = out;
+        }
+        // 3. Obsidian callouts  > [!note] Title  →  **[NOTE] Title**\n>\n
+        {
+            std::istringstream ss(src); string line, out;
+            while (std::getline(ss, line)) {
+                if (line.size() > 4 && line[0] == '>' && line[1] == ' ' && line[2] == '[' && line[3] == '!') {
+                    auto close = line.find(']', 3);
+                    if (close != string::npos) {
+                        string type = line.substr(4, close - 4);
+                        string rest = line.substr(close + 1);
+                        // trim rest
+                        size_t s = rest.find_first_not_of(" \t");
+                        if (s != string::npos) rest = rest.substr(s);
+                        out += "> **[" + type + "]** " + rest + "\n";
+                        continue;
+                    }
+                }
+                out += line + "\n";
+            }
+            src = out;
+        }
+        // 4. Inline tags #tag → *(#tag)*
+        {
+            string out; size_t i = 0;
+            while (i < src.size()) {
+                if (src[i] == '#' && (i == 0 || src[i-1] == ' ' || src[i-1] == '\n')) {
+                    // heading or tag?
+                    size_t j = i + 1;
+                    while (j < src.size() && src[j] != ' ' && src[j] != '\n') j++;
+                    string word = src.substr(i + 1, j - i - 1);
+                    if (!word.empty() && std::isalpha((unsigned char)word[0])) {
+                        out += "*(" + src.substr(i, j - i) + ")*";
+                        i = j; continue;
+                    }
+                }
+                out += src[i++];
+            }
+            src = out;
+        }
+
+        { ofstream f(md_path); f << src; }
+
+        string cmd = escape_arg(g_pandoc_path) +
+            " " + escape_arg(md_path) +
+            " -o " + escape_arg(pdf_path) +
+            " --pdf-engine=xelatex"
+            " -V geometry:margin=2.5cm"
+            " -V fontsize=11pt"
+            " 2>&1";
+        // Fallback to wkhtmltopdf if xelatex not available
+        int code = 0;
+        exec_command(cmd, code);
+        if (code != 0 || !fs::exists(pdf_path) || fs::file_size(pdf_path) == 0) {
+            // Try without explicit engine (pandoc picks available one)
+            string cmd2 = escape_arg(g_pandoc_path) +
+                " " + escape_arg(md_path) +
+                " -o " + escape_arg(pdf_path) +
+                " -V geometry:margin=2.5cm"
+                " 2>&1";
+            exec_command(cmd2, code);
+        }
+
+        if (fs::exists(pdf_path) && fs::file_size(pdf_path) > 0) {
+            string out_name = fs::path(file.filename).stem().string() + ".pdf";
+            send_file_response(res, pdf_path, out_name);
+        } else {
+            res.status = 500;
+            discord_log_error("Markdown to PDF", "Failed for: " + mask_filename(file.filename));
+            res.set_content(json({{"error", "PDF generation failed. Ensure a LaTeX engine is installed (e.g. MiKTeX / TeX Live)."}}).dump(), "application/json");
+        }
+        try { fs::remove(md_path); fs::remove(pdf_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/csv-json ─────────────────────────────────────────────
+    // direction = "csv-to-json" | "json-to-csv"
+    svr.Post("/api/tools/csv-json", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        string direction = req.has_file("direction") ? req.get_file_value("direction").content : "csv-to-json";
+        discord_log_tool("CSV/JSON Convert", file.filename + " (" + direction + ")", req.remote_addr);
+
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+
+        if (direction == "json-to-csv") {
+            // ── JSON → CSV ───────────────────────────────────────────────────
+            json data;
+            try { data = json::parse(file.content); } catch (...) {
+                res.status = 400;
+                res.set_content(json({{"error", "Invalid JSON"}}).dump(), "application/json");
+                return;
+            }
+            if (!data.is_array() || data.empty()) {
+                res.status = 400;
+                res.set_content(json({{"error", "JSON must be a non-empty array of objects"}}).dump(), "application/json");
+                return;
+            }
+            // Collect headers from first object
+            vector<string> headers;
+            for (auto& [k, v] : data[0].items()) headers.push_back(k);
+
+            string out_path = proc + "/" + jid + "_out.csv";
+            ofstream f(out_path);
+            // Header row
+            for (size_t i = 0; i < headers.size(); i++) {
+                if (i) f << ",";
+                f << "\"" << headers[i] << "\"";
+            }
+            f << "\n";
+            // Data rows
+            for (auto& row : data) {
+                for (size_t i = 0; i < headers.size(); i++) {
+                    if (i) f << ",";
+                    string cell;
+                    if (row.contains(headers[i])) {
+                        auto& v = row[headers[i]];
+                        if (v.is_string())      cell = v.get<string>();
+                        else if (!v.is_null())  cell = v.dump();
+                    }
+                    // Escape quotes and wrap in quotes if contains comma/quote/newline
+                    bool needs_quote = cell.find_first_of(",\"\n\r") != string::npos;
+                    string escaped;
+                    for (char c : cell) { if (c == '"') escaped += '"'; escaped += c; }
+                    if (needs_quote) f << "\"" << escaped << "\"";
+                    else             f << escaped;
+                }
+                f << "\n";
+            }
+            f.close();
+            string out_name = fs::path(file.filename).stem().string() + ".csv";
+            send_file_response(res, out_path, out_name);
+            try { fs::remove(out_path); } catch (...) {}
+
+        } else {
+            // ── CSV → JSON ───────────────────────────────────────────────────
+            std::istringstream ss(file.content);
+            string line;
+            vector<string> headers;
+            json arr = json::array();
+
+            // Simple CSV parser (handles quoted fields)
+            auto parse_csv_line = [](const string& line) -> vector<string> {
+                vector<string> fields;
+                string field;
+                bool in_quotes = false;
+                for (size_t i = 0; i < line.size(); i++) {
+                    char c = line[i];
+                    if (in_quotes) {
+                        if (c == '"') {
+                            if (i + 1 < line.size() && line[i+1] == '"') { field += '"'; i++; }
+                            else in_quotes = false;
+                        } else field += c;
+                    } else {
+                        if (c == '"') in_quotes = true;
+                        else if (c == ',') { fields.push_back(field); field.clear(); }
+                        else if (c == '\r') {}
+                        else field += c;
+                    }
+                }
+                fields.push_back(field);
+                return fields;
+            };
+
+            bool first = true;
+            while (std::getline(ss, line)) {
+                if (line.empty()) continue;
+                auto fields = parse_csv_line(line);
+                if (first) { headers = fields; first = false; continue; }
+                json obj;
+                for (size_t i = 0; i < headers.size(); i++)
+                    obj[headers[i]] = (i < fields.size()) ? fields[i] : "";
+                arr.push_back(obj);
+            }
+
+            string out_path = proc + "/" + jid + "_out.json";
+            { ofstream f(out_path); f << arr.dump(2); }
+            string out_name = fs::path(file.filename).stem().string() + ".json";
+            send_file_response(res, out_path, out_name);
+            try { fs::remove(out_path); } catch (...) {}
+        }
+    });
+
+    // ── POST /api/tools/ai-study-notes (async) ───────────────────────────────
+    // Accepts a PDF, extracts text via Ghostscript, sends to OpenAI, returns notes.
+    svr.Post("/api/tools/ai-study-notes", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_openai_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
+            return;
+        }
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No PDF uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        string format = req.has_file("format") ? req.get_file_value("format").content : "markdown";
+
+        discord_log_tool("AI Study Notes", file.filename + " (" + format + ")", req.remote_addr);
+
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+        string pdf_path  = proc + "/" + jid + "_in.pdf";
+        string txt_path  = proc + "/" + jid + "_text.txt";
+
+        { ofstream f(pdf_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
+
+        update_job(jid, {{"status", "processing"}, {"progress", 10}, {"stage", "Extracting text from PDF..."}});
+
+        thread([jid, pdf_path, txt_path, format, proc]() {
+            // ── Step 1: extract text ─────────────────────────────────────────
+            string text;
+            bool extracted = false;
+
+            if (!g_ghostscript_path.empty()) {
+                string cmd = escape_arg(g_ghostscript_path) +
+                    " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite"
+                    " -dTextFormat=2"
+                    " -sOutputFile=" + escape_arg(txt_path) +
+                    " " + escape_arg(pdf_path);
+                int code; exec_command(cmd, code);
+                if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
+                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                    text = ss.str();
+                    extracted = !text.empty();
+                }
+            }
+            // Fallback: try pdftotext (poppler)
+            if (!extracted) {
+                string cmd = "pdftotext " + escape_arg(pdf_path) + " " + escape_arg(txt_path);
+                int code; exec_command(cmd, code);
+                if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
+                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                    text = ss.str();
+                    extracted = !text.empty();
+                }
+            }
+
+            if (!extracted || text.size() < 50) {
+                update_job(jid, {{"status","error"},{"error","Could not extract text from PDF. Is it a scanned/image PDF?"}});
+                try { fs::remove(pdf_path); fs::remove(txt_path); } catch (...) {}
+                return;
+            }
+
+            // Truncate to ~12 000 chars to stay within token limits
+            if (text.size() > 12000) text = text.substr(0, 12000) + "\n\n[... truncated ...]";
+
+            update_job(jid, {{"status","processing"},{"progress",40},{"stage","Generating study notes with AI..."}});
+
+            // ── Step 2: call OpenAI ───────────────────────────────────────────
+            string style_instruction = (format == "markdown")
+                ? "Format the notes in clean Markdown with headings (##), bullet points (-), bold key terms (**term**), and code blocks where appropriate."
+                : "Write clear, readable plain text notes with sections labelled in UPPERCASE and bullet points using dashes.";
+
+            string system_prompt = "You are an expert academic tutor. Your task is to create comprehensive, well-organised study notes from lecture or course content. " + style_instruction;
+            string user_prompt   = "Please create detailed study notes from the following lecture content:\n\n" + text;
+
+            json payload = {
+                {"model", "gpt-4o-mini"},
+                {"messages", json::array({
+                    {{"role","system"}, {"content", system_prompt}},
+                    {{"role","user"},   {"content", user_prompt}}
+                })},
+                {"max_tokens", 2048},
+                {"temperature", 0.4}
+            };
+
+            string payload_str = payload.dump();
+            string payload_file = proc + "/" + jid + "_payload.json";
+            { ofstream f(payload_file); f << payload_str; }
+
+            string resp_file = proc + "/" + jid + "_resp.json";
+            string curl_cmd = "curl -s -X POST https://api.openai.com/v1/chat/completions"
+                " -H \"Content-Type: application/json\""
+                " -H \"Authorization: Bearer " + g_openai_key + "\""
+                " -d @" + escape_arg(payload_file) +
+                " -o " + escape_arg(resp_file);
+            int code; exec_command(curl_cmd, code);
+
+            string notes;
+            try {
+                ifstream f(resp_file); std::ostringstream ss; ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+                notes = resp_json["choices"][0]["message"]["content"].get<string>();
+            } catch (...) {
+                update_job(jid, {{"status","error"},{"error","AI API error. Check your OpenAI key and quota."}});
+                try { fs::remove(pdf_path); fs::remove(txt_path); fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+                return;
+            }
+
+            // ── Step 3: write output file ─────────────────────────────────────
+            string ext = (format == "markdown") ? ".md" : ".txt";
+            string out_path = proc + "/" + jid + "_notes" + ext;
+            { ofstream f(out_path); f << notes; }
+
+            update_job(jid, {{"status","completed"},{"progress",100},{"filename","study_notes" + ext}}, out_path);
+            try { fs::remove(pdf_path); fs::remove(txt_path); fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+        }).detach();
+
+        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+    });
 }
