@@ -391,11 +391,15 @@ function showProcessing(toolId, show) {
     if (btn) btn.disabled = show;
 }
 
+const IMAGE_EXTS = /\.(png|jpe?g|webp|gif|bmp|tiff?|ico|avif)$/i;
+const VIDEO_EXTS = /\.(mp4|webm|mov|avi|mkv|ogv|ogg)$/i;
+
 function showResult(toolId, blob, filename) {
     const result = document.querySelector(`.result-section[data-tool="${toolId}"]`);
 
     if (!result) return;
     result.classList.remove('hidden');
+    result.classList.remove('has-multi');
     const tagged = lumaTag(filename);
     result.querySelector('.result-name').textContent = tagged;
     result.querySelector('.result-size').textContent = formatBytes(blob.size);
@@ -406,6 +410,28 @@ function showResult(toolId, blob, filename) {
     downloadLink._objectUrl = objectUrl;
     downloadLink.href = objectUrl;
     downloadLink.download = tagged;
+    downloadLink.style.display = '';
+
+    // clear any previous preview / multi list
+    result.querySelectorAll('.result-preview, .multi-result-list, .result-zip-btn').forEach(el => el.remove());
+
+    if (IMAGE_EXTS.test(filename)) {
+        const preview = document.createElement('img');
+        preview.className = 'result-preview result-preview--image';
+        preview.src = objectUrl;
+        preview.alt = 'Preview';
+        result.appendChild(preview);
+    } else if (VIDEO_EXTS.test(filename)) {
+        const preview = document.createElement('video');
+        preview.className = 'result-preview result-preview--video';
+        preview.src = objectUrl;
+        preview.preload = 'metadata';
+        preview.muted = true;
+        preview.playsInline = true;
+        // seek to first frame so poster is visible
+        preview.addEventListener('loadedmetadata', () => { preview.currentTime = 0.1; }, { once: true });
+        result.appendChild(preview);
+    }
 }
 
 function showMultiResult(toolId, pages) {
@@ -414,22 +440,85 @@ function showMultiResult(toolId, pages) {
     if (!result) return;
     result.classList.remove('hidden');
     result.classList.add('has-multi');
-    result.querySelector('.result-name').textContent = `${pages.length} files generated`;
+
+    const isImageSet = pages.length > 0 && IMAGE_EXTS.test(pages[0].name);
+    result.querySelector('.result-name').textContent = `${pages.length} file${pages.length > 1 ? 's' : ''} generated`;
     result.querySelector('.result-size').textContent = '';
+
     const downloadLink = result.querySelector('.result-download');
     downloadLink.style.display = 'none';
-    let listEl = result.querySelector('.multi-result-list');
 
-    if (!listEl) {
-        listEl = document.createElement('div');
-        listEl.className = 'multi-result-list';
-        result.appendChild(listEl);
+    // clear stale elements
+    result.querySelectorAll('.result-preview, .multi-result-list, .result-zip-btn, .multi-thumb-strip').forEach(el => el.remove());
+
+    // ── ZIP download button ──────────────────────────────────────────────────
+    const zipBtn = document.createElement('button');
+    zipBtn.className = 'result-zip-btn';
+    zipBtn.innerHTML = '<i class="fas fa-file-zipper"></i> Download All as ZIP';
+    zipBtn.addEventListener('click', () => downloadMultiAsZip(pages, toolId));
+    result.appendChild(zipBtn);
+
+    // ── thumbnail strip for image sets ──────────────────────────────────────
+    if (isImageSet) {
+        const strip = document.createElement('div');
+        strip.className = 'multi-thumb-strip';
+        const previewPages = pages.slice(0, 8); // show up to 8 thumbs
+
+        previewPages.forEach(p => {
+            const img = document.createElement('img');
+            img.className = 'multi-thumb';
+            img.src = p.url;
+            img.alt = p.name;
+            img.title = p.name;
+            strip.appendChild(img);
+        });
+
+        if (pages.length > 8) {
+            const more = document.createElement('div');
+            more.className = 'multi-thumb-more';
+            more.textContent = `+${pages.length - 8}`;
+            strip.appendChild(more);
+        }
+
+        result.appendChild(strip);
     }
+
+    // ── individual download links ────────────────────────────────────────────
+    let listEl = document.createElement('div');
+    listEl.className = 'multi-result-list';
 
     listEl.innerHTML = pages.map(p => {
         const tagged = lumaTag(p.name);
-        return `<a href="${p.url}" download="${escapeHTML(tagged)}" class="result-page-link"><i class="fas fa-download"></i> ${escapeHTML(tagged)}</a>`;
+        return `<a href="${escapeHTML(p.url)}" download="${escapeHTML(tagged)}" class="result-page-link"><i class="fas fa-download"></i> ${escapeHTML(tagged)}</a>`;
     }).join('');
+
+    result.appendChild(listEl);
+}
+
+async function downloadMultiAsZip(pages, toolId) {
+    const btn = document.querySelector(`.result-section[data-tool="${toolId}"] .result-zip-btn`);
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Zipping…'; }
+
+    try {
+        const zip = new JSZip();
+        await Promise.all(pages.map(async p => {
+            const res = await fetch(p.url);
+            const ab = await res.arrayBuffer();
+            zip.file(lumaTag(p.name), ab);
+        }));
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${toolId}-output.zip`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+        showToast('ZIP download failed: ' + e.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-zipper"></i> Download All as ZIP'; }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
