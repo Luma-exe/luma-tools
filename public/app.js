@@ -39,8 +39,9 @@ function switchTool(toolId) {
     $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tool === toolId));
     // Show/hide panels
     $$('.tool-panel').forEach(el => el.classList.toggle('active', el.id === 'tool-' + toolId));
-    // Close mobile sidebar
+    // Close mobile sidebar and scroll to top
     if (window.innerWidth <= 768) toggleSidebar(false);
+    window.scrollTo(0, 0);
 }
 
 function toggleSidebar(forceState) {
