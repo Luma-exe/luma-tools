@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const state = {
-    currentTool: 'downloader',
+    currentTool: 'landing',
     // Downloader state
     url: '', platform: null, mediaInfo: null,
     selectedFormat: 'mp3', selectedQuality: 'best',
@@ -75,7 +75,6 @@ function switchTool(toolId) {
     document.body.scrollTop = 0;
     const mc = $('.main-content');
     if (mc) mc.scrollTop = 0;
-    // Clear search
     const si = $('#sidebarSearch');
     if (si && si.value) { si.value = ''; filterSidebarTools(); }
 }
@@ -2145,6 +2144,4 @@ document.addEventListener('DOMContentLoaded', () => {
         if (active && grid.dataset.tool) state.presets[grid.dataset.tool] = active.dataset.val;
     });
 
-    const urlInput = $('#urlInput');
-    if (urlInput) urlInput.focus();
 });

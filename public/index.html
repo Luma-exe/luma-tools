@@ -47,10 +47,10 @@
         <!-- ═══════════════ SIDEBAR ═══════════════ -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="logo">
+                <a class="logo" href="#" onclick="switchTool('landing'); return false;">
                     <div class="logo-icon"><i class="fas fa-bolt"></i></div>
                     <div class="logo-text"><h1>LUMA<span>TOOLS</span></h1></div>
-                </div>
+                </a>
                 <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
             </div>
 
@@ -65,7 +65,7 @@
             <nav class="sidebar-nav" id="sidebarNav">
                 <div class="nav-category">
                     <div class="nav-category-title">DOWNLOAD</div>
-                    <a class="nav-item active" data-tool="downloader" onclick="switchTool('downloader')">
+                    <a class="nav-item" data-tool="downloader" onclick="switchTool('downloader')">
                         <i class="fas fa-download"></i><span>Media Downloader</span>
                     </a>
                 </div>
@@ -193,14 +193,80 @@
         <!-- Mobile header -->
         <div class="mobile-header" id="mobileHeader">
             <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-            <div class="mobile-logo"><i class="fas fa-bolt"></i> LUMA<span>TOOLS</span></div>
+            <a class="mobile-logo" href="#" onclick="switchTool('landing'); return false;"><i class="fas fa-bolt"></i> LUMA<span>TOOLS</span></a>
         </div>
 
         <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
         <main class="main-content">
 
+            <!-- ──────────── LANDING / WELCOME PAGE ──────────── -->
+            <div class="tool-panel active" id="tool-landing">
+                <div class="landing-page">
+                    <div class="landing-hero">
+                        <div class="landing-logo-icon"><i class="fas fa-bolt"></i></div>
+                        <h1 class="landing-title">LUMA<span>TOOLS</span></h1>
+                        <p class="landing-tagline">A free, open-source media toolkit built for speed and privacy.</p>
+                    </div>
+
+                    <div class="landing-about">
+                        <p>LumaTools was built out of frustration with bloated online converters that are riddled with ads, upload limits, and privacy concerns. Every tool here runs either <strong>directly in your browser</strong> using WebAssembly, or on a lightweight C++ backend — no data leaves your machine unless it has to.</p>
+                    </div>
+
+                    <div class="landing-drop-cta">
+                        <div class="landing-drop-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                        <h2>Drop any file to get started</h2>
+                        <p>Drag an image, video, audio, or PDF anywhere on the page. LumaTools will detect the file type and suggest the right tools instantly.</p>
+                    </div>
+
+                    <div class="landing-features">
+                        <div class="landing-feature">
+                            <div class="landing-feature-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+                            <h3>Smart Drag &amp; Drop</h3>
+                            <p>Drop a file anywhere and a quick-action panel appears with every tool that matches your file type. No searching required.</p>
+                        </div>
+                        <div class="landing-feature">
+                            <div class="landing-feature-icon"><i class="fas fa-layer-group"></i></div>
+                            <h3>Batch Processing</h3>
+                            <p>Drop multiple files at once. LumaTools processes them in a queue and bundles the results into a single .zip download.</p>
+                        </div>
+                        <div class="landing-feature">
+                            <div class="landing-feature-icon"><i class="fas fa-microchip"></i></div>
+                            <h3>Client-Side Power</h3>
+                            <p>Image and audio tools run entirely in your browser via FFmpeg.wasm. Your files never leave your computer — zero upload, total privacy.</p>
+                        </div>
+                        <div class="landing-feature">
+                            <div class="landing-feature-icon"><i class="fas fa-download"></i></div>
+                            <h3>Install as an App</h3>
+                            <p>LumaTools is a Progressive Web App. Install it to your desktop for instant access, offline support, and a native app experience.</p>
+                        </div>
+                    </div>
+
+                    <div class="landing-tools-overview">
+                        <h2>20+ Tools, Zero Ads</h2>
+                        <div class="landing-tool-chips">
+                            <span class="landing-chip" onclick="switchTool('downloader')"><i class="fas fa-download"></i> Media Downloader</span>
+                            <span class="landing-chip" onclick="switchTool('image-compress')"><i class="fas fa-compress-alt"></i> Image Compress</span>
+                            <span class="landing-chip" onclick="switchTool('image-resize')"><i class="fas fa-expand-arrows-alt"></i> Resize</span>
+                            <span class="landing-chip" onclick="switchTool('image-convert')"><i class="fas fa-exchange-alt"></i> Convert</span>
+                            <span class="landing-chip" onclick="switchTool('video-compress')"><i class="fas fa-file-video"></i> Video Compress</span>
+                            <span class="landing-chip" onclick="switchTool('video-trim')"><i class="fas fa-cut"></i> Trim / Cut</span>
+                            <span class="landing-chip" onclick="switchTool('video-to-gif')"><i class="fas fa-magic"></i> To GIF</span>
+                            <span class="landing-chip" onclick="switchTool('audio-convert')"><i class="fas fa-headphones"></i> Audio Convert</span>
+                            <span class="landing-chip" onclick="switchTool('pdf-compress')"><i class="fas fa-file-pdf"></i> PDF Compress</span>
+                            <span class="landing-chip" onclick="switchTool('image-bg-remove')"><i class="fas fa-user-alt"></i> BG Remover</span>
+                            <span class="landing-chip" onclick="switchTool('qr-generate')"><i class="fas fa-qrcode"></i> QR Code</span>
+                            <span class="landing-chip" onclick="switchTool('json-format')"><i class="fas fa-file-code"></i> JSON Format</span>
+                        </div>
+                    </div>
+
+                    <div class="landing-cta-row">
+                        <button class="landing-cta-btn" onclick="switchTool('downloader')"><i class="fas fa-rocket"></i> Open Toolkit</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- ──────────── MEDIA DOWNLOADER ──────────── -->
-            <div class="tool-panel active" id="tool-downloader">
+            <div class="tool-panel" id="tool-downloader">
                 <div class="tool-header">
                     <h2><i class="fas fa-download"></i> Media Downloader</h2>
                     <p>Download videos and audio from any supported platform</p>
