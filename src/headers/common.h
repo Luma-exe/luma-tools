@@ -61,7 +61,7 @@ extern string g_deno_path;         // Full path to deno executable
 extern string g_ytdlp_path;       // Full path or command for yt-dlp
 extern string g_ghostscript_path;  // Full path to ghostscript executable
 extern string g_pandoc_path;       // Full path to pandoc executable
-extern string g_openai_key;        // OpenAI API key (from OPENAI_KEY env var)
+extern string g_groq_key;          // Groq API key (from GROQ_API_KEY env var)
 extern string g_git_commit;        // Short git commit hash (set at startup)
 extern string g_git_branch;        // Git branch name (set at startup)
 extern string g_hostname;           // Machine hostname (set at startup)

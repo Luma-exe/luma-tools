@@ -1644,9 +1644,9 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     });
 
     // ── POST /api/tools/ai-study-notes (async) ───────────────────────────────
-    // Accepts a PDF, extracts text via Ghostscript, sends to OpenAI, returns notes.
+    // Accepts a PDF, extracts text via Ghostscript, sends to Groq, returns notes.
     svr.Post("/api/tools/ai-study-notes", [](const httplib::Request& req, httplib::Response& res) {
-        if (g_openai_key.empty()) {
+        if (g_groq_key.empty()) {
             res.status = 503;
             res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
             return;
@@ -1711,7 +1711,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             update_job(jid, {{"status","processing"},{"progress",40},{"stage","Generating study notes with AI..."}});
 
-            // ── Step 2: call OpenAI ───────────────────────────────────────────
+            // ── Step 2: call Groq ────────────────────────────────────────────
             string style_instruction = (format == "markdown")
                 ? "Format the output using Markdown optimised for Obsidian: use ## headings (no numbering), bullet points for details, **bold** key terms, `code blocks` for all formulas/equations/code/worked solutions with complete variable definitions and units, and > blockquotes for instructor emphasis or exam hints."
                 : "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points.";
@@ -1728,7 +1728,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 "Extract every important concept, formula, example, and procedure — do not summarise or skip details:\n\n" + text;
 
             json payload = {
-                {"model", "gpt-4o-mini"},
+                {"model", "llama-3.3-70b-versatile"},
                 {"messages", json::array({
                     {{"role","system"}, {"content", system_prompt}},
                     {{"role","user"},   {"content", user_prompt}}
@@ -1743,10 +1743,10 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             // Write auth header to a separate file to avoid shell-escaping issues
             string hdr_file = proc + "/" + jid + "_auth.txt";
-            { ofstream f(hdr_file); f << "Authorization: Bearer " << g_openai_key; }
+            { ofstream f(hdr_file); f << "Authorization: Bearer " << g_groq_key; }
 
             string resp_file = proc + "/" + jid + "_resp.json";
-            string curl_cmd = "curl -s -X POST https://api.openai.com/v1/chat/completions"
+            string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
                 " -H \"Content-Type: application/json\""
                 " -H @" + escape_arg(hdr_file) +
                 " -d @" + escape_arg(payload_file) +
@@ -1774,7 +1774,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             }
 
             if (!ai_ok) {
-                update_job(jid, {{"status","error"},{"error","AI API call failed. Check server logs and OpenAI key."}});
+                update_job(jid, {{"status","error"},{"error","AI API call failed. Check server logs and Groq key."}});
                 try { fs::remove(pdf_path); fs::remove(txt_path);
                       fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
                 return;

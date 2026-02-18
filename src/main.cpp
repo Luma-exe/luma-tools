@@ -151,14 +151,14 @@ int main() {
         cerr << "[Luma Tools] WARNING: Pandoc not found. Markdown to PDF will be unavailable." << endl;
     }
 
-    // ── OpenAI key (for AI Study Notes) ──────────────────────────────────────
+    // ── Groq key (for AI Study Notes) ────────────────────────────────────────
     {
-        const char* key = std::getenv("OPENAI_KEY");
+        const char* key = std::getenv("GROQ_API_KEY");
         if (key && key[0]) {
-            g_openai_key = key;
-            cout << "[Luma Tools] OpenAI key loaded from environment." << endl;
+            g_groq_key = key;
+            cout << "[Luma Tools] Groq API key loaded from environment." << endl;
         } else {
-            cerr << "[Luma Tools] WARNING: OPENAI_KEY not set. AI Study Notes will be unavailable." << endl;
+            cerr << "[Luma Tools] WARNING: GROQ_API_KEY not set. AI Study Notes will be unavailable." << endl;
         }
     }
 

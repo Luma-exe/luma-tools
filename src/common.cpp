@@ -12,7 +12,7 @@ string g_deno_path;
 string g_ytdlp_path;
 string g_ghostscript_path;
 string g_pandoc_path;
-string g_openai_key;
+string g_groq_key;
 string g_git_commit = "unknown";
 string g_git_branch = "unknown";
 string g_hostname;
