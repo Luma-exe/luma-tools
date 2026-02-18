@@ -15,6 +15,8 @@ function initWaveform(toolId, file) {
         wrap = $('waveform-video-extract-audio'); el = $('waveformVideoExtract');
     } else if (toolId === 'video-trim') {
         wrap = $('waveform-video-trim'); el = $('waveformVideoTrim');
+    } else if (toolId === 'audio-trim') {
+        wrap = $('waveform-audio-trim'); el = $('waveformAudioTrim');
     }
 
     if (!wrap || !el) return;
@@ -60,6 +62,22 @@ function initWaveform(toolId, file) {
                 const t = formatTime(progress * dur);
 
                 if ($('trimStart') && !$('trimStart').value) $('trimStart').value = t;
+            });
+        });
+    }
+
+    if (toolId === 'audio-trim') {
+        ws.on('ready', () => {
+            const dur = ws.getDuration();
+            const startEl = $('waveformAudioTrimStart');
+            const endEl = $('waveformAudioTrimEnd');
+
+            if (startEl) startEl.textContent = '00:00:00.00';
+            if (endEl) endEl.textContent = formatTime(dur);
+            ws.on('seek', progress => {
+                const t = formatTime(progress * dur);
+
+                if ($('audioTrimStart') && !$('audioTrimStart').dataset.touched) $('audioTrimStart').value = t;
             });
         });
     }

@@ -97,6 +97,13 @@ function selectPreset(btn) {
     if (toolId) state.presets[toolId] = btn.dataset.val;
 }
 
+function selectWmPos(btn) {
+    const grid = document.getElementById('wmPositionGrid');
+    if (!grid) return;
+    grid.querySelectorAll('.wm-pos-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
 function toggleAspectLock() {
     state.aspectLock = !state.aspectLock;
     const lock = $('dimLock');

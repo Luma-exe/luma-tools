@@ -1195,4 +1195,218 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         try { fs::remove(input_path); } catch (...) {}
         res.set_content(json({{"filename", file.filename}, {"size", (long long)file.content.size()}, {"hashes", hashes}}).dump(), "application/json");
     });
+
+    // ── GET /api/tools/progress/:id  (SSE — stream job status updates) ──────
+    svr.Get(R"(/api/tools/progress/([^/]+))", [](const httplib::Request& req, httplib::Response& res) {
+        string jid = req.matches[1];
+        res.set_header("Content-Type",  "text/event-stream");
+        res.set_header("Cache-Control", "no-cache");
+        res.set_header("X-Accel-Buffering", "no");
+
+        // Poll the job up to 300 seconds (300 × 1s ticks)
+        res.set_content_provider("text/event-stream",
+            [jid](size_t /*offset*/, httplib::DataSink& sink) -> bool {
+                for (int tick = 0; tick < 300; ++tick) {
+                    json job = get_job(jid);
+                    if (job.is_null()) {
+                        string msg = "data: {\"status\":\"not_found\"}\n\n";
+                        sink.write(msg.c_str(), msg.size());
+                        return false; // close stream
+                    }
+                    string payload = "data: " + job.dump() + "\n\n";
+                    if (!sink.write(payload.c_str(), payload.size())) return false;
+
+                    string status = job.value("status", "");
+                    if (status == "completed" || status == "error") return false;
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                }
+                string done = "data: {\"status\":\"timeout\"}\n\n";
+                sink.write(done.c_str(), done.size());
+                return false;
+            });
+    });
+
+    // ── POST /api/tools/audio-trim (async) ──────────────────────────────────
+    svr.Post("/api/tools/audio-trim", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file  = req.get_file_value("file");
+        string start = req.has_file("start") ? req.get_file_value("start").content : "00:00:00";
+        string end   = req.has_file("end")   ? req.get_file_value("end").content   : "";
+        string mode  = req.has_file("mode")  ? req.get_file_value("mode").content  : "fast";
+
+        if (end.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "End time is required"}}).dump(), "application/json");
+            return;
+        }
+        discord_log_tool("Audio Trim (" + mode + ")", file.filename + " [" + start + " -> " + end + "]", req.remote_addr);
+
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string ext = fs::path(file.filename).extension().string();
+        string out_ext = (mode == "precise") ? ".mp3" : ext;
+        string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
+        string orig_name = fs::path(file.filename).stem().string();
+        update_job(jid, {{"status", "processing"}, {"progress", 0}, {"stage", "Trimming audio..."}});
+
+        thread([jid, input_path, output_path, start, end, out_ext, orig_name, mode]() {
+            string cmd;
+            if (mode == "precise") {
+                cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
+                    " -ss " + start + " -to " + end +
+                    " -c:a libmp3lame -q:a 2 " + escape_arg(output_path);
+            } else {
+                cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
+                    " -ss " + start + " -to " + end + " -c copy " + escape_arg(output_path);
+            }
+            cout << "[Luma Tools] Audio trim (" << mode << "): " << cmd << endl;
+            int code; exec_command(cmd, code);
+
+            if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+                update_job(jid, {{"status", "completed"}, {"progress", 100},
+                    {"filename", orig_name + "_trimmed" + out_ext}}, output_path);
+            } else {
+                discord_log_error("Audio Trim", "Failed for: " + mask_filename(orig_name));
+                update_job(jid, {{"status", "error"}, {"error", "Audio trimming failed"}});
+            }
+            try { fs::remove(input_path); } catch (...) {}
+        }).detach();
+
+        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+    });
+
+    // ── POST /api/tools/pdf-split ────────────────────────────────────────────
+    svr.Post("/api/tools/pdf-split", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_ghostscript_path.empty()) {
+            res.status = 500;
+            res.set_content(json({{"error", "Ghostscript not installed. PDF tools require Ghostscript."}}).dump(), "application/json");
+            return;
+        }
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        string from_s = req.has_file("from") ? req.get_file_value("from").content : "1";
+        string to_s   = req.has_file("to")   ? req.get_file_value("to").content   : "";
+
+        int from_page = 1, to_page = 0;
+        try { from_page = std::stoi(from_s); } catch (...) {}
+        if (!to_s.empty()) try { to_page = std::stoi(to_s); } catch (...) {}
+        if (from_page < 1) from_page = 1;
+        if (to_page < from_page && to_page > 0) to_page = from_page;
+
+        discord_log_tool("PDF Split", file.filename + " [p" + from_s + "-" + (to_s.empty() ? "end" : to_s) + "]", req.remote_addr);
+
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string output_path = get_processing_dir() + "/" + jid + "_split.pdf";
+        string orig_name = fs::path(file.filename).stem().string();
+
+        string page_args = " -dFirstPage=" + to_string(from_page);
+        if (to_page > 0) page_args += " -dLastPage=" + to_string(to_page);
+
+        string cmd = escape_arg(g_ghostscript_path) +
+            " -dNOPAUSE -dBATCH -sDEVICE=pdfwrite" + page_args +
+            " -sOutputFile=" + escape_arg(output_path) +
+            " " + escape_arg(input_path);
+        cout << "[Luma Tools] PDF split: " << cmd << endl;
+        int code; exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            string suffix = (to_page > 0 && to_page != from_page)
+                ? "_p" + to_string(from_page) + "-" + to_string(to_page)
+                : "_p" + to_string(from_page);
+            send_file_response(res, output_path, orig_name + suffix + ".pdf");
+        } else {
+            res.status = 500;
+            discord_log_error("PDF Split", "Failed for: " + mask_filename(file.filename));
+            res.set_content(json({{"error", "PDF split failed — check page range"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/image-watermark ─────────────────────────────────────
+    svr.Post("/api/tools/image-watermark", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        string wm_text    = req.has_file("text")     ? req.get_file_value("text").content     : "";
+        string wm_font_sz = req.has_file("fontsize")  ? req.get_file_value("fontsize").content  : "36";
+        string wm_color   = req.has_file("color")    ? req.get_file_value("color").content    : "white";
+        string wm_opacity = req.has_file("opacity")  ? req.get_file_value("opacity").content  : "0.6";
+        string wm_pos     = req.has_file("position") ? req.get_file_value("position").content : "bottom-right";
+
+        if (wm_text.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Watermark text is required"}}).dump(), "application/json");
+            return;
+        }
+
+        // Sanitize text against FFmpeg filter injection
+        string safe_text;
+        for (char c : wm_text) {
+            if (c == '\'' || c == '\\' || c == ':' || c == '[' || c == ']') safe_text += '\\';
+            safe_text += c;
+        }
+
+        // Build x/y expression from position
+        string x_expr, y_expr;
+        string pad = "20";
+        if (wm_pos == "top-left")      { x_expr = pad;                      y_expr = pad; }
+        else if (wm_pos == "top-center")    { x_expr = "(w-text_w)/2";           y_expr = pad; }
+        else if (wm_pos == "top-right")     { x_expr = "w-text_w-" + pad;        y_expr = pad; }
+        else if (wm_pos == "center")        { x_expr = "(w-text_w)/2";           y_expr = "(h-text_h)/2"; }
+        else if (wm_pos == "bottom-left")   { x_expr = pad;                      y_expr = "h-text_h-" + pad; }
+        else if (wm_pos == "bottom-center") { x_expr = "(w-text_w)/2";           y_expr = "h-text_h-" + pad; }
+        else /* bottom-right */             { x_expr = "w-text_w-" + pad;        y_expr = "h-text_h-" + pad; }
+
+        // Parse opacity to alpha (0-255)
+        double op = 0.6;
+        try { op = std::stod(wm_opacity); } catch (...) {}
+        if (op < 0) op = 0; if (op > 1) op = 1;
+        int alpha = (int)(op * 255);
+        char alpha_hex[5]; snprintf(alpha_hex, sizeof(alpha_hex), "%02X", alpha);
+        // Convert color name to RRGGBBAA for drawtext
+        string color_str = wm_color + "@" + wm_opacity;
+
+        discord_log_tool("Image Watermark", file.filename, req.remote_addr);
+
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string ext = fs::path(file.filename).extension().string();
+        if (ext == ".jpg" || ext == ".jpeg") ext = ".jpg";
+        else if (ext != ".png" && ext != ".webp" && ext != ".tiff") ext = ".png";
+        string output_path = get_processing_dir() + "/" + jid + "_wm" + ext;
+        string orig_name = fs::path(file.filename).stem().string();
+
+        string drawtext = "drawtext=text='" + safe_text + "'"
+            ":fontsize=" + wm_font_sz +
+            ":fontcolor=" + color_str +
+            ":x=" + x_expr +
+            ":y=" + y_expr;
+
+        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
+            " -vf \"" + drawtext + "\" " + escape_arg(output_path);
+        cout << "[Luma Tools] Image watermark: " << cmd << endl;
+        int code; exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            send_file_response(res, output_path, orig_name + "_watermarked" + ext);
+        } else {
+            res.status = 500;
+            discord_log_error("Image Watermark", "Failed for: " + mask_filename(file.filename));
+            res.set_content(json({{"error", "Watermark failed. Check that FFmpeg has freetype support."}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
 }

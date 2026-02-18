@@ -9,6 +9,7 @@ const batchQueue = {
     current: 0,
     total: 0,
     running: false,
+    startTime: 0,
 
     async start(toolId, files) {
         this.files = files;
@@ -17,6 +18,7 @@ const batchQueue = {
         this.current = 0;
         this.total = files.length;
         this.running = true;
+        this.startTime = Date.now();
 
         switchTool(toolId);
 
@@ -98,6 +100,16 @@ const batchQueue = {
         const pct = (this.current / this.total) * 100;
         $('batchOvBar').style.width = pct + '%';
         $('batchOvCurrent').textContent = this.current;
+
+        // ETA / elapsed
+        if (this.current > 0 && this.running) {
+            const elapsed = (Date.now() - this.startTime) / 1000;
+            const avgPerFile = elapsed / this.current;
+            const remaining = avgPerFile * (this.total - this.current);
+            const elapsedStr  = elapsed  < 60 ? Math.round(elapsed)  + 's' : (Math.floor(elapsed/60)  + 'm ' + Math.round(elapsed%60)  + 's');
+            const remainingStr = remaining < 60 ? Math.round(remaining) + 's' : (Math.floor(remaining/60) + 'm ' + Math.round(remaining%60) + 's');
+            $('batchOvStatus').textContent = `${this.current} of ${this.total} · ${elapsedStr} elapsed · ~${remainingStr} remaining`;
+        }
     },
 
     async finish() {
@@ -109,7 +121,9 @@ const batchQueue = {
         const successCount = this.results.filter(r => r.status === 'done').length;
         const failCount = this.results.filter(r => r.status === 'error').length;
         $('batchOvTitle').textContent = failCount === 0 ? 'Batch Complete!' : `${successCount} done, ${failCount} failed`;
-        $('batchOvStatus').textContent = `Processed ${this.total} files`;
+        const totalSec = (Date.now() - this.startTime) / 1000;
+        const totalStr = totalSec < 60 ? Math.round(totalSec) + 's' : (Math.floor(totalSec/60) + 'm ' + Math.round(totalSec%60) + 's');
+        $('batchOvStatus').textContent = `Processed ${this.total} files in ${totalStr}`;
         $('batchOvBar').style.width = '100%';
 
         if (successCount > 0) $('batchOvDownloadAll').classList.remove('hidden');
@@ -118,7 +132,7 @@ const batchQueue = {
 
     reset() {
         this.files = []; this.toolId = null; this.results = [];
-        this.current = 0; this.total = 0; this.running = false;
+        this.current = 0; this.total = 0; this.running = false; this.startTime = 0;
     },
 };
 
@@ -128,6 +142,18 @@ async function processFileServerDirect(toolId, file) {
     formData.append('file', file);
 
     switch (toolId) {
+        case 'audio-trim':    formData.append('start', $('audioTrimStart')?.value || '00:00:00'); formData.append('end', $('audioTrimEnd')?.value || ''); formData.append('mode', getSelectedPreset('audio-trim-mode') || 'fast'); break;
+        case 'pdf-split':     formData.append('from', $('pdfSplitFrom')?.value || '1'); formData.append('to', $('pdfSplitTo')?.value || ''); break;
+        case 'image-watermark': {
+            const t = $('wmText')?.value?.trim() || '';
+            if (t) formData.append('text', t);
+            formData.append('fontsize', $('wmFontSize')?.value || '36');
+            formData.append('opacity', $('wmOpacity')?.value || '0.6');
+            formData.append('color', getSelectedPreset('wm-color') || 'white');
+            const pb = document.querySelector('#wmPositionGrid .wm-pos-btn.active');
+            formData.append('position', pb?.dataset.pos || 'bottom-right');
+            break;
+        }
         case 'image-compress':   formData.append('quality', $('imageCompressQuality')?.value || '75'); break;
         case 'image-resize':     formData.append('width', $('resizeWidth')?.value || ''); formData.append('height', $('resizeHeight')?.value || ''); break;
         case 'image-convert':    formData.append('format', getSelectedFmt('image-convert') || 'png'); break;
@@ -140,7 +166,8 @@ async function processFileServerDirect(toolId, file) {
     }
 
     const asyncTools = ['video-compress','video-trim','video-convert','video-extract-audio',
-        'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize'];
+        'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize',
+        'audio-trim'];
     const isAsync = asyncTools.includes(toolId);
 
     const res = await fetch('/api/tools/' + toolId, { method: 'POST', body: formData });
@@ -167,25 +194,28 @@ async function processFileServerDirect(toolId, file) {
 
 function pollJobForBlob(jobId) {
     return new Promise((resolve, reject) => {
-        const interval = setInterval(async () => {
-            try {
-                const res = await fetch(`/api/tools/status/${jobId}`);
-                const data = await res.json();
+        const es = new EventSource(`/api/tools/progress/${jobId}`);
 
-                if (data.status === 'completed') {
-                    clearInterval(interval);
+        es.onmessage = async (evt) => {
+            let data;
+            try { data = JSON.parse(evt.data); } catch (_) { return; }
+
+            if (data.status === 'completed') {
+                es.close();
+                try {
                     const fileRes = await fetch(`/api/tools/result/${jobId}`);
-
                     if (!fileRes.ok) { reject(new Error('Failed to download result')); return; }
                     const blob = await fileRes.blob();
                     blob._filename = getFilenameFromResponse(fileRes) || 'processed_file';
                     resolve(blob);
-                } else if (data.status === 'error') {
-                    clearInterval(interval);
-                    reject(new Error(data.error || 'Processing failed'));
-                }
-            } catch (err) { /* keep polling */ }
-        }, 1000);
+                } catch (err) { reject(err); }
+            } else if (data.status === 'error' || data.status === 'not_found' || data.status === 'timeout') {
+                es.close();
+                reject(new Error(data.error || 'Processing failed'));
+            }
+        };
+
+        es.onerror = () => { es.close(); reject(new Error('Connection lost')); };
     });
 }
 

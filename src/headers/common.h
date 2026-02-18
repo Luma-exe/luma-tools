@@ -25,6 +25,8 @@
 #include <vector>
 #include <set>
 #include <functional>
+#include <unordered_map>
+#include <ctime>
 
 // ─── Type aliases & namespace shortcuts ─────────────────────────────────────
 

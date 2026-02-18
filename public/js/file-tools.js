@@ -56,6 +56,7 @@ function handleFileSelect(toolId, file) {
     if (toolId === 'audio-convert') initWaveform('audio-convert', file);
     if (toolId === 'video-extract-audio') initWaveform('video-extract-audio', file);
     if (toolId === 'video-trim') initWaveform('video-trim', file);
+    if (toolId === 'audio-trim') initWaveform('audio-trim', file);
 }
 
 function handleMultiFiles(toolId, files) {
@@ -237,6 +238,27 @@ async function processFileServer(toolId) {
 
             formData.append('method', getSelectedFmt('bg-remove-method') || 'auto');
             break;
+        case 'audio-trim':
+            formData.append('start', $('audioTrimStart').value || '00:00:00');
+            formData.append('end', $('audioTrimEnd').value || '');
+            formData.append('mode', getSelectedPreset('audio-trim-mode') || 'fast');
+            if (!$('audioTrimEnd').value) { showToast('Please enter an end time', 'error'); return; }
+            break;
+        case 'pdf-split':
+            formData.append('from', $('pdfSplitFrom').value || '1');
+            formData.append('to', $('pdfSplitTo').value || '');
+            break;
+        case 'image-watermark': {
+            const text = $('wmText').value.trim();
+            if (!text) { showToast('Please enter watermark text', 'error'); return; }
+            formData.append('text', text);
+            formData.append('fontsize', $('wmFontSize').value || '36');
+            formData.append('opacity', $('wmOpacity').value || '0.6');
+            formData.append('color', getSelectedPreset('wm-color') || 'white');
+            const posBtn = document.querySelector('#wmPositionGrid .wm-pos-btn.active');
+            formData.append('position', posBtn?.dataset.pos || 'bottom-right');
+            break;
+        }
         case 'redact': {
             if (file.type.startsWith('image/')) {
                 const canvas = $('redactCanvas');
@@ -271,7 +293,8 @@ async function processFileServer(toolId) {
     showProcessing(toolId, true);
 
     const asyncTools = ['video-compress','video-trim','video-convert','video-extract-audio',
-        'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize'];
+        'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize',
+        'audio-trim'];
     const isAsync = asyncTools.includes(toolId);
 
     try {
@@ -341,40 +364,48 @@ function pollJobStatus(toolId, jobId) {
     const progressPct = procEl?.querySelector('.progress-pct');
     const procText = procEl?.querySelector('.processing-text');
 
-    if (state.jobPolls[toolId]) clearInterval(state.jobPolls[toolId]);
+    // Clean up any existing SSE connection for this tool
+    if (state.jobPolls[toolId]) {
+        try { state.jobPolls[toolId].close(); } catch (_) {}
+        delete state.jobPolls[toolId];
+    }
 
-    state.jobPolls[toolId] = setInterval(async () => {
-        try {
-            const res = await fetch(`/api/tools/status/${jobId}`);
-            const data = await res.json();
+    const es = new EventSource(`/api/tools/progress/${jobId}`);
+    state.jobPolls[toolId] = es;
 
-            if (data.status === 'completed') {
-                clearInterval(state.jobPolls[toolId]);
-                delete state.jobPolls[toolId];
+    es.onmessage = async (evt) => {
+        let data;
+        try { data = JSON.parse(evt.data); } catch (_) { return; }
 
-                if (progressBar) progressBar.style.width = '100%';
-                if (progressPct) progressPct.textContent = '100%';
+        if (data.status === 'completed') {
+            es.close(); delete state.jobPolls[toolId];
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressPct) progressPct.textContent = '100%';
+            try {
                 const fileRes = await fetch(`/api/tools/result/${jobId}`);
-
                 if (!fileRes.ok) throw new Error('Failed to download result');
                 const blob = await fileRes.blob();
                 const filename = getFilenameFromResponse(fileRes) || 'processed_file';
                 showResult(toolId, blob, filename);
-                showProcessing(toolId, false);
-            } else if (data.status === 'error') {
-                clearInterval(state.jobPolls[toolId]);
-                delete state.jobPolls[toolId];
-                showProcessing(toolId, false);
-                showToast(data.error || 'Processing failed', 'error');
-            } else {
-                const pct = data.progress || 0;
+            } catch (err) { showToast(err.message, 'error'); }
+            showProcessing(toolId, false);
+        } else if (data.status === 'error' || data.status === 'not_found' || data.status === 'timeout') {
+            es.close(); delete state.jobPolls[toolId];
+            showProcessing(toolId, false);
+            showToast(data.error || 'Processing failed', 'error');
+        } else {
+            const pct = data.progress || 0;
+            if (progressBar) progressBar.style.width = pct + '%';
+            if (progressPct) progressPct.textContent = pct > 0 ? Math.round(pct) + '%' : '';
+            if (procText && data.stage) procText.textContent = data.stage;
+        }
+    };
 
-                if (progressBar) progressBar.style.width = pct + '%';
-                if (progressPct) progressPct.textContent = pct > 0 ? Math.round(pct) + '%' : '';
-                if (procText && data.stage) procText.textContent = data.stage;
-            }
-        } catch (err) { /* keep polling */ }
-    }, 1000);
+    es.onerror = () => {
+        es.close(); delete state.jobPolls[toolId];
+        showProcessing(toolId, false);
+        showToast('Lost connection to server', 'error');
+    };
 }
 
 function getFilenameFromResponse(res) {
@@ -428,6 +459,20 @@ function showResult(toolId, blob, filename) {
     actions.className = 'result-actions';
     downloadLink.parentNode.insertBefore(actions, downloadLink);
     actions.appendChild(downloadLink);
+
+    // Send-to-tool button
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'result-send-btn';
+    sendBtn.innerHTML = '<i class="fas fa-share-square"></i> Send to Tool';
+    sendBtn.addEventListener('click', () => {
+        const fakeFile = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+        const category = detectFileCategory(fakeFile);
+        if (!category || !FILE_TOOL_MAP[category]) { showToast('No compatible tools for this file type', 'error'); return; }
+        state.droppedFiles = [fakeFile];
+        state.droppedCategory = category;
+        showQuickActionModal(category, [fakeFile]);
+    });
+    actions.appendChild(sendBtn);
 
     if (IMAGE_EXTS.test(filename)) {
         const preview = document.createElement('img');

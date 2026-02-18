@@ -97,6 +97,9 @@
                     <a class="nav-item" data-tool="image-bg-remove" data-location="server" onclick="switchTool('image-bg-remove')">
                         <i class="fas fa-user-alt"></i><span>Background Remover</span>
                     </a>
+                    <a class="nav-item" data-tool="image-watermark" data-location="server" onclick="switchTool('image-watermark')">
+                        <i class="fas fa-stamp"></i><span>Watermark</span>
+                    </a>
                     <a class="nav-item" data-tool="redact" data-location="browser" onclick="switchTool('redact')">
                         <i class="fas fa-user-secret"></i><span>Privacy Redaction</span>
                     </a>
@@ -145,6 +148,9 @@
                     <a class="nav-item" data-tool="audio-normalize" data-location="server" onclick="switchTool('audio-normalize')">
                         <i class="fas fa-balance-scale-right"></i><span>Normalize</span>
                     </a>
+                    <a class="nav-item" data-tool="audio-trim" data-location="server" onclick="switchTool('audio-trim')">
+                        <i class="fas fa-cut"></i><span>Trim</span>
+                    </a>
                 </div>
                 <div class="nav-category">
                     <div class="nav-category-title">DOCUMENT</div>
@@ -153,6 +159,9 @@
                     </a>
                     <a class="nav-item" data-tool="pdf-merge" data-location="server" onclick="switchTool('pdf-merge')">
                         <i class="fas fa-object-group"></i><span>PDF Merge</span>
+                    </a>
+                    <a class="nav-item" data-tool="pdf-split" data-location="server" onclick="switchTool('pdf-split')">
+                        <i class="fas fa-scissors"></i><span>PDF Split</span>
                     </a>
                     <a class="nav-item" data-tool="pdf-to-images" data-location="server" onclick="switchTool('pdf-to-images')">
                         <i class="fas fa-images"></i><span>PDF to Images</span>
@@ -564,6 +573,57 @@
                 </div>
             </div>
 
+            <!-- ──────────── IMAGE WATERMARK ──────────── -->
+            <div class="tool-panel" id="tool-image-watermark">
+                <div class="tool-header">
+                    <h2><i class="fas fa-stamp"></i> Image Watermark</h2>
+                    <p>Overlay text onto an image with customisable font, position, and opacity</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-image-watermark" data-accept="image/*" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="file-preview hidden" data-tool="image-watermark">
+                        <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('image-watermark')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Watermark Text</label>
+                        <input type="text" id="wmText" placeholder="© Your Name 2025" style="width:100%;padding:10px 12px;background:var(--input-bg,rgba(255,255,255,.06));border:1px solid var(--input-border,rgba(255,255,255,.1));border-radius:8px;color:var(--text,#e2e2ea);font-size:.95rem;outline:none">
+                        <label class="option-label" style="margin-top:12px">Font Size</label>
+                        <div class="slider-group"><input type="range" min="12" max="120" value="36" step="1" class="quality-slider" id="wmFontSize" oninput="document.getElementById('wmFontSizeVal').textContent=this.value+'px'"><span class="slider-value" id="wmFontSizeVal">36px</span></div>
+                        <label class="option-label" style="margin-top:12px">Opacity</label>
+                        <div class="slider-group"><input type="range" min="0.05" max="1" value="0.6" step="0.05" class="quality-slider" id="wmOpacity" oninput="document.getElementById('wmOpacityVal').textContent=Math.round(this.value*100)+'%'"><span class="slider-value" id="wmOpacityVal">60%</span></div>
+                        <label class="option-label" style="margin-top:12px">Color</label>
+                        <div class="preset-grid" data-tool="wm-color" style="grid-template-columns:repeat(4,1fr);gap:8px">
+                            <button class="preset-btn active" data-val="white" onclick="selectPreset(this)"><span>White</span></button>
+                            <button class="preset-btn" data-val="black" onclick="selectPreset(this)"><span>Black</span></button>
+                            <button class="preset-btn" data-val="gray" onclick="selectPreset(this)"><span>Gray</span></button>
+                            <button class="preset-btn" data-val="yellow" onclick="selectPreset(this)"><span>Yellow</span></button>
+                        </div>
+                        <label class="option-label" style="margin-top:12px">Position</label>
+                        <div class="wm-position-grid" id="wmPositionGrid">
+                            <button class="wm-pos-btn" data-pos="top-left"     onclick="selectWmPos(this)"><i class="fas fa-arrow-up-left"></i></button>
+                            <button class="wm-pos-btn" data-pos="top-center"   onclick="selectWmPos(this)"><i class="fas fa-arrow-up"></i></button>
+                            <button class="wm-pos-btn" data-pos="top-right"    onclick="selectWmPos(this)"><i class="fas fa-arrow-up-right"></i></button>
+                            <button class="wm-pos-btn" data-pos="center-left"  onclick="selectWmPos(this)"><i class="fas fa-arrow-left"></i></button>
+                            <button class="wm-pos-btn" data-pos="center"       onclick="selectWmPos(this)"><i class="fas fa-crosshairs"></i></button>
+                            <button class="wm-pos-btn" data-pos="center-right" onclick="selectWmPos(this)"><i class="fas fa-arrow-right"></i></button>
+                            <button class="wm-pos-btn" data-pos="bottom-left"  onclick="selectWmPos(this)"><i class="fas fa-arrow-down-left"></i></button>
+                            <button class="wm-pos-btn" data-pos="bottom-center" onclick="selectWmPos(this)"><i class="fas fa-arrow-down"></i></button>
+                            <button class="wm-pos-btn active" data-pos="bottom-right" onclick="selectWmPos(this)"><i class="fas fa-arrow-down-right"></i></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('image-watermark')"><i class="fas fa-stamp"></i> Apply Watermark</button>
+                    <div class="processing-status hidden" data-tool="image-watermark"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="image-watermark">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
             <!-- ──────────── VIDEO COMPRESS ──────────── -->
             <div class="tool-panel" id="tool-video-compress">
                 <div class="tool-header">
@@ -796,6 +856,39 @@
                     <button class="process-btn" onclick="processFile('pdf-merge')"><i class="fas fa-object-group"></i> Merge PDFs</button>
                     <div class="processing-status hidden" data-tool="pdf-merge"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Merging...</span></div>
                     <div class="result-section hidden" data-tool="pdf-merge">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── PDF SPLIT ──────────── -->
+            <div class="tool-panel" id="tool-pdf-split">
+                <div class="tool-header">
+                    <h2><i class="fas fa-scissors"></i> PDF Split</h2>
+                    <p>Extract a range of pages from a PDF into a new file</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-pdf-split" data-accept=".pdf,application/pdf" data-max="104857600">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your PDF here</p><span>or click to browse</span><small>PDF files &mdash; Max 100 MB</small></div>
+                        <input type="file" class="upload-input" accept=".pdf,application/pdf">
+                    </div>
+                    <div class="file-preview hidden" data-tool="pdf-split">
+                        <div class="file-info"><i class="fas fa-file-pdf"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('pdf-split')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Page Range</label>
+                        <div class="time-inputs">
+                            <div class="time-group"><label>From page</label><input type="number" id="pdfSplitFrom" placeholder="1" value="1" min="1" style="width:90px"></div>
+                            <span class="time-arrow"><i class="fas fa-arrow-right"></i></span>
+                            <div class="time-group"><label>To page</label><input type="number" id="pdfSplitTo" placeholder="end" min="1" style="width:90px"></div>
+                        </div>
+                        <small class="option-hint">Leave "To page" empty to extract from "From page" to the end</small>
+                    </div>
+                    <button class="process-btn" onclick="processFile('pdf-split')"><i class="fas fa-scissors"></i> Split PDF</button>
+                    <div class="processing-status hidden" data-tool="pdf-split"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
+                    <div class="result-section hidden" data-tool="pdf-split">
                         <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
                         <a class="result-download" download><i class="fas fa-download"></i> Download</a>
                     </div>
@@ -1101,6 +1194,48 @@
                     <button class="process-btn" onclick="processFile('audio-normalize')"><i class="fas fa-balance-scale-right"></i> Normalize Audio</button>
                     <div class="processing-status hidden" data-tool="audio-normalize"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
                     <div class="result-section hidden" data-tool="audio-normalize">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── AUDIO TRIM ──────────── -->
+            <div class="tool-panel" id="tool-audio-trim">
+                <div class="tool-header">
+                    <h2><i class="fas fa-cut"></i> Audio Trim</h2>
+                    <p>Cut a segment from an audio file by setting start and end times</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-audio-trim" data-accept="audio/*" data-max="209715200">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your audio here</p><span>or click to browse</span><small>MP3, WAV, FLAC, AAC, M4A &mdash; Max 200 MB</small></div>
+                        <input type="file" class="upload-input" accept="audio/*,.mp3,.wav,.flac,.ogg,.aac,.m4a">
+                    </div>
+                    <div class="file-preview hidden" data-tool="audio-trim">
+                        <div class="file-info"><i class="fas fa-music"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('audio-trim')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="waveform-wrap" id="waveform-audio-trim" style="display:none;margin-bottom:12px">
+                        <div class="waveform" id="waveformAudioTrim"></div>
+                        <div class="waveform-timer"><span id="waveformAudioTrimStart">00:00</span> &ndash; <span id="waveformAudioTrimEnd">00:00</span></div>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Time Range</label>
+                        <div class="time-inputs">
+                            <div class="time-group"><label>Start</label><input type="text" id="audioTrimStart" placeholder="00:00:00.000" value="00:00:00"></div>
+                            <span class="time-arrow"><i class="fas fa-arrow-right"></i></span>
+                            <div class="time-group"><label>End</label><input type="text" id="audioTrimEnd" placeholder="00:01:00.000"></div>
+                        </div>
+                        <small class="option-hint">Format: HH:MM:SS or HH:MM:SS.mmm</small>
+                        <label class="option-label" style="margin-top:12px">Cut Mode</label>
+                        <div class="preset-grid" data-tool="audio-trim-mode">
+                            <button class="preset-btn active" data-val="fast" onclick="selectPreset(this)"><i class="fas fa-bolt"></i><span>Fast</span><small>Keyframe aligned</small></button>
+                            <button class="preset-btn" data-val="precise" onclick="selectPreset(this)"><i class="fas fa-crosshairs"></i><span>Precise</span><small>Re-encode to MP3</small></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('audio-trim')"><i class="fas fa-cut"></i> Trim Audio</button>
+                    <div class="processing-status hidden" data-tool="audio-trim"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="audio-trim">
                         <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
                         <a class="result-download" download><i class="fas fa-download"></i> Download</a>
                     </div>

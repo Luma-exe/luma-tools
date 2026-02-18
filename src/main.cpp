@@ -181,11 +181,29 @@ int main() {
     svr.set_read_timeout(300, 0);
     svr.set_write_timeout(300, 0);
 
-    // CORS headers
-    svr.set_pre_routing_handler([](const httplib::Request&, httplib::Response& res) {
+    // CORS headers + rate limiting on /api/tools/*
+    static std::mutex g_rate_mutex;
+    static std::unordered_map<std::string, std::pair<int, std::time_t>> g_rate_map;
+    svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type");
+
+        // Rate-limit processing endpoints: 30 requests per 60 seconds per IP
+        if (req.path.find("/api/tools/") == 0 && req.method == "POST") {
+            auto now = std::time(nullptr);
+            auto ip  = req.remote_addr;
+            std::lock_guard<std::mutex> lk(g_rate_mutex);
+            auto& entry = g_rate_map[ip];
+            if (now - entry.second >= 60) { entry.first = 0; entry.second = now; }
+            entry.first++;
+            if (entry.first > 30) {
+                res.status = 429;
+                res.set_header("Retry-After", "60");
+                res.set_content(R"({"error":"Too many requests. Please wait a moment."})", "application/json");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+        }
         return httplib::Server::HandlerResponse::Unhandled;
     });
 
@@ -195,6 +213,25 @@ int main() {
         res.set_header("Access-Control-Allow-Headers", "Content-Type");
         res.status = 204;
     });
+
+    // ── Startup file cleanup — remove stale processing files (> 30 min old) ──
+    {
+        string proc_dir = get_processing_dir();
+        int cleaned = 0;
+        try {
+            auto cutoff = fs::file_time_type::clock::now() - std::chrono::minutes(30);
+            for (auto& entry : fs::directory_iterator(proc_dir)) {
+                if (!entry.is_regular_file()) continue;
+                auto mtime = fs::last_write_time(entry.path());
+                if (mtime < cutoff) {
+                    fs::remove(entry.path());
+                    ++cleaned;
+                }
+            }
+        } catch (...) {}
+        if (cleaned > 0)
+            cout << "[Luma Tools] Startup cleanup: removed " << cleaned << " stale temp file(s)" << endl;
+    }
 
     // ── Register all routes ─────────────────────────────────────────────────
     register_download_routes(svr, dl_dir);

@@ -40,6 +40,7 @@ const FILE_TOOL_MAP = {
         { id: 'image-convert',   label: 'Convert',          icon: 'fas fa-exchange-alt' },
         { id: 'image-crop',      label: 'Crop',             icon: 'fas fa-crop-alt' },
         { id: 'image-bg-remove', label: 'Remove BG',        icon: 'fas fa-magic' },
+        { id: 'image-watermark', label: 'Watermark',         icon: 'fas fa-stamp' },
         { id: 'metadata-strip',  label: 'Strip Metadata',   icon: 'fas fa-eraser' },
     ],
     'video': [
@@ -54,9 +55,11 @@ const FILE_TOOL_MAP = {
     'audio': [
         { id: 'audio-convert',   label: 'Convert',    icon: 'fas fa-headphones' },
         { id: 'audio-normalize', label: 'Normalize',  icon: 'fas fa-balance-scale-right' },
+        { id: 'audio-trim',      label: 'Trim',       icon: 'fas fa-cut' },
     ],
     'pdf': [
         { id: 'pdf-compress',  label: 'Compress',   icon: 'fas fa-file-pdf' },
         { id: 'pdf-to-images', label: 'To Images',  icon: 'fas fa-images' },
+        { id: 'pdf-split',     label: 'Split',       icon: 'fas fa-scissors' },
     ],
 };
