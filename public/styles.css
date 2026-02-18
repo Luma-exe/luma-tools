@@ -179,9 +179,9 @@ body {
     animation: ticker-scroll 40s linear infinite;
     cursor: grab;
     user-select: none;
+    touch-action: none;
 }
 .ticker-track.dragging {
-    animation-play-state: paused;
     cursor: grabbing;
 }
 .ticker-track .ticker-item {

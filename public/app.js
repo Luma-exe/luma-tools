@@ -889,26 +889,31 @@ async function checkServerHealth() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function initTickerDrag(track) {
-    if (track._dragInit) return; // already initialized
+    if (track._dragInit) return;
     track._dragInit = true;
 
     let isDragging = false;
     let startX = 0;
     let scrollOffset = 0;
+    const DURATION = 40; // must match CSS animation-duration
 
-    function getAnimOffset() {
+    function getCurrentTranslateX() {
         const style = getComputedStyle(track);
         const matrix = new DOMMatrix(style.transform);
-        return matrix.m41; // translateX value
+        return matrix.m41;
     }
 
     function onPointerDown(e) {
         isDragging = true;
         startX = e.clientX;
-        scrollOffset = getAnimOffset();
-        track.classList.add('dragging');
+        // Capture current animated position BEFORE killing animation
+        scrollOffset = getCurrentTranslateX();
+        // Kill the animation completely so inline transform takes effect
+        track.style.animation = 'none';
         track.style.transform = `translateX(${scrollOffset}px)`;
+        track.classList.add('dragging');
         track.setPointerCapture(e.pointerId);
+        e.preventDefault();
     }
 
     function onPointerMove(e) {
@@ -921,20 +926,19 @@ function initTickerDrag(track) {
         if (!isDragging) return;
         isDragging = false;
         track.classList.remove('dragging');
-        // Read current position and resume animation from there
-        const currentX = getAnimOffset();
-        const totalWidth = track.scrollWidth / 2; // half because content is duplicated
-        // Normalize to 0..totalWidth range
-        let progress = (-currentX % totalWidth) / totalWidth;
+
+        // Figure out where we are and resume the CSS animation from that point
+        const currentX = getCurrentTranslateX();
+        const totalWidth = track.scrollWidth / 2; // content is duplicated
+        let progress = ((-currentX) % totalWidth) / totalWidth;
         if (progress < 0) progress += 1;
-        const duration = 40; // must match CSS animation duration
-        const remaining = duration * (1 - progress);
-        // Reset and restart with adjusted timing
+        if (isNaN(progress)) progress = 0;
+
+        // Clear inline transform, restart animation from current progress
         track.style.transform = '';
-        track.style.animation = 'none';
         track.offsetHeight; // force reflow
-        track.style.animation = `ticker-scroll ${duration}s linear infinite`;
-        track.style.animationDelay = `-${progress * duration}s`;
+        track.style.animation = `ticker-scroll ${DURATION}s linear infinite`;
+        track.style.animationDelay = `-${progress * DURATION}s`;
     }
 
     track.addEventListener('pointerdown', onPointerDown);

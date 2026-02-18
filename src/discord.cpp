@@ -77,9 +77,12 @@ void discord_log_error(const string& context, const string& error) {
     discord_log("\xE2\x9D\x8C Error", desc, 0xE74C3C);  // red
 }
 
-void discord_log_server_start(int port) {
-    string desc = "**Port:** " + to_string(port) + "\n**FFmpeg:** " +
-        (g_ffmpeg_exe.empty() ? "not found" : "available") + "\n**yt-dlp:** " +
+void discord_log_server_start(int port, const string& version, const string& update_status) {
+    string desc = "**Port:** " + to_string(port);
+    if (!version.empty()) desc += "\n**Version:** " + version;
+    if (!update_status.empty()) desc += "\n**Updates:** " + update_status;
+    desc += "\n**FFmpeg:** " +
+        string(g_ffmpeg_exe.empty() ? "not found" : "available") + "\n**yt-dlp:** " +
         (g_ytdlp_path.empty() ? "not found" : "available") + "\n**Ghostscript:** " +
         (g_ghostscript_path.empty() ? "not found" : "available");
     discord_log("\xF0\x9F\x9A\x80 Server Started", desc, 0x9B59B6);  // purple

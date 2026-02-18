@@ -29,6 +29,7 @@ int main() {
     }
 
     // ── Read git info ────────────────────────────────────────────────────────
+    string g_update_status; // "up-to-date", "X commits behind", or empty
     {
         // Walk upward to find .git directory
         auto exe_dir = fs::absolute(".");
@@ -53,6 +54,25 @@ int main() {
             if (rc == 0 && !branch.empty() && branch.find("fatal") == string::npos) g_git_branch = branch;
 
             cout << "[Luma Tools] Git: " << g_git_branch << "@" << g_git_commit << endl;
+
+            // Check for updates: fetch remote and compare
+            exec_command("git -C " + escape_arg(git_dir) + " fetch --quiet 2>&1", rc);
+            if (rc == 0) {
+                string behind_str = exec_command(
+                    "git -C " + escape_arg(git_dir) + " rev-list --count HEAD..@{u}", rc);
+                behind_str.erase(std::remove(behind_str.begin(), behind_str.end(), '\n'), behind_str.end());
+                behind_str.erase(std::remove(behind_str.begin(), behind_str.end(), '\r'), behind_str.end());
+                if (rc == 0 && !behind_str.empty() && behind_str.find("fatal") == string::npos) {
+                    int behind = std::atoi(behind_str.c_str());
+                    if (behind > 0) {
+                        g_update_status = to_string(behind) + " commit" + (behind > 1 ? "s" : "") + " behind";
+                        cout << "[Luma Tools] \033[33mUpdate available: " << g_update_status << "\033[0m" << endl;
+                    } else {
+                        g_update_status = "up-to-date";
+                        cout << "[Luma Tools] \033[32mUp to date\033[0m" << endl;
+                    }
+                }
+            }
         }
     }
 
@@ -156,19 +176,30 @@ int main() {
     const char* port_env = std::getenv("PORT");
     if (port_env) port = std::atoi(port_env);
 
+    // Build version string for banner
+    string ver_line = "    Universal Media Toolkit v2.1";
+    if (g_git_commit != "unknown") {
+        ver_line += "  (" + g_git_branch + "@" + g_git_commit + ")";
+    }
+
     cout << R"(
   ╦  ╦ ╦╔╦╗╔═╗  ╔╦╗╔═╗╔═╗╦  ╔═╗
   ║  ║ ║║║║╠═╣   ║ ║ ║║ ║║  ╚═╗
   ╩═╝╚═╝╩ ╩╩ ╩   ╩ ╚═╝╚═╝╩═╝╚═╝
-    Universal Media Toolkit v2.1
-)" << endl;
+)";
+    cout << ver_line << endl;
+    if (!g_update_status.empty() && g_update_status != "up-to-date") {
+        cout << "    \033[33m⚠  " << g_update_status << " — run 'git pull' to update\033[0m" << endl;
+    }
+    cout << endl;
 
     cout << "[Luma Tools] Server starting on http://localhost:" << port << endl;
     cout << "[Luma Tools] Static files: " << fs::absolute(public_dir) << endl;
     cout << "[Luma Tools] Press Ctrl+C to stop" << endl;
 
     // Log server start to Discord
-    discord_log_server_start(port);
+    string discord_ver = g_git_branch + "@" + g_git_commit;
+    discord_log_server_start(port, discord_ver, g_update_status);
 
     if (!svr.listen("0.0.0.0", port)) {
         cerr << "[Luma Tools] Failed to start server on port " << port << endl;
