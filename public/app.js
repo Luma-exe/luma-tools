@@ -84,8 +84,8 @@ function switchTool(toolId) {
             badge.innerHTML = loc === 'browser'
                 ? '<i class="fas fa-lock"></i> In your browser'
                 : '<i class="fas fa-server"></i> On our server';
-            const header = panel.querySelector('.tool-header');
-            if (header) header.appendChild(badge);
+            const h2 = panel.querySelector('.tool-header h2');
+            if (h2) h2.appendChild(badge);
         }
     }
     if (window.innerWidth <= 768) toggleSidebar(false);
