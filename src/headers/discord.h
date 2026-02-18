@@ -12,4 +12,4 @@ void discord_log(const string& title, const string& description, int color = 0x7
 void discord_log_download(const string& title, const string& platform, const string& format);
 void discord_log_tool(const string& tool_name, const string& filename);
 void discord_log_error(const string& context, const string& error);
-void discord_log_server_start(int port, const string& version = "", const string& update_status = "");
+void discord_log_server_start(int port, const string& version = "");

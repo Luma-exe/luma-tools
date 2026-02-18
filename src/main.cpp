@@ -29,7 +29,6 @@ int main() {
     }
 
     // ── Read git info ────────────────────────────────────────────────────────
-    string g_update_status; // "up-to-date", "X commits behind", or empty
     {
         // Walk upward to find .git directory
         auto exe_dir = fs::absolute(".");
@@ -59,24 +58,30 @@ int main() {
 
             cout << "[Luma Tools] Git: " << g_git_branch << "@" << g_git_commit << endl;
 
-            // Check for updates: fetch remote and compare
-            exec_command("git -C " + escape_arg(git_dir) + " fetch --quiet 2>&1", rc);
-            if (rc == 0) {
-                string behind_str = exec_command(
-                    "git -C " + escape_arg(git_dir) + " rev-list --count HEAD..@{u}", rc);
-                behind_str.erase(std::remove(behind_str.begin(), behind_str.end(), '\n'), behind_str.end());
-                behind_str.erase(std::remove(behind_str.begin(), behind_str.end(), '\r'), behind_str.end());
-                if (rc == 0 && !behind_str.empty() && behind_str.find("fatal") == string::npos) {
-                    int behind = std::atoi(behind_str.c_str());
-                    if (behind > 0) {
-                        g_update_status = to_string(behind) + " commit" + (behind > 1 ? "s" : "") + " behind";
-                        cout << "[Luma Tools] \033[33mUpdate available: " << g_update_status << "\033[0m" << endl;
-                    } else {
-                        g_update_status = "up-to-date";
-                        cout << "[Luma Tools] \033[32mUp to date\033[0m" << endl;
+            // Check for updates in a background thread (git fetch can hang under NSSM/SYSTEM)
+            _putenv_s("GIT_TERMINAL_PROMPT", "0"); // prevent git from waiting for credentials
+            string captured_git_dir = git_dir;
+            std::thread([captured_git_dir]() {
+                int rc;
+                exec_command("git -C " + escape_arg(captured_git_dir) + " fetch --quiet 2>&1", rc);
+                if (rc == 0) {
+                    string behind_str = exec_command(
+                        "git -C " + escape_arg(captured_git_dir) + " rev-list --count HEAD..@{u}", rc);
+                    behind_str.erase(std::remove(behind_str.begin(), behind_str.end(), '\n'), behind_str.end());
+                    behind_str.erase(std::remove(behind_str.begin(), behind_str.end(), '\r'), behind_str.end());
+                    if (rc == 0 && !behind_str.empty() && behind_str.find("fatal") == string::npos) {
+                        int behind = std::atoi(behind_str.c_str());
+                        if (behind > 0) {
+                            cout << "[Luma Tools] \033[33mUpdate available: " << behind
+                                 << " commit" << (behind > 1 ? "s" : "") << " behind\033[0m" << endl;
+                        } else {
+                            cout << "[Luma Tools] \033[32mUp to date\033[0m" << endl;
+                        }
                     }
+                } else {
+                    cout << "[Luma Tools] Update check skipped (fetch failed)" << endl;
                 }
-            }
+            }).detach();
         }
     }
 
@@ -192,9 +197,6 @@ int main() {
   ╩═╝╚═╝╩ ╩╩ ╩   ╩ ╚═╝╚═╝╩═╝╚═╝
 )";
     cout << ver_line << endl;
-    if (!g_update_status.empty() && g_update_status != "up-to-date") {
-        cout << "    \033[33m⚠  " << g_update_status << " — run 'git pull' to update\033[0m" << endl;
-    }
     cout << endl;
 
     cout << "[Luma Tools] Server starting on http://localhost:" << port << endl;
@@ -206,7 +208,7 @@ int main() {
     if (g_git_commit != "unknown") {
         discord_ver = g_git_branch + "@" + g_git_commit;
     }
-    discord_log_server_start(port, discord_ver, g_update_status);
+    discord_log_server_start(port, discord_ver);
 
     if (!svr.listen("0.0.0.0", port)) {
         cerr << "[Luma Tools] Failed to start server on port " << port << endl;
