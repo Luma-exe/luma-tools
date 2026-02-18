@@ -1626,8 +1626,12 @@
             if (!el) return;
             var href = el.getAttribute('href') || '';
             if (href.includes('ko-fi.com')) {
-                trackEvent('kofi_click');
-            } else if (href.includes('github.com/Luma-exe') || el.closest('[href*="github.com/Luma-exe"]')) {
+                if (el.classList.contains('kofi-float')) {
+                    trackEvent('kofi_float_click');
+                } else {
+                    trackEvent('kofi_footer_click');
+                }
+            } else if (href.includes('github.com/Luma-exe')) {
                 trackEvent('github_click');
             }
         }, true);
