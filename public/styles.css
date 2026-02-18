@@ -1275,10 +1275,10 @@ body {
     display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 8px;
 }
 .color-rect-wrap {
-    position: relative; display: inline-block; border-radius: var(--radius-sm);
-    overflow: hidden; box-shadow: var(--shadow);
+    position: relative; display: inline-block;
+    box-shadow: var(--shadow);
 }
-.color-rect-canvas { display: block; cursor: crosshair; border-radius: var(--radius-sm); }
+.color-rect-canvas { display: block; cursor: crosshair; }
 .color-rect-cursor {
     position: absolute; width: 14px; height: 14px;
     border: 2px solid #fff; border-radius: 50%;
