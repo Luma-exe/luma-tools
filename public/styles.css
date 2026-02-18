@@ -702,19 +702,20 @@ body {
 .result-size { font-size: 0.75rem; color: var(--text-secondary); font-family: var(--font-mono); }
 
 .result-download {
-    padding: 8px 18px;
+    padding: 0 18px;
     background: var(--success);
     border-radius: var(--radius-xs);
     color: #000; font-weight: 600; font-size: 0.82rem;
     text-decoration: none; white-space: nowrap;
     display: flex; align-items: center; gap: 6px;
+    min-height: 36px;
     transition: all var(--transition);
 }
 .result-download:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0, 230, 138, 0.3); }
 
 /* groups download button + preview thumbnail side-by-side */
 .result-actions {
-    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    display: flex; align-items: stretch; gap: 8px; flex-shrink: 0;
 }
 
 .multi-result-list {
@@ -775,7 +776,7 @@ body {
 
 /* Send-to-tool button on results */
 .result-send-btn {
-    padding: 8px 16px;
+    padding: 0 16px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: var(--radius-xs);
@@ -783,7 +784,7 @@ body {
     cursor: pointer; white-space: nowrap;
     display: flex; align-items: center; gap: 6px;
     transition: all var(--transition);
-    margin-top: 8px;
+    min-height: 36px;
 }
 .result-send-btn:hover {
     background: rgba(124, 92, 255, 0.15);
@@ -2113,8 +2114,6 @@ body {
 
 .notes-compare-body {
     flex: 1;
-    max-height: 560px;
-    overflow-y: auto;
 }
 
 .notes-compare-body.notes-rendered {
@@ -2123,6 +2122,7 @@ body {
 
 .notes-compare-body.notes-raw {
     max-height: none;
+    overflow-y: visible;
 }
 
 @media (max-width: 700px) {
