@@ -685,8 +685,16 @@ body {
     flex-wrap: wrap; gap: 12px;
 }
 .result-section.has-multi {
-    flex-direction: column; align-items: stretch;
+    flex-wrap: wrap;
 }
+.result-section.has-multi .multi-result-list {
+    flex-basis: 100%; /* forces the list onto its own full-width row */
+}
+/* right-side column: ZIP button + thumbnail strip */
+.result-actions--multi {
+    flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0;
+}
+.result-actions--multi .result-zip-btn { width: auto; }
 .result-info { display: flex; align-items: center; gap: 12px; }
 .result-info > i { font-size: 1.3rem; color: var(--success); }
 .result-info div { display: flex; flex-direction: column; }

@@ -7,6 +7,7 @@ const WasmProcessor = {
     loaded: false,
     loading: false,
     _loadPromise: null,
+    _queue: Promise.resolve(), // serialises all process() calls
 
     async load() {
         if (this.loaded) return;
@@ -33,24 +34,33 @@ const WasmProcessor = {
         return this._loadPromise;
     },
 
-    async process(file, args, outputName, progressCb) {
+    process(file, args, outputName, progressCb) {
+        // Serialise: each call waits for the previous one to finish
+        this._queue = this._queue.then(() => this._processOne(file, args, outputName, progressCb));
+        return this._queue;
+    },
+
+    async _processOne(file, args, outputName, progressCb) {
         await this.load();
         const { fetchFile } = FFmpegUtil;
-
-        if (progressCb) {
-            this.ffmpeg.on('progress', ({ progress }) => { progressCb(Math.max(0, Math.min(1, progress))); });
-        }
-
         const inputName = 'input' + getExtension(file.name);
-        await this.ffmpeg.writeFile(inputName, await fetchFile(file));
-        const fullArgs = args.map(a => a === '__INPUT__' ? inputName : a);
-        await this.ffmpeg.exec(fullArgs);
-        const data = await this.ffmpeg.readFile(outputName);
-        await this.ffmpeg.deleteFile(inputName).catch(() => {});
-        await this.ffmpeg.deleteFile(outputName).catch(() => {});
+        const progressHandler = progressCb
+            ? ({ progress }) => progressCb(Math.max(0, Math.min(1, progress)))
+            : null;
 
-        if (progressCb) this.ffmpeg.off('progress');
-        return new Blob([data.buffer], { type: mimeFromExt(outputName) });
+        if (progressHandler) this.ffmpeg.on('progress', progressHandler);
+
+        try {
+            await this.ffmpeg.writeFile(inputName, await fetchFile(file));
+            const fullArgs = args.map(a => a === '__INPUT__' ? inputName : a);
+            await this.ffmpeg.exec(fullArgs);
+            const data = await this.ffmpeg.readFile(outputName);
+            return new Blob([data.buffer], { type: mimeFromExt(outputName) });
+        } finally {
+            if (progressHandler) this.ffmpeg.off('progress', progressHandler);
+            await this.ffmpeg.deleteFile(inputName).catch(() => {});
+            await this.ffmpeg.deleteFile(outputName).catch(() => {});
+        }
     },
 };
 

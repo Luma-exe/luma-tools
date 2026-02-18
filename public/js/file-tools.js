@@ -445,7 +445,7 @@ function showMultiResult(toolId, pages) {
 
     if (!result) return;
     result.classList.remove('hidden');
-    result.classList.add('has-multi');
+    result.classList.remove('has-multi');
 
     const isImageSet = pages.length > 0 && IMAGE_EXTS.test(pages[0].name);
     result.querySelector('.result-name').textContent = `${pages.length} file${pages.length > 1 ? 's' : ''} generated`;
@@ -455,22 +455,22 @@ function showMultiResult(toolId, pages) {
     downloadLink.style.display = 'none';
 
     // clear stale elements
-    result.querySelectorAll('.result-preview, .multi-result-list, .result-zip-btn, .multi-thumb-strip').forEach(el => el.remove());
+    result.querySelectorAll('.result-preview, .result-actions, .multi-result-list, .result-zip-btn, .multi-thumb-strip').forEach(el => el.remove());
 
-    // ── ZIP download button ──────────────────────────────────────────────────
+    // ── right-side actions wrapper (ZIP button + optional thumb strip) ───────
+    const actions = document.createElement('div');
+    actions.className = 'result-actions result-actions--multi';
+
     const zipBtn = document.createElement('button');
     zipBtn.className = 'result-zip-btn';
     zipBtn.innerHTML = '<i class="fas fa-file-zipper"></i> Download All as ZIP';
     zipBtn.addEventListener('click', () => downloadMultiAsZip(pages, toolId));
-    result.appendChild(zipBtn);
+    actions.appendChild(zipBtn);
 
-    // ── thumbnail strip for image sets ──────────────────────────────────────
     if (isImageSet) {
         const strip = document.createElement('div');
         strip.className = 'multi-thumb-strip';
-        const previewPages = pages.slice(0, 8); // show up to 8 thumbs
-
-        previewPages.forEach(p => {
+        pages.slice(0, 8).forEach(p => {
             const img = document.createElement('img');
             img.className = 'multi-thumb';
             img.src = p.url;
@@ -486,18 +486,19 @@ function showMultiResult(toolId, pages) {
             strip.appendChild(more);
         }
 
-        result.appendChild(strip);
+        actions.appendChild(strip);
     }
 
-    // ── individual download links ────────────────────────────────────────────
-    let listEl = document.createElement('div');
-    listEl.className = 'multi-result-list';
+    result.appendChild(actions);
 
+    // ── individual download links (full width below) ─────────────────────────
+    result.classList.add('has-multi');
+    const listEl = document.createElement('div');
+    listEl.className = 'multi-result-list';
     listEl.innerHTML = pages.map(p => {
         const tagged = lumaTag(p.name);
         return `<a href="${escapeHTML(p.url)}" download="${escapeHTML(tagged)}" class="result-page-link"><i class="fas fa-download"></i> ${escapeHTML(tagged)}</a>`;
     }).join('');
-
     result.appendChild(listEl);
 }
 
