@@ -6,6 +6,7 @@
 #include "common.h"
 #include "discord.h"
 #include "routes.h"
+#include "stats.h"
 
 int main() {
     httplib::Server svr;
@@ -198,6 +199,7 @@ int main() {
     // ── Register all routes ─────────────────────────────────────────────────
     register_download_routes(svr, dl_dir);
     register_tool_routes(svr, dl_dir);
+    register_stats_routes(svr);
 
     // ── Start the server ────────────────────────────────────────────────────
     int port = 8080;
@@ -232,6 +234,17 @@ int main() {
     }
 
     discord_log_server_start(port, discord_ver);
+
+    // Start daily stats digest scheduler
+    stat_start_daily_scheduler();
+
+    // Warn if stats dashboard has no password configured
+    if (!std::getenv("STATS_PASSWORD")) {
+        cerr << "[Luma Tools] WARNING: STATS_PASSWORD not set. Stats dashboard is disabled." << endl;
+        cerr << "[Luma Tools]          Set it to enable: set STATS_PASSWORD=yourpassword" << endl;
+    } else {
+        cout << "[Luma Tools] Stats dashboard enabled at /stats" << endl;
+    }
 
     if (!svr.listen("0.0.0.0", port)) {
         cerr << "[Luma Tools] Failed to start server on port " << port << endl;
