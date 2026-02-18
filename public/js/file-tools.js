@@ -263,12 +263,12 @@ async function processFileServer(toolId) {
             // no extra params needed — file is the only input
             break;
         case 'csv-json': {
-            const dirPill = document.querySelector('#csv-json-direction .fmt-pill.active');
+            const dirPill = document.querySelector('.preset-grid[data-tool="csv-json-direction"] .preset-btn.active');
             formData.append('direction', dirPill?.dataset.val || 'csv-to-json');
             break;
         }
         case 'ai-study-notes': {
-            const fmtPill = document.querySelector('#study-notes-format .fmt-pill.active');
+            const fmtPill = document.querySelector('.preset-grid[data-tool="study-notes-format"] .preset-btn.active');
             formData.append('format', fmtPill?.dataset.val || 'markdown');
             break;
         }

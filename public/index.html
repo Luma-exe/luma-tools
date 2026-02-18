@@ -1733,9 +1733,9 @@
                     <div class="options-grid">
                         <div class="option-group">
                             <label class="option-label">Direction</label>
-                            <div class="format-pills" id="csv-json-direction">
-                                <button class="fmt-pill active" data-val="csv-to-json" onclick="selectPill('csv-json-direction',this)">CSV → JSON</button>
-                                <button class="fmt-pill" data-val="json-to-csv" onclick="selectPill('csv-json-direction',this)">JSON → CSV</button>
+                            <div class="preset-grid" data-tool="csv-json-direction" style="grid-template-columns:repeat(2,1fr)">
+                                <button class="preset-btn active" data-val="csv-to-json" onclick="selectPreset(this)"><i class="fas fa-arrow-right"></i><span>CSV → JSON</span></button>
+                                <button class="preset-btn" data-val="json-to-csv" onclick="selectPreset(this)"><i class="fas fa-arrow-left"></i><span>JSON → CSV</span></button>
                             </div>
                         </div>
                     </div>
@@ -1768,9 +1768,9 @@
                     <div class="options-grid">
                         <div class="option-group">
                             <label class="option-label">Output format</label>
-                            <div class="format-pills" id="study-notes-format">
-                                <button class="fmt-pill active" data-val="markdown" onclick="selectPill('study-notes-format',this)"><i class="fab fa-markdown"></i> Markdown</button>
-                                <button class="fmt-pill" data-val="plain" onclick="selectPill('study-notes-format',this)"><i class="fas fa-align-left"></i> Plain Text</button>
+                            <div class="preset-grid" data-tool="study-notes-format" style="grid-template-columns:repeat(2,1fr)">
+                                <button class="preset-btn active" data-val="markdown" onclick="selectPreset(this)"><i class="fab fa-markdown"></i><span>Markdown</span><small>Obsidian ready</small></button>
+                                <button class="preset-btn" data-val="plain" onclick="selectPreset(this)"><i class="fas fa-align-left"></i><span>Plain Text</span><small>.txt file</small></button>
                             </div>
                         </div>
                     </div>

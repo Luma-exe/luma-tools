@@ -1712,11 +1712,19 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             // ── Step 2: call OpenAI ───────────────────────────────────────────
             string style_instruction = (format == "markdown")
-                ? "Format the notes in clean Markdown with headings (##), bullet points (-), bold key terms (**term**), and code blocks where appropriate."
-                : "Write clear, readable plain text notes with sections labelled in UPPERCASE and bullet points using dashes.";
+                ? "Format the output using Markdown optimised for Obsidian: use ## headings (no numbering), bullet points for details, **bold** key terms, `code blocks` for all formulas/equations/code/worked solutions with complete variable definitions and units, and > blockquotes for instructor emphasis or exam hints."
+                : "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points.";
 
-            string system_prompt = "You are an expert academic tutor. Your task is to create comprehensive, well-organised study notes from lecture or course content. " + style_instruction;
-            string user_prompt   = "Please create detailed study notes from the following lecture content:\n\n" + text;
+            string system_prompt = "You are an expert academic tutor and note-taker. Extract and organise all crucial information from the provided university lecture content. "
+                "Structure notes with clear headings and bullet points. Preserve all formulas, equations, code examples, and worked solutions in full detail. "
+                "Include: key concepts with definitions, practical applications, real-world examples, step-by-step procedures, exam hints, and connections to other topics. "
+                "Ensure the notes are comprehensive enough that someone who has not attended the lecture can fully understand the material, "
+                "work through problems independently, and use the notes for study and exam review. "
+                "Maintain logical flow from basic concepts to applications. Include all supporting information: references, tools mentioned, and topic connections. "
+                + style_instruction;
+
+            string user_prompt = "Please create detailed, comprehensive study notes from the following lecture content. "
+                "Extract every important concept, formula, example, and procedure — do not summarise or skip details:\n\n" + text;
 
             json payload = {
                 {"model", "gpt-4o-mini"},
