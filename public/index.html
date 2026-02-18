@@ -1686,30 +1686,26 @@
             <div class="tool-panel" id="tool-markdown-to-pdf">
                 <div class="tool-header">
                     <h2><i class="fab fa-markdown"></i> Markdown to PDF</h2>
-                    <p class="tool-desc">Convert Markdown files to PDF — supports Obsidian syntax including wikilinks, callouts, and frontmatter.</p>
+                    <p>Convert Markdown files to PDF &mdash; supports Obsidian syntax including wikilinks, callouts, and frontmatter.</p>
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-markdown-to-pdf" data-accept=".md,.markdown,.txt,text/markdown,text/plain" data-max="10485760">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <div class="upload-text">Drop your <strong>.md</strong> or <strong>.markdown</strong> file here</div>
-                        <div class="upload-subtext">or click to browse</div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop your file here</p><span>or click to browse</span><small>.md, .markdown, .txt &mdash; Max 10 MB</small></div>
+                        <input type="file" class="upload-input" accept=".md,.markdown,.txt">
                     </div>
                     <div class="file-preview hidden" data-tool="markdown-to-pdf">
-                        <i class="fas fa-file-alt file-icon"></i><span class="file-name"></span>
+                        <div class="file-info"><i class="fab fa-markdown"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('markdown-to-pdf')"><i class="fas fa-times"></i></button>
                     </div>
-                    <div class="options-grid">
-                        <div class="option-group">
-                            <label class="option-label">Obsidian support</label>
-                            <div class="info-chip"><i class="fas fa-check-circle"></i> Wikilinks, callouts, tags &amp; frontmatter are auto-converted</div>
-                        </div>
+                    <div class="tool-options">
+                        <label class="option-label">Obsidian support</label>
+                        <small class="option-hint"><i class="fas fa-check-circle" style="color:var(--accent)"></i> Wikilinks, callouts, tags &amp; frontmatter are auto-converted</small>
                     </div>
                     <button class="process-btn" onclick="processFile('markdown-to-pdf')"><i class="fab fa-markdown"></i> Convert to PDF</button>
                     <div class="processing-status hidden" data-tool="markdown-to-pdf"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Converting...</span></div>
                     <div class="result-section hidden" data-tool="markdown-to-pdf">
-                        <div class="result-actions">
-                            <a class="download-btn" id="result-markdown-to-pdf"><i class="fas fa-download"></i> Download PDF</a>
-                        </div>
+                        <div class="result-info"><i class="fas fa-file-pdf"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download PDF</a>
                     </div>
                 </div>
             </div>
@@ -1718,33 +1714,29 @@
             <div class="tool-panel" id="tool-csv-json">
                 <div class="tool-header">
                     <h2><i class="fas fa-table"></i> CSV ↔ JSON Converter</h2>
-                    <p class="tool-desc">Convert between CSV and JSON formats. CSV files become JSON arrays of objects; JSON arrays of objects become CSV files.</p>
+                    <p>Convert between CSV and JSON formats. CSV files become JSON arrays; JSON arrays become CSV files.</p>
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-csv-json" data-accept=".csv,.json,text/csv,application/json,text/plain" data-max="10485760">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <div class="upload-text">Drop a <strong>.csv</strong> or <strong>.json</strong> file here</div>
-                        <div class="upload-subtext">or click to browse</div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop your file here</p><span>or click to browse</span><small>.csv or .json &mdash; Max 10 MB</small></div>
+                        <input type="file" class="upload-input" accept=".csv,.json">
                     </div>
                     <div class="file-preview hidden" data-tool="csv-json">
-                        <i class="fas fa-table file-icon"></i><span class="file-name"></span>
+                        <div class="file-info"><i class="fas fa-table"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('csv-json')"><i class="fas fa-times"></i></button>
                     </div>
-                    <div class="options-grid">
-                        <div class="option-group">
-                            <label class="option-label">Direction</label>
-                            <div class="preset-grid" data-tool="csv-json-direction" style="grid-template-columns:repeat(2,1fr)">
-                                <button class="preset-btn active" data-val="csv-to-json" onclick="selectPreset(this)"><i class="fas fa-arrow-right"></i><span>CSV → JSON</span></button>
-                                <button class="preset-btn" data-val="json-to-csv" onclick="selectPreset(this)"><i class="fas fa-arrow-left"></i><span>JSON → CSV</span></button>
-                            </div>
+                    <div class="tool-options">
+                        <label class="option-label">Direction</label>
+                        <div class="preset-grid" data-tool="csv-json-direction" style="grid-template-columns:repeat(2,1fr)">
+                            <button class="preset-btn active" data-val="csv-to-json" onclick="selectPreset(this)"><i class="fas fa-arrow-right"></i><span>CSV → JSON</span></button>
+                            <button class="preset-btn" data-val="json-to-csv" onclick="selectPreset(this)"><i class="fas fa-arrow-left"></i><span>JSON → CSV</span></button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFile('csv-json')"><i class="fas fa-exchange-alt"></i> Convert</button>
                     <div class="processing-status hidden" data-tool="csv-json"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Converting...</span></div>
                     <div class="result-section hidden" data-tool="csv-json">
-                        <div class="result-actions">
-                            <a class="download-btn" id="result-csv-json"><i class="fas fa-download"></i> Download</a>
-                        </div>
+                        <div class="result-info"><i class="fas fa-file-alt"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
                     </div>
                 </div>
             </div>
@@ -1753,38 +1745,32 @@
             <div class="tool-panel" id="tool-ai-study-notes">
                 <div class="tool-header">
                     <h2><i class="fas fa-brain"></i> AI Study Notes</h2>
-                    <p class="tool-desc">Upload a lecture PDF and get structured study notes generated by AI. Choose plain text or Markdown output.</p>
+                    <p>Upload a lecture PDF and get structured study notes generated by AI. Choose plain text or Markdown output.</p>
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-ai-study-notes" data-accept=".pdf,application/pdf" data-max="20971520">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <div class="upload-text">Drop your <strong>lecture PDF</strong> here</div>
-                        <div class="upload-subtext">or click to browse &mdash; up to 20 MB</div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop your PDF here</p><span>or click to browse</span><small>PDF lecture slides or notes &mdash; Max 20 MB</small></div>
+                        <input type="file" class="upload-input" accept=".pdf,application/pdf">
                     </div>
                     <div class="file-preview hidden" data-tool="ai-study-notes">
-                        <i class="fas fa-file-pdf file-icon"></i><span class="file-name"></span>
+                        <div class="file-info"><i class="fas fa-file-pdf"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('ai-study-notes')"><i class="fas fa-times"></i></button>
                     </div>
-                    <div class="options-grid">
-                        <div class="option-group">
-                            <label class="option-label">Output format</label>
-                            <div class="preset-grid" data-tool="study-notes-format" style="grid-template-columns:repeat(2,1fr)">
-                                <button class="preset-btn active" data-val="markdown" onclick="selectPreset(this)"><i class="fab fa-markdown"></i><span>Markdown</span><small>Obsidian ready</small></button>
-                                <button class="preset-btn" data-val="plain" onclick="selectPreset(this)"><i class="fas fa-align-left"></i><span>Plain Text</span><small>.txt file</small></button>
-                            </div>
+                    <div class="tool-options">
+                        <label class="option-label">Output format</label>
+                        <div class="preset-grid" data-tool="study-notes-format" style="grid-template-columns:repeat(2,1fr)">
+                            <button class="preset-btn active" data-val="markdown" onclick="selectPreset(this)"><i class="fab fa-markdown"></i><span>Markdown</span><small>Obsidian ready</small></button>
+                            <button class="preset-btn" data-val="plain" onclick="selectPreset(this)"><i class="fas fa-align-left"></i><span>Plain Text</span><small>.txt file</small></button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFile('ai-study-notes')"><i class="fas fa-brain"></i> Generate Notes</button>
                     <div class="processing-status hidden" data-tool="ai-study-notes">
                         <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
-                        <div class="progress-bar-wrap"><div class="progress-bar" style="width:0%"></div></div>
-                        <span class="processing-text">Extracting text...</span>
-                        <span class="progress-pct">0%</span>
+                        <span>Generating notes...</span>
                     </div>
                     <div class="result-section hidden" data-tool="ai-study-notes">
-                        <div class="result-actions">
-                            <a class="download-btn" id="result-ai-study-notes"><i class="fas fa-download"></i> Download Notes</a>
-                        </div>
+                        <div class="result-info"><i class="fas fa-file-alt"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download Notes</a>
                     </div>
                 </div>
             </div>
