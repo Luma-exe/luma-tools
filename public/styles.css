@@ -404,7 +404,7 @@ body {
     transform: translateY(-1px);
 }
 
-.landing-cta-row { text-align: center; }
+.landing-cta-row { text-align: center; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
 .landing-cta-btn {
     padding: 16px 40px;
     background: linear-gradient(135deg, var(--accent), #5a3fd4);
@@ -417,6 +417,20 @@ body {
 .landing-cta-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 32px var(--accent-glow);
+}
+.landing-install-btn {
+    padding: 14px 28px;
+    background: transparent;
+    border: 1px solid rgba(124, 92, 255, 0.4); border-radius: var(--radius-sm);
+    color: var(--accent-light); font-family: var(--font-main);
+    font-size: 0.92rem; font-weight: 600;
+    cursor: pointer; transition: all var(--transition);
+    display: inline-flex; align-items: center; gap: 8px;
+}
+.landing-install-btn:hover {
+    background: rgba(124, 92, 255, 0.12);
+    border-color: var(--accent);
+    transform: translateY(-2px);
 }
 
 @media (max-width: 768px) {
@@ -1448,6 +1462,7 @@ body {
 .diff-stat.unchanged { color: var(--text-muted); }
 
 .diff-view-toggle { display: flex; gap: 4px; }
+.diff-output .diff-pane-header { margin-bottom: 10px; }
 .diff-view-btn {
     background: var(--bg-tertiary); border: 1px solid var(--glass-border);
     border-radius: var(--radius-xs); color: var(--text-muted);

@@ -182,7 +182,7 @@
                         <i class="fab fa-markdown"></i><span>Markdown Preview</span>
                     </a>
                     <a class="nav-item" data-tool="diff-checker" data-location="browser" onclick="switchTool('diff-checker')">
-                        <i class="fas fa-code-compare"></i><span>Diff Checker</span>
+                        <i class="fas fa-code-compare"></i><span>Difference Checker</span>
                     </a>
                     <a class="nav-item" data-tool="word-counter" data-location="browser" onclick="switchTool('word-counter')">
                         <i class="fas fa-align-left"></i><span>Word Counter</span>
@@ -290,6 +290,7 @@
 
                     <div class="landing-cta-row">
                         <button class="landing-cta-btn" onclick="switchTool('downloader')"><i class="fas fa-rocket"></i> Open Toolkit</button>
+                        <button class="landing-install-btn hidden" id="landingInstallBtn" onclick="installPWA()"><i class="fas fa-download"></i> Install App</button>
                     </div>
                 </div>
             </div>
@@ -1393,10 +1394,10 @@
                 </div>
             </div>
 
-            <!-- ──────────── DIFF CHECKER ──────────── -->
+            <!-- ──────────── DIFFERENCE CHECKER ──────────── -->
             <div class="tool-panel" id="tool-diff-checker">
                 <div class="tool-header">
-                    <h2><i class="fas fa-code-compare"></i> Diff Checker</h2>
+                    <h2><i class="fas fa-code-compare"></i> Difference Checker</h2>
                     <p>Compare two blocks of text or code with clean line-by-line highlighting</p>
                 </div>
                 <div class="tool-body">

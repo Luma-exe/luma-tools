@@ -4,18 +4,22 @@
 
 let _deferredInstallPrompt = null;
 
+function _setInstallBtnsVisible(show) {
+    [$('installAppBtn'), $('landingInstallBtn')].forEach(btn => {
+        if (btn) btn.classList.toggle('hidden', !show);
+    });
+}
+
 function initInstallPrompt() {
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         _deferredInstallPrompt = e;
-        const btn = $('installAppBtn');
-        if (btn) btn.classList.remove('hidden');
+        _setInstallBtnsVisible(true);
     });
 
     window.addEventListener('appinstalled', () => {
         _deferredInstallPrompt = null;
-        const btn = $('installAppBtn');
-        if (btn) btn.classList.add('hidden');
+        _setInstallBtnsVisible(false);
         showToast('App installed successfully!', 'success');
     });
 }
@@ -25,8 +29,7 @@ function installPWA() {
     _deferredInstallPrompt.prompt();
     _deferredInstallPrompt.userChoice.then(() => {
         _deferredInstallPrompt = null;
-        const btn = $('installAppBtn');
-        if (btn) btn.classList.add('hidden');
+        _setInstallBtnsVisible(false);
     });
 }
 
