@@ -1671,6 +1671,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         update_job(jid, {{"status", "processing"}, {"progress", 10}, {"stage", "Extracting text from PDF..."}});
 
         thread([jid, pdf_path, txt_path, format, proc]() {
+          try {
             // ── Step 1: extract text ─────────────────────────────────────────
             string text;
             bool extracted = false;
@@ -1740,22 +1741,42 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             string payload_file = proc + "/" + jid + "_payload.json";
             { ofstream f(payload_file); f << payload_str; }
 
+            // Write auth header to a separate file to avoid shell-escaping issues
+            string hdr_file = proc + "/" + jid + "_auth.txt";
+            { ofstream f(hdr_file); f << "Authorization: Bearer " << g_openai_key; }
+
             string resp_file = proc + "/" + jid + "_resp.json";
             string curl_cmd = "curl -s -X POST https://api.openai.com/v1/chat/completions"
                 " -H \"Content-Type: application/json\""
-                " -H \"Authorization: Bearer " + g_openai_key + "\""
+                " -H @" + escape_arg(hdr_file) +
                 " -d @" + escape_arg(payload_file) +
                 " -o " + escape_arg(resp_file);
             int code; exec_command(curl_cmd, code);
 
             string notes;
-            try {
-                ifstream f(resp_file); std::ostringstream ss; ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-                notes = resp_json["choices"][0]["message"]["content"].get<string>();
-            } catch (...) {
-                update_job(jid, {{"status","error"},{"error","AI API error. Check your OpenAI key and quota."}});
-                try { fs::remove(pdf_path); fs::remove(txt_path); fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+            bool ai_ok = false;
+            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                try {
+                    ifstream f(resp_file); std::ostringstream ss; ss << f.rdbuf();
+                    auto resp_json = json::parse(ss.str());
+                    if (resp_json.contains("choices") && resp_json["choices"].is_array()
+                            && !resp_json["choices"].empty()) {
+                        notes = resp_json["choices"][0]["message"]["content"].get<string>();
+                        ai_ok = true;
+                    } else if (resp_json.contains("error")) {
+                        string msg = resp_json["error"].value("message", "OpenAI API error");
+                        update_job(jid, {{"status","error"},{"error", msg}});
+                        try { fs::remove(pdf_path); fs::remove(txt_path);
+                              fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
+                        return;
+                    }
+                } catch (...) {}
+            }
+
+            if (!ai_ok) {
+                update_job(jid, {{"status","error"},{"error","AI API call failed. Check server logs and OpenAI key."}});
+                try { fs::remove(pdf_path); fs::remove(txt_path);
+                      fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
                 return;
             }
 
@@ -1765,7 +1786,15 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             { ofstream f(out_path); f << notes; }
 
             update_job(jid, {{"status","completed"},{"progress",100},{"filename","study_notes" + ext}}, out_path);
-            try { fs::remove(pdf_path); fs::remove(txt_path); fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+            try { fs::remove(pdf_path); fs::remove(txt_path);
+                  fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
+          } catch (const std::exception& e) {
+              update_job(jid, {{"status","error"},{"error", string("Internal error: ") + e.what()}});
+              try { fs::remove(pdf_path); fs::remove(txt_path); } catch (...) {}
+          } catch (...) {
+              update_job(jid, {{"status","error"},{"error","Unknown internal error in study notes worker"}});
+              try { fs::remove(pdf_path); fs::remove(txt_path); } catch (...) {}
+          }
         }).detach();
 
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
