@@ -21,6 +21,7 @@ static void discord_send(const json& payload) {
                 ofstream f(tmp);
                 f << payload.dump();
             }
+
             string cmd = "curl -s -X POST -H \"Content-Type: application/json\" -d @" +
                 escape_arg(tmp) + " " + escape_arg(DISCORD_WEBHOOK);
             int code;
@@ -50,6 +51,7 @@ static string iso_now() {
 
 void discord_log(const string& title, const string& description, int color) {
     string footer_text = "Luma Tools";
+
     if (!g_hostname.empty()) footer_text += " | " + g_hostname;
     json embed = {
         {"title",       title},
@@ -79,6 +81,7 @@ void discord_log_error(const string& context, const string& error) {
 
 void discord_log_server_start(int port, const string& version) {
     string desc = "**Port:** " + to_string(port);
+
     if (!version.empty()) desc += "\n**Version:** " + version;
     desc += "\n**FFmpeg:** " +
         string(g_ffmpeg_exe.empty() ? "not found" : "available") + "\n**yt-dlp:** " +

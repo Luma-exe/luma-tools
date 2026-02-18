@@ -11,6 +11,7 @@ int main() {
     httplib::Server svr;
 
     string public_dir = "public";
+
     if (!fs::exists(public_dir)) {
         if (fs::exists("../public"))      public_dir = "../public";
         else if (fs::exists("../../public")) public_dir = "../../public";
@@ -22,6 +23,7 @@ int main() {
     // ── Read hostname ─────────────────────────────────────────────────────────
     {
         const char* env_name = std::getenv("COMPUTERNAME");
+
         if (!env_name) env_name = std::getenv("HOSTNAME");
         if (env_name) g_hostname = env_name;
         else g_hostname = "Unknown";
@@ -33,12 +35,15 @@ int main() {
         // Walk upward to find .git directory
         auto exe_dir = fs::absolute(".");
         auto search = exe_dir;
+
         while (!search.empty() && search.has_parent_path()) {
             if (fs::exists(search / ".git")) break;
             auto parent = search.parent_path();
+
             if (parent == search) { search = ""; break; }
             search = parent;
         }
+
         if (!search.empty() && fs::exists(search / ".git")) {
             string git_dir = search.string();
             int rc;
@@ -49,11 +54,13 @@ int main() {
             string commit = exec_command("git -C " + escape_arg(git_dir) + " rev-parse --short HEAD", rc);
             commit.erase(std::remove(commit.begin(), commit.end(), '\n'), commit.end());
             commit.erase(std::remove(commit.begin(), commit.end(), '\r'), commit.end());
+
             if (rc == 0 && !commit.empty() && commit.find("fatal") == string::npos) g_git_commit = commit;
 
             string branch = exec_command("git -C " + escape_arg(git_dir) + " rev-parse --abbrev-ref HEAD", rc);
             branch.erase(std::remove(branch.begin(), branch.end(), '\n'), branch.end());
             branch.erase(std::remove(branch.begin(), branch.end(), '\r'), branch.end());
+
             if (rc == 0 && !branch.empty() && branch.find("fatal") == string::npos) g_git_branch = branch;
 
             cout << "[Luma Tools] Git: " << g_git_branch << "@" << g_git_commit << endl;
@@ -64,13 +71,16 @@ int main() {
             std::thread([captured_git_dir]() {
                 int rc;
                 exec_command("git -C " + escape_arg(captured_git_dir) + " fetch --quiet 2>&1", rc);
+
                 if (rc == 0) {
                     string behind_str = exec_command(
                         "git -C " + escape_arg(captured_git_dir) + " rev-list --count HEAD..@{u}", rc);
                     behind_str.erase(std::remove(behind_str.begin(), behind_str.end(), '\n'), behind_str.end());
                     behind_str.erase(std::remove(behind_str.begin(), behind_str.end(), '\r'), behind_str.end());
+
                     if (rc == 0 && !behind_str.empty() && behind_str.find("fatal") == string::npos) {
                         int behind = std::atoi(behind_str.c_str());
+
                         if (behind > 0) {
                             cout << "[Luma Tools] \033[33mUpdate available: " << behind
                                  << " commit" << (behind > 1 ? "s" : "") << " behind\033[0m" << endl;
@@ -90,6 +100,7 @@ int main() {
 
     // ── Find yt-dlp ─────────────────────────────────────────────────────────
     g_ytdlp_path = find_ytdlp();
+
     if (g_ytdlp_path.empty()) {
         cerr << "[Luma Tools] WARNING: yt-dlp not found! Downloads will fail." << endl;
         cerr << "[Luma Tools] Install it: pip install yt-dlp" << endl;
@@ -104,6 +115,7 @@ int main() {
 
     // ── Find ffmpeg ─────────────────────────────────────────────────────────
     string ffmpeg_full = find_executable("ffmpeg");
+
     if (!ffmpeg_full.empty()) {
         g_ffmpeg_exe  = ffmpeg_full;                                  // full path to the exe
         g_ffmpeg_path = fs::path(ffmpeg_full).parent_path().string(); // directory only
@@ -115,12 +127,14 @@ int main() {
 
     // ── Find deno ───────────────────────────────────────────────────────────
     g_deno_path = find_executable("deno");
+
     if (!g_deno_path.empty()) {
         cout << "[Luma Tools] deno found: " << g_deno_path << endl;
     }
 
     // ── Find Ghostscript (for PDF tools) ─────────────────────────────────────
     g_ghostscript_path = find_ghostscript();
+
     if (!g_ghostscript_path.empty()) {
         cout << "[Luma Tools] Ghostscript found: " << g_ghostscript_path << endl;
     } else {
@@ -131,22 +145,27 @@ int main() {
     {
         string current_path;
         const char* env_path = std::getenv("PATH");
+
         if (env_path) current_path = env_path;
 
         bool modified = false;
+
         if (!g_ffmpeg_path.empty() && current_path.find(g_ffmpeg_path) == string::npos) {
             current_path = g_ffmpeg_path + ";" + current_path;
             modified = true;
             cout << "[Luma Tools] Added ffmpeg dir to PATH" << endl;
         }
+
         if (!g_deno_path.empty()) {
             string deno_dir = fs::path(g_deno_path).parent_path().string();
+
             if (current_path.find(deno_dir) == string::npos) {
                 current_path = deno_dir + ";" + current_path;
                 modified = true;
                 cout << "[Luma Tools] Added deno dir to PATH" << endl;
             }
         }
+
         if (modified) {
             _putenv_s("PATH", current_path.c_str());
         }
@@ -183,10 +202,12 @@ int main() {
     // ── Start the server ────────────────────────────────────────────────────
     int port = 8080;
     const char* port_env = std::getenv("PORT");
+
     if (port_env) port = std::atoi(port_env);
 
     // Build version string for banner
     string ver_line = "    Universal Media Toolkit v2.1";
+
     if (g_git_commit != "unknown") {
         ver_line += "  (" + g_git_branch + "@" + g_git_commit + ")";
     }
@@ -205,9 +226,11 @@ int main() {
 
     // Log server start to Discord
     string discord_ver;
+
     if (g_git_commit != "unknown") {
         discord_ver = g_git_branch + "@" + g_git_commit;
     }
+
     discord_log_server_start(port, discord_ver);
 
     if (!svr.listen("0.0.0.0", port)) {

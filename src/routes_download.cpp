@@ -67,55 +67,68 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 string probe_output = exec_command(probe_cmd, probe_code);
 
                 auto json_start = probe_output.find('{');
+
                 if (json_start != string::npos) {
                     try {
                         json probe = json::parse(probe_output.substr(json_start));
                         string ptype = json_str(probe, "_type");
+
                         if ((ptype == "playlist" || ptype == "multi_video") &&
                             probe.contains("entries") && probe["entries"].is_array() && probe["entries"].size() > 1) {
                             is_playlist = true;
 
                             json items = json::array();
                             int index = 0;
+
                             for (const auto& entry : probe["entries"]) {
                                 index++;
                                 string item_url = json_str(entry, "url");
+
                                 if (item_url.empty()) item_url = json_str(entry, "webpage_url");
                                 if (!item_url.empty() && item_url.find("http") != 0) {
                                     string extractor = json_str(entry, "ie_key", json_str(entry, "extractor"));
                                     string vid_id = item_url;
+
                                     if (extractor == "Youtube" || extractor == "youtube") {
                                         item_url = "https://www.youtube.com/watch?v=" + vid_id;
                                     } else {
                                         string wp = json_str(entry, "webpage_url");
+
                                         if (!wp.empty()) item_url = wp;
                                     }
                                 }
 
                                 string raw_title = json_str(entry, "title", "");
                                 string title = sanitize_utf8(raw_title);
+
                                 while (!title.empty() && (title.front() == '_' || title.front() == ' ')) title.erase(title.begin());
                                 while (!title.empty() && (title.back() == '_' || title.back() == ' ')) title.pop_back();
 
                                 if (title.empty() && !item_url.empty()) {
                                     string slug = item_url;
                                     auto qpos = slug.find('?');
+
                                     if (qpos != string::npos) slug = slug.substr(0, qpos);
                                     auto spos = slug.rfind('/');
+
                                     if (spos != string::npos) slug = slug.substr(spos + 1);
                                     bool all_digits = !slug.empty() && std::all_of(slug.begin(), slug.end(), ::isdigit);
+
                                     if (!all_digits && !slug.empty()) {
                                         string readable;
                                         bool cap_next = true;
+
                                         for (char c : slug) {
                                             if (c == '-' || c == '_') { readable += ' '; cap_next = true; }
                                             else if (cap_next && std::isalpha(c)) { readable += (char)std::toupper(c); cap_next = false; }
                                             else { readable += c; cap_next = false; }
                                         }
+
                                         while (!readable.empty() && readable.back() == ' ') readable.pop_back();
                                         if (!readable.empty()) title = readable;
                                     }
                                 }
+
                                 if (title.empty()) title = "Track " + to_string(index);
 
                                 items.push_back({
@@ -153,19 +166,23 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
             if (output.empty() || output[0] != '{') {
                 auto pos = output.find('{');
+
                 if (pos != string::npos) {
                     output = output.substr(pos);
                 } else {
                     string error_msg = "Failed to analyze URL";
                     auto err_pos = output.find("ERROR:");
+
                     if (err_pos != string::npos) {
                         error_msg = output.substr(err_pos);
                         auto nl = error_msg.find('\n');
+
                         if (nl != string::npos) error_msg = error_msg.substr(0, nl);
                         error_msg.erase(std::remove(error_msg.begin(), error_msg.end(), '\r'), error_msg.end());
                     } else if (output.find("not recognized") != string::npos || output.find("not found") != string::npos) {
                         error_msg = "yt-dlp is not installed or not on PATH";
                     }
+
                     res.status = 500;
                     res.set_content(json({{"error", error_msg}, {"details", output}}).dump(), "application/json");
                     return;
@@ -173,6 +190,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             }
 
             auto end_pos = output.find("}\n{");
+
             if (end_pos != string::npos) output = output.substr(0, end_pos + 1);
 
             json info = json::parse(output);
@@ -196,6 +214,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
                     if (has_video && height > 0) {
                         string quality = to_string(height) + "p";
+
                         if (seen_qualities.count(quality)) continue;
                         seen_qualities.insert(quality);
 
@@ -206,6 +225,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                         });
                     }
                 }
+
                 std::sort(formats.begin(), formats.end(), [](const json& a, const json& b) {
                     return a.value("height", 0) > b.value("height", 0);
                 });
@@ -247,13 +267,16 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
             // Per-device concurrency limit
             string client_ip = req.remote_addr;
+
             if (req.has_header("X-Forwarded-For")) {
                 client_ip = req.get_header_value("X-Forwarded-For");
                 auto comma = client_ip.find(',');
+
                 if (comma != string::npos) client_ip = client_ip.substr(0, comma);
                 client_ip.erase(0, client_ip.find_first_not_of(" "));
                 client_ip.erase(client_ip.find_last_not_of(" ") + 1);
             }
+
             if (client_ip == "::1") client_ip = "127.0.0.1";
 
             if (has_active_download(client_ip)) {
@@ -287,6 +310,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 cmd += "-x --audio-format mp3 --audio-quality 0 ";
             } else if (format == "mp4") {
                 string mp4_audio = "--merge-output-format mp4 --postprocessor-args \"ffmpeg:-c:v copy -c:a aac -b:a 192k\" ";
+
                 if (quality == "best") {
                     cmd += "-f \"bv*+ba/b\" " + mp4_audio;
                 } else {
@@ -295,6 +319,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                     cmd += "-f \"bv*[height<=" + height + "]+ba/b[height<=" + height + "]\" " + mp4_audio;
                 }
             }
+
             cmd += "-o " + escape_arg(out_template) + " " + escape_arg(url);
 
             cout << "[Luma Tools] Download cmd: " << cmd << endl;
@@ -315,6 +340,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 string full_cmd = cmd + " 2>&1";
                 unique_ptr<FILE, decltype(&pclose)> pipe(popen(full_cmd.c_str(), "r"), pclose);
 #endif
+
                 if (pipe) {
                     while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
                         string line(buffer.data());
@@ -325,8 +351,10 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                             string speed_str, size_str;
 
                             auto pct_pos = line.find('%');
+
                             if (pct_pos != string::npos) {
                                 auto start = line.rfind(' ', pct_pos);
+
                                 if (start == string::npos) start = line.rfind(']', pct_pos);
                                 if (start != string::npos) {
                                     try { pct = std::stod(line.substr(start + 1, pct_pos - start - 1)); } catch (...) {}
@@ -334,8 +362,10 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                             }
 
                             auto of_pos = line.find("of");
+
                             if (of_pos != string::npos) {
                                 auto at_pos = line.find(" at ", of_pos);
+
                                 if (at_pos != string::npos) {
                                     size_str = line.substr(of_pos + 2, at_pos - of_pos - 2);
                                     size_str.erase(0, size_str.find_first_not_of(" ~"));
@@ -344,8 +374,10 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                             }
 
                             auto at_pos = line.find(" at ");
+
                             if (at_pos != string::npos) {
                                 auto eta_pos = line.find(" ETA ", at_pos);
+
                                 if (eta_pos != string::npos) speed_str = line.substr(at_pos + 4, eta_pos - at_pos - 4);
                                 else speed_str = line.substr(at_pos + 4);
                                 speed_str.erase(0, speed_str.find_first_not_of(" "));
@@ -354,6 +386,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
                             auto eta_pos = line.find("ETA ");
                             int eta_seconds = -1;
+
                             if (eta_pos != string::npos) {
                                 string eta_str = line.substr(eta_pos + 4);
                                 eta_str.erase(eta_str.find_last_not_of(" \r\n") + 1);
@@ -361,9 +394,11 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                                 int n = 0;
                                 istringstream iss(eta_str);
                                 string tok;
+
                                 while (std::getline(iss, tok, ':') && n < 3) {
                                     try { parts[n++] = std::stoi(tok); } catch (...) {}
                                 }
+
                                 if (n == 2) eta_seconds = parts[0] * 60 + parts[1];
                                 else if (n == 3) eta_seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
                             }
@@ -406,6 +441,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                             string clean_name = clean_filename(title) + "_LumaTools" + ext;
 
                             fs::path target = fs::path(dl_dir) / clean_name;
+
                             if (fs::exists(target)) { try { fs::remove(target); } catch (...) {} }
 
                             try {
@@ -415,10 +451,12 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                             } catch (const std::exception& rename_err) {
                                 cerr << "[Luma Tools] Rename failed: " << rename_err.what() << endl;
                                 found_file = sanitize_utf8(filename);
+
                                 if (found_file != filename) {
                                     try { fs::rename(entry.path(), fs::path(dl_dir) / found_file); } catch (...) {}
                                 }
                             }
+
                             break;
                         }
                     }
@@ -455,6 +493,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
         try {
             auto body = json::parse(req.body);
             string url = body.value("url", "");
+
             if (url.empty()) {
                 res.status = 400;
                 res.set_content(json({{"error", "Missing url"}}).dump(), "application/json");
@@ -468,6 +507,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             output.erase(std::remove(output.begin(), output.end(), '\r'), output.end());
             output.erase(std::remove(output.begin(), output.end(), '\n'), output.end());
             string title = sanitize_utf8(output);
+
             while (!title.empty() && (title.front() == '_' || title.front() == ' ')) title.erase(title.begin());
             while (!title.empty() && (title.back() == '_' || title.back() == ' ')) title.pop_back();
 

@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // AUDIO/VIDEO WAVEFORM VISUALIZATION — WaveSurfer v7
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -8,6 +8,7 @@ function initWaveform(toolId, file) {
     if (waveSurfers[toolId]) { try { waveSurfers[toolId].destroy(); } catch(e) {} waveSurfers[toolId] = null; }
 
     let wrap, el;
+
     if (toolId === 'audio-convert') {
         wrap = $('waveform-audio-convert'); el = $('waveformAudioConvert');
     } else if (toolId === 'video-extract-audio') {
@@ -15,12 +16,14 @@ function initWaveform(toolId, file) {
     } else if (toolId === 'video-trim') {
         wrap = $('waveform-video-trim'); el = $('waveformVideoTrim');
     }
+
     if (!wrap || !el) return;
 
     wrap.style.display = '';
     el.innerHTML = '';
 
     let ws;
+
     try {
         ws = WaveSurfer.create({
             container: el,
@@ -50,10 +53,12 @@ function initWaveform(toolId, file) {
             const dur = ws.getDuration();
             const startEl = $('waveformTrimStart');
             const endEl = $('waveformTrimEnd');
+
             if (startEl) startEl.textContent = '00:00:00.00';
             if (endEl) endEl.textContent = formatTime(dur);
             ws.on('seek', progress => {
                 const t = formatTime(progress * dur);
+
                 if ($('trimStart') && !$('trimStart').value) $('trimStart').value = t;
             });
         });

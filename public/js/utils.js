@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -19,8 +19,10 @@ function formatSize(bytes) {
 function lumaTag(filename) {
     if (!filename) return 'file_LumaTools';
     const dot = filename.lastIndexOf('.');
+
     if (dot <= 0) return filename + '_LumaTools';
     const name = filename.slice(0, dot), ext = filename.slice(dot);
+
     if (name.endsWith('_LumaTools')) return filename;
     return name + '_LumaTools' + ext;
 }

@@ -1,19 +1,22 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // SERVER HEALTH CHECK & STATUS TICKER
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function checkServerHealth() {
     const tickerTrack = $('tickerTrack');
+
     if (!tickerTrack) return;
     try {
         const res = await fetch('/api/health');
         const data = await res.json();
+
         if (data.status === 'ok') {
             const items = [];
             items.push({ label: 'Server',      value: data.server || 'Online',                                   ok: true });
             items.push({ label: 'FFmpeg',       value: data.ffmpeg_available ? 'Available' : 'Missing',           ok: data.ffmpeg_available });
             items.push({ label: 'yt-dlp',       value: data.yt_dlp_available ? ('v' + data.yt_dlp_version) : 'Missing', ok: data.yt_dlp_available });
             items.push({ label: 'Ghostscript',  value: data.ghostscript_available ? 'Available' : 'Not Found',   ok: data.ghostscript_available });
+
             if (data.git_commit && data.git_commit !== 'unknown') {
                 const branch = data.git_branch && data.git_branch !== 'unknown' ? data.git_branch : '';
                 items.push({ label: 'Version', value: branch ? `${branch}@${data.git_commit}` : data.git_commit, ver: true });
@@ -71,6 +74,7 @@ function initTickerDrag(track) {
         const currentX = getCurrentTranslateX();
         const totalWidth = track.scrollWidth / 2;
         let progress = ((-currentX) % totalWidth) / totalWidth;
+
         if (progress < 0) progress += 1;
         if (isNaN(progress)) progress = 0;
         track.style.transform = '';

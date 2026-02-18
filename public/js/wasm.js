@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // FFMPEG.WASM — client-side processing
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -36,9 +36,11 @@ const WasmProcessor = {
     async process(file, args, outputName, progressCb) {
         await this.load();
         const { fetchFile } = FFmpegUtil;
+
         if (progressCb) {
             this.ffmpeg.on('progress', ({ progress }) => { progressCb(Math.max(0, Math.min(1, progress))); });
         }
+
         const inputName = 'input' + getExtension(file.name);
         await this.ffmpeg.writeFile(inputName, await fetchFile(file));
         const fullArgs = args.map(a => a === '__INPUT__' ? inputName : a);
@@ -46,6 +48,7 @@ const WasmProcessor = {
         const data = await this.ffmpeg.readFile(outputName);
         await this.ffmpeg.deleteFile(inputName).catch(() => {});
         await this.ffmpeg.deleteFile(outputName).catch(() => {});
+
         if (progressCb) this.ffmpeg.off('progress');
         return new Blob([data.buffer], { type: mimeFromExt(outputName) });
     },
@@ -91,6 +94,7 @@ const WASM_TOOLS = {
     },
     'image-bg-remove': (file, opts) => {
         const method = opts.method || 'white';
+
         if (method === 'auto') return null; // AI removal → server
         const color = method === 'black' ? 'black' : 'white';
         return { args: ['-i', '__INPUT__', '-vf', `colorkey=${color}:0.3:0.15,format=rgba`, 'output.png'], output: 'output.png' };
@@ -122,11 +126,13 @@ function getWasmOpts(toolId) {
 
 async function processFileWasm(toolId) {
     const file = state.files[toolId];
+
     if (!file) { showToast('Please select a file first', 'error'); return; }
 
     const opts = getWasmOpts(toolId);
     const builder = WASM_TOOLS[toolId];
     const cmd = builder ? builder(file, opts) : null;
+
     if (!cmd) return processFileServer(toolId);
 
     showProcessing(toolId, true);
@@ -142,6 +148,7 @@ async function processFileWasm(toolId) {
         showResult(toolId, blob, outName);
     } catch (err) {
         showToast('Client processing failed, trying server...', 'info');
+
         try { await processFileServer(toolId); return; }
         catch (serverErr) { showToast(serverErr.message, 'error'); }
     } finally {
@@ -153,6 +160,7 @@ async function processFileWasmDirect(toolId, file) {
     const opts = getWasmOpts(toolId);
     const builder = WASM_TOOLS[toolId];
     const cmd = builder ? builder(file, opts) : null;
+
     if (!cmd) return processFileServerDirect(toolId, file);
     const blob = await WasmProcessor.process(file, cmd.args, cmd.output);
     blob._filename = file.name.replace(/\.[^.]+$/, '') + '_LumaTools.' + cmd.output.split('.').pop();

@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // SIDEBAR & NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -10,9 +10,11 @@ function switchTool(toolId) {
     // Show browser/server badge in the tool header
     const navItem = document.querySelector(`.nav-item[data-tool="${toolId}"]`);
     const panel = document.getElementById('tool-' + toolId);
+
     if (navItem && panel) {
         const loc = navItem.dataset.location; // 'browser' | 'server'
         panel.querySelectorAll('.tool-location-badge').forEach(b => b.remove());
+
         if (loc) {
             const badge = document.createElement('span');
             badge.className = 'tool-location-badge loc-' + loc;
@@ -23,16 +25,20 @@ function switchTool(toolId) {
                 ? '<i class="fas fa-lock"></i> In your browser'
                 : '<i class="fas fa-server"></i> On our server';
             const h2 = panel.querySelector('.tool-header h2');
+
             if (h2) h2.appendChild(badge);
         }
     }
+
     if (window.innerWidth <= 768) toggleSidebar(false);
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
     const mc = document.querySelector('.main-content');
+
     if (mc) mc.scrollTop = 0;
     const si = $('sidebarSearch');
+
     if (si && si.value) { si.value = ''; filterSidebarTools(); }
 }
 
@@ -42,6 +48,7 @@ function toggleSidebar(forceState) {
     const isOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
     sidebar.classList.toggle('open', isOpen);
     overlay.classList.toggle('open', isOpen);
+
     if (window.innerWidth <= 768) {
         document.body.style.overflow = isOpen ? 'hidden' : '';
     }
@@ -61,6 +68,7 @@ function filterSidebarTools() {
             const text = item.textContent.toLowerCase();
             const match = !q || text.includes(q);
             item.classList.toggle('search-hidden', !match);
+
             if (match) anyVisible = true;
         });
         cat.classList.toggle('search-hidden', !anyVisible);
@@ -76,6 +84,7 @@ function selectOutputFmt(btn) {
     grid.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const toolId = grid.dataset.tool;
+
     if (toolId) state.outputFormats[toolId] = btn.dataset.fmt;
 }
 
@@ -84,6 +93,7 @@ function selectPreset(btn) {
     grid.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const toolId = grid.dataset.tool;
+
     if (toolId) state.presets[toolId] = btn.dataset.val;
 }
 

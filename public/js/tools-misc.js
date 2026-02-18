@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // FRONTEND-ONLY TOOLS — QR Code, Base64, JSON Formatter, Color Converter,
 //                       Markdown Preview, Hash Results
 // ═══════════════════════════════════════════════════════════════════════════
@@ -8,11 +8,14 @@
 function showHashResults(toolId, data) {
     showProcessing(toolId, false);
     const container = document.getElementById('hashResults');
+
     if (!container) return;
     let html = `<div class="hash-result-header"><i class="fas fa-file"></i> <strong>${data.filename}</strong> <span>(${formatSize(data.size)})</span></div>`;
+
     for (const [algo, hash] of Object.entries(data.hashes)) {
         html += `<div class="hash-row"><span class="hash-algo">${algo}</span><code class="hash-value">${hash}</code><button class="hash-copy" onclick="navigator.clipboard.writeText('${hash}');showToast('Copied!','success')"><i class="fas fa-copy"></i></button></div>`;
     }
+
     container.innerHTML = html;
     container.classList.remove('hidden');
 }
@@ -21,8 +24,10 @@ function showHashResults(toolId, data) {
 
 function generateQR() {
     const text = document.getElementById('qrInput').value.trim();
+
     if (!text) { showToast('Please enter some text', 'error'); return; }
     const size = parseInt(document.getElementById('qrSize').value) || 6;
+
     try {
         const qr = qrcode(0, 'M');
         qr.addData(text);
@@ -37,6 +42,7 @@ function generateQR() {
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, totalSize, totalSize);
         ctx.fillStyle = '#000000';
+
         for (let r = 0; r < moduleCount; r++)
             for (let c = 0; c < moduleCount; c++)
                 if (qr.isDark(r, c)) ctx.fillRect(c * cellSize + margin, r * cellSize + margin, cellSize, cellSize);
@@ -47,6 +53,7 @@ function generateQR() {
 
 function downloadQR() {
     const canvas = document.getElementById('qrCanvas');
+
     if (!canvas) return;
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
@@ -59,6 +66,7 @@ function downloadQR() {
 function processBase64() {
     const mode = getSelectedFmt('base64-mode') || 'encode';
     const input = document.getElementById('base64Input').value;
+
     if (!input) { showToast('Please enter some text', 'error'); return; }
     try {
         const result = mode === 'encode'
@@ -73,11 +81,13 @@ function processBase64() {
 
 function formatJSON() {
     const input = document.getElementById('jsonInput').value.trim();
+
     if (!input) { showToast('Please enter some JSON', 'error'); return; }
     try {
         const parsed = JSON.parse(input);
         const indent = getSelectedFmt('json-indent') || '4';
         let result;
+
         if (indent === '0') result = JSON.stringify(parsed);
         else if (indent === 'tab') result = JSON.stringify(parsed, null, '\t');
         else result = JSON.stringify(parsed, null, parseInt(indent));
@@ -89,6 +99,7 @@ function formatJSON() {
 
 function copyToClipboard(elementId) {
     const el = document.getElementById(elementId);
+
     if (!el) return;
     navigator.clipboard.writeText(el.value).then(() => showToast('Copied to clipboard!', 'success'));
 }
@@ -109,20 +120,24 @@ function rgbToHsl(r, g, b) {
     const rr = r/255, gg = g/255, bb = b/255;
     const max = Math.max(rr,gg,bb), min = Math.min(rr,gg,bb);
     let h = 0, s = 0, l = (max + min) / 2;
+
     if (max !== min) {
         const d = max - min;
         s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
         switch (max) {
             case rr: h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break;
             case gg: h = ((bb - rr) / d + 2) / 6; break;
             case bb: h = ((rr - gg) / d + 4) / 6; break;
         }
     }
+
     return [Math.round(h*360), Math.round(s*100), Math.round(l*100)];
 }
 
 function hslToRgb(h, s, l) {
     h /= 360; s /= 100; l /= 100;
+
     if (s === 0) { const v = Math.round(l*255); return [v, v, v]; }
     const q = l < 0.5 ? l*(1+s) : l+s-l*s, p = 2*l - q;
     return [
@@ -136,6 +151,7 @@ function rgbToHsv(r, g, b) {
     const rr = r/255, gg = g/255, bb = b/255;
     const max = Math.max(rr,gg,bb), min = Math.min(rr,gg,bb), d = max - min;
     let h = 0, s = max === 0 ? 0 : d / max, v = max;
+
     if (d !== 0) {
         switch (max) {
             case rr: h = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break;
@@ -143,6 +159,7 @@ function rgbToHsv(r, g, b) {
             case bb: h = ((rr - gg) / d + 4) / 6; break;
         }
     }
+
     return [Math.round(h*360), Math.round(s*100), Math.round(v*100)];
 }
 
@@ -151,18 +168,21 @@ function hsvToRgb(h, s, v) {
     let r, g, b;
     const i = Math.floor(h * 6), f = h * 6 - i;
     const p = v*(1-s), q = v*(1-f*s), t = v*(1-(1-f)*s);
+
     switch (i % 6) {
         case 0: r=v; g=t; b=p; break; case 1: r=q; g=v; b=p; break;
         case 2: r=p; g=v; b=t; break; case 3: r=p; g=q; b=v; break;
         case 4: r=t; g=p; b=v; break; case 5: r=v; g=p; b=q; break;
         default: r=g=b=0;
     }
+
     return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
 }
 
 function rgbToCmyk(r, g, b) {
     const rr = r/255, gg = g/255, bb = b/255;
     const k = 1 - Math.max(rr, gg, bb);
+
     if (k === 1) return [0, 0, 0, 100];
     return [
         Math.round((1 - rr - k) / (1 - k) * 100),
@@ -216,26 +236,32 @@ function syncAllColorFields(r, g, b, skipSource) {
 
 function updateColorFrom(source) {
     let r, g, b;
+
     try {
         if (source === 'hex') {
             const hex = $('colorHex').value.trim();
             const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+
             if (!m) return;
             r = parseInt(m[1],16); g = parseInt(m[2],16); b = parseInt(m[3],16);
         } else if (source === 'rgb') {
             const pts = $('colorRgb').value.split(',').map(s => parseInt(s.trim()));
+
             if (pts.length < 3 || pts.some(isNaN)) return;
             [r, g, b] = pts;
         } else if (source === 'hsl') {
             const pts = $('colorHsl').value.replace(/%/g,'').split(',').map(s => parseFloat(s.trim()));
+
             if (pts.length < 3 || pts.some(isNaN)) return;
             [r, g, b] = hslToRgb(pts[0], pts[1], pts[2]);
         } else if (source === 'hsv') {
             const pts = $('colorHsv').value.replace(/%/g,'').split(',').map(s => parseFloat(s.trim()));
+
             if (pts.length < 3 || pts.some(isNaN)) return;
             [r, g, b] = hsvToRgb(pts[0], pts[1], pts[2]);
         } else if (source === 'cmyk') {
             const pts = $('colorCmyk').value.replace(/%/g,'').split(',').map(s => parseFloat(s.trim()));
+
             if (pts.length < 4 || pts.some(isNaN)) return;
             [r, g, b] = cmykToRgb(pts[0], pts[1], pts[2], pts[3]);
         }
@@ -248,6 +274,7 @@ function copyColorValue(format, fromPicker) {
         ? { hex:'colorHexPicker', rgb:'colorRgbPicker', hsl:'colorHslPicker', hsv:'colorHsvPicker', cmyk:'colorCmykPicker' }[format]
         : { hex:'colorHex', rgb:'colorRgb', hsl:'colorHsl', hsv:'colorHsv', cmyk:'colorCmyk' }[format];
     const el = $(id);
+
     if (!el) return;
     navigator.clipboard.writeText(el.value).then(() => showToast('Copied!', 'success'));
 }
@@ -258,6 +285,7 @@ function switchColorTab(tab) {
     $$('.color-tab').forEach((t, i) => t.classList.toggle('active', (tab === 'inputs' ? i === 0 : i === 1)));
     $('colorTabInputs')?.classList.toggle('active', tab === 'inputs');
     $('colorTabPicker')?.classList.toggle('active', tab === 'picker');
+
     if (tab === 'picker') initPickerTab();
 }
 
@@ -272,6 +300,7 @@ function setPickerType(type) {
     $('pickerBtnRect')?.classList.toggle('active', type === 'rect');
     $('pickerWheelSection')?.classList.toggle('hidden', type !== 'wheel');
     $('pickerRectSection')?.classList.toggle('hidden', type !== 'rect');
+
     if (type === 'wheel') initColorWheel();
     else initRectPicker();
 }
@@ -287,6 +316,7 @@ function initColorWheel() {
     if (wheelInited) return;
     wheelInited = true;
     const canvas = $('colorWheel');
+
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const cx = canvas.width / 2, cy = canvas.height / 2, radius = cx - 4;
@@ -309,10 +339,13 @@ function initColorWheel() {
             x = sx / canvas.width * rect.width;
             y = sy / canvas.height * rect.height;
         }
+
         const cursor = $('wheelCursor');
+
         if (cursor) { cursor.style.left = (x/rect.width*100)+'%'; cursor.style.top = (y/rect.height*100)+'%'; }
         updatePickerFromWheelCoords(sx, sy, cx, cy, radius, parseInt($('wheelBrightness')?.value ?? 100) / 100);
     }
+
     canvas.addEventListener('mousedown', e => { dragging = true; pickWheel(e); });
     window.addEventListener('mousemove', e => { if (dragging) pickWheel(e); });
     window.addEventListener('mouseup', () => { dragging = false; });
@@ -324,23 +357,28 @@ function initColorWheel() {
 function updatePickerFromWheelCoords(sx, sy, cx, cy, radius, brightness) {
     const dx = sx - cx, dy = sy - cy;
     let angle = Math.atan2(dy, dx) / (2 * Math.PI);
+
     if (angle < 0) angle += 1;
     const sat = Math.min(Math.sqrt(dx*dx + dy*dy) / radius, 1);
     const h = angle, s = sat, l = brightness * 0.5;
     let [r, g, b] = hslToRgb(h * 360, s * 100, l * 100);
     const cursor = $('wheelCursor');
+
     if (cursor) cursor.style.background = '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
     syncAllColorFields(r, g, b, null);
 }
 
 function drawWheel(ctx, cx, cy, radius, brightness) {
     const img = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
+
     for (let y = 0; y < img.height; y++) {
         for (let x = 0; x < img.width; x++) {
             const dx = x-cx, dy = y-cy, dist = Math.sqrt(dx*dx+dy*dy);
             const i = (y * img.width + x) * 4;
+
             if (dist <= radius) {
                 let angle = Math.atan2(dy, dx) / (2*Math.PI);
+
                 if (angle < 0) angle += 1;
                 const sat = dist / radius;
                 const l = brightness * 0.5;
@@ -349,20 +387,24 @@ function drawWheel(ctx, cx, cy, radius, brightness) {
             } else { img.data[i+3]=0; }
         }
     }
+
     ctx.putImageData(img, 0, 0);
 }
 
 function updateWheelBrightness() {
     const val = parseInt($('wheelBrightness').value) / 100;
     const canvas = $('colorWheel');
+
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const cx = canvas.width/2, cy = canvas.height/2, radius = cx - 4;
     drawWheel(ctx, cx, cy, radius, val);
     const cursor = $('wheelCursor');
+
     if (!cursor) return;
     const cursorPctX = parseFloat(cursor.style.left) / 100;
     const cursorPctY = parseFloat(cursor.style.top) / 100;
+
     if (isNaN(cursorPctX) || isNaN(cursorPctY)) return;
     updatePickerFromWheelCoords(cursorPctX * canvas.width, cursorPctY * canvas.height, cx, cy, radius, val);
 }
@@ -383,9 +425,11 @@ function initRectPicker() {
 
 function drawHueStrip() {
     const canvas = $('colorHueStrip');
+
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+
     for (let i = 0; i <= 360; i += 30) grad.addColorStop(i/360, `hsl(${i},100%,50%)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -393,6 +437,7 @@ function drawHueStrip() {
 
 function drawSVRect(hue) {
     const canvas = $('colorRectSV');
+
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
@@ -412,6 +457,7 @@ function drawSVRect(hue) {
 
 function initHueStripEvents() {
     const canvas = $('colorHueStrip');
+
     if (!canvas) return;
     let dragging = false;
     function pick(e) {
@@ -422,10 +468,12 @@ function initHueStripEvents() {
         _rectHue = Math.round(pct * 360);
         // Move hue cursor
         const cur = $('hueCursor');
+
         if (cur) cur.style.left = (pct * 100) + '%';
         drawSVRect(_rectHue);
         pickSVRectFromCursor();
     }
+
     canvas.addEventListener('mousedown', e => { dragging = true; pick(e); });
     canvas.addEventListener('mousemove', e => { if (dragging) pick(e); });
     window.addEventListener('mouseup', () => { dragging = false; });
@@ -436,6 +484,7 @@ function initHueStripEvents() {
 
 function initSVRectEvents() {
     const canvas = $('colorRectSV');
+
     if (!canvas) return;
     let dragging = false;
     function pick(e) {
@@ -445,13 +494,16 @@ function initSVRectEvents() {
         const x = Math.max(0, Math.min(rect.width,  clientX - rect.left));
         const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
         const cur = $('rectCursor');
+
         if (cur) { cur.style.left = (x/rect.width*100)+'%'; cur.style.top = (y/rect.height*100)+'%'; }
         const sat = x / rect.width * 100;
         const val = (1 - y / rect.height) * 100;
         const [r, g, b] = hsvToRgb(_rectHue, sat, val);
+
         if (cur) cur.style.background = '#' + [r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
         syncAllColorFields(r, g, b, null);
     }
+
     canvas.addEventListener('mousedown', e => { dragging = true; pick(e); });
     window.addEventListener('mousemove', e => { if (dragging) pick(e); });
     window.addEventListener('mouseup', () => { dragging = false; });
@@ -463,6 +515,7 @@ function initSVRectEvents() {
 function pickSVRectFromCursor() {
     const cur = $('rectCursor');
     const canvas = $('colorRectSV');
+
     if (!cur || !canvas) return;
     const pctX = parseFloat(cur.style.left) / 100 || 0;
     const pctY = parseFloat(cur.style.top) / 100 || 0;
@@ -477,6 +530,7 @@ function pickSVRectFromCursor() {
 function renderMarkdownPreview() {
     const input = $('markdownInput')?.value || '';
     const output = $('markdownOutput');
+
     if (!output) return;
     if (!input.trim()) { output.innerHTML = '<p class="text-muted">Preview will appear here...</p>'; return; }
     output.innerHTML = parseMarkdown(input);
@@ -509,6 +563,7 @@ function parseMarkdown(md) {
 
 function copyMarkdownHTML() {
     const output = $('markdownOutput');
+
     if (!output || !output.textContent.trim()) { showToast('Nothing to copy', 'error'); return; }
     navigator.clipboard.writeText(output.innerHTML).then(() => showToast('HTML copied to clipboard!', 'success'));
 }
@@ -559,11 +614,13 @@ function setDiffView(view) {
 function runDiff() {
     const a = ($('diffOriginal') || {}).value || '';
     const b = ($('diffChanged') || {}).value || '';
+
     if (!a && !b) {
         $('diffStats')?.classList.add('hidden');
         $('diffOutput')?.classList.add('hidden');
         return;
     }
+
     renderDiff();
 }
 
@@ -576,42 +633,54 @@ function computeLineDiff(aLines, bLines) {
 
     for (let d = 0; d <= max; d++) {
         trace.push([...v]);
+
         for (let k = -d; k <= d; k += 2) {
             let x;
+
             if (k === -d || (k !== d && v[k - 1 + max] < v[k + 1 + max])) {
                 x = v[k + 1 + max];
             } else {
                 x = v[k - 1 + max] + 1;
             }
+
             let y = x - k;
+
             while (x < n && y < m && aLines[x] === bLines[y]) { x++; y++; }
             v[k + max] = x;
+
             if (x >= n && y >= m) {
                 // backtrack
                 const ops = [];
                 let cx = x, cy = y;
+
                 for (let dd = d; dd > 0; dd--) {
                     const tv = trace[dd];
                     let ck = cx - cy;
                     let prevK;
+
                     if (ck === -dd || (ck !== dd && tv[ck - 1 + max] < tv[ck + 1 + max])) {
                         prevK = ck + 1;
                     } else {
                         prevK = ck - 1;
                     }
+
                     const prevX = tv[prevK + max];
                     const prevY = prevX - prevK;
+
                     while (cx > prevX + (prevK === ck - 1 ? 1 : 0) && cy > prevY + (prevK === ck + 1 ? 1 : 0)) {
                         ops.push({ type: 'equal', a: cx - 1, b: cy - 1 }); cx--; cy--;
                     }
+
                     if (prevK === ck + 1) { ops.push({ type: 'insert', b: cy - 1 }); cy--; }
                     else { ops.push({ type: 'delete', a: cx - 1 }); cx--; }
                 }
+
                 while (cx > 0 && cy > 0) { ops.push({ type: 'equal', a: cx - 1, b: cy - 1 }); cx--; cy--; }
                 return ops.reverse();
             }
         }
     }
+
     // Fallback: all changed
     const ops = [];
     aLines.forEach((_, i) => ops.push({ type: 'delete', a: i }));
@@ -642,6 +711,7 @@ function renderDiff() {
     $('diffOutput')?.classList.remove('hidden');
 
     const result = $('diffResult');
+
     if (!result) return;
 
     if (_diffView === 'unified') {
@@ -681,4 +751,3 @@ function renderDiff() {
         result.innerHTML = `<div class="diff-split-wrap">${leftHtml}</div>${rightHtml}</div></div>`;
     }
 }
-

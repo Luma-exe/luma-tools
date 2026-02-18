@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // BATCH QUEUE MANAGER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -29,6 +29,7 @@ const batchQueue = {
         $('batchOvDownloadAll').classList.add('hidden');
         $('batchOvNewBtn').classList.add('hidden');
         const spinner = overlay.querySelector('.progress-icon');
+
         if (spinner) spinner.classList.add('spinning');
 
         this.renderFileList();
@@ -51,6 +52,7 @@ const batchQueue = {
 
     updateEntry(index, status) {
         const entry = document.getElementById('batchEntry-' + index);
+
         if (!entry) return;
         const icon = entry.querySelector('.file-status-icon');
         const map = {
@@ -58,6 +60,7 @@ const batchQueue = {
             error:  { cls: 'file-status-icon error',  html: '<i class="fas fa-times-circle"></i>' },
             active: { cls: 'file-status-icon active', html: '<i class="fas fa-circle-notch fa-spin"></i>' },
         };
+
         if (map[status]) { icon.className = map[status].cls; icon.innerHTML = map[status].html; }
     },
 
@@ -70,11 +73,13 @@ const batchQueue = {
 
         try {
             let resultBlob;
+
             if (WASM_TOOLS[this.toolId]) {
                 resultBlob = await processFileWasmDirect(this.toolId, file);
             } else {
                 resultBlob = await processFileServerDirect(this.toolId, file);
             }
+
             const ext = resultBlob._filename ? resultBlob._filename.split('.').pop() : file.name.split('.').pop();
             const outName = file.name.replace(/\.[^.]+$/, '') + '_LumaTools.' + ext;
             this.results.push({ name: outName, blob: resultBlob, status: 'done' });
@@ -99,12 +104,14 @@ const batchQueue = {
         this.running = false;
         const overlay = $('batchOverlay');
         const spinner = overlay.querySelector('.progress-icon');
+
         if (spinner) spinner.classList.remove('spinning');
         const successCount = this.results.filter(r => r.status === 'done').length;
         const failCount = this.results.filter(r => r.status === 'error').length;
         $('batchOvTitle').textContent = failCount === 0 ? 'Batch Complete!' : `${successCount} done, ${failCount} failed`;
         $('batchOvStatus').textContent = `Processed ${this.total} files`;
         $('batchOvBar').style.width = '100%';
+
         if (successCount > 0) $('batchOvDownloadAll').classList.remove('hidden');
         $('batchOvNewBtn').classList.remove('hidden');
     },
@@ -117,6 +124,7 @@ const batchQueue = {
 
 async function processFileServerDirect(toolId, file) {
     const formData = new FormData();
+
     formData.append('file', file);
 
     switch (toolId) {
@@ -136,6 +144,7 @@ async function processFileServerDirect(toolId, file) {
     const isAsync = asyncTools.includes(toolId);
 
     const res = await fetch('/api/tools/' + toolId, { method: 'POST', body: formData });
+
     if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Processing failed' }));
         throw new Error(err.error || 'Processing failed');
@@ -143,11 +152,13 @@ async function processFileServerDirect(toolId, file) {
 
     if (isAsync) {
         const data = await res.json();
+
         if (!data.job_id) throw new Error('No job ID returned');
         return await pollJobForBlob(data.job_id);
     }
 
     const contentType = res.headers.get('content-type') || '';
+
     if (contentType.includes('application/json')) throw new Error('Batch not supported for this tool');
     const blob = await res.blob();
     blob._filename = getFilenameFromResponse(res) || file.name;
@@ -160,9 +171,11 @@ function pollJobForBlob(jobId) {
             try {
                 const res = await fetch(`/api/tools/status/${jobId}`);
                 const data = await res.json();
+
                 if (data.status === 'completed') {
                     clearInterval(interval);
                     const fileRes = await fetch(`/api/tools/result/${jobId}`);
+
                     if (!fileRes.ok) { reject(new Error('Failed to download result')); return; }
                     const blob = await fileRes.blob();
                     blob._filename = getFilenameFromResponse(fileRes) || 'processed_file';
@@ -178,6 +191,7 @@ function pollJobForBlob(jobId) {
 
 async function batchDownloadAll() {
     const successResults = batchQueue.results.filter(r => r.status === 'done' && r.blob);
+
     if (successResults.length === 0) return;
 
     if (successResults.length === 1) {
@@ -195,6 +209,7 @@ async function batchDownloadAll() {
 
     try {
         const zip = new JSZip();
+
         for (const r of successResults) zip.file(r.name, r.blob);
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         const a = document.createElement('a');

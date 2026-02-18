@@ -37,5 +37,6 @@ PlatformInfo detect_platform(const string& url) {
             return info;
         }
     }
+
     return { "unknown", "Unknown", "fas fa-globe", "#888888", true, true };
 }

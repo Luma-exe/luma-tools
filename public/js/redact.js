@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // PRIVACY REDACTION TOOL
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -10,6 +10,7 @@ let redactMode = 'box'; // 'box' | 'blur'
 function initRedactCanvas(file) {
     const wrap = $('redactCanvasWrap');
     const canvas = $('redactCanvas');
+
     if (!wrap || !canvas) return;
 
     redactImg = null;
@@ -51,10 +52,13 @@ function initRedactCanvas(file) {
 
 function drawRedactCanvas() {
     const canvas = $('redactCanvas');
+
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+
     if (redactImg) ctx.drawImage(redactImg, 0, 0, canvas.width, canvas.height);
     else if (redactVideo) ctx.drawImage(redactVideo, 0, 0, canvas.width, canvas.height);
+
     for (const reg of redactRegions) {
         if (reg.type === 'box') {
             ctx.save(); ctx.globalAlpha = 1.0; ctx.fillStyle = '#111';
@@ -78,6 +82,7 @@ function initRedactDraw(canvas) {
         const cy = (e.clientY ?? e.touches?.[0]?.clientY ?? 0) - rect.top;
         return { x: cx * scaleX(), y: cy * scaleY() };
     }
+
     canvas.onmousedown = canvas.ontouchstart = e => { e.preventDefault(); drawing = true; const p = getPos(e); startX = p.x; startY = p.y; };
     canvas.onmousemove = canvas.ontouchmove = e => {
         if (!drawing) return; e.preventDefault();
@@ -93,6 +98,7 @@ function initRedactDraw(canvas) {
         const p = getPos(e);
         const x = Math.round(Math.min(startX, p.x)), y = Math.round(Math.min(startY, p.y));
         const w = Math.round(Math.abs(p.x - startX)), h = Math.round(Math.abs(p.y - startY));
+
         if (w < 4 || h < 4) return;
         redactRegions.push({ type: redactMode, x, y, w, h });
         drawRedactCanvas();
@@ -102,20 +108,25 @@ function initRedactDraw(canvas) {
 function blurImageData(imgData, radius) {
     const { data, width, height } = imgData;
     const out = new Uint8ClampedArray(data);
+
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             let r=0,g=0,b=0,a=0,n=0;
+
             for (let dy = -radius; dy <= radius; dy++) {
                 for (let dx = -radius; dx <= radius; dx++) {
                     const nx = x+dx, ny = y+dy;
+
                     if (nx>=0 && nx<width && ny>=0 && ny<height) {
                         const i=(ny*width+nx)*4; r+=data[i];g+=data[i+1];b+=data[i+2];a+=data[i+3];n++;
                     }
                 }
             }
+
             const i=(y*width+x)*4; out[i]=r/n;out[i+1]=g/n;out[i+2]=b/n;out[i+3]=a/n;
         }
     }
+
     return new ImageData(out, width, height);
 }
 

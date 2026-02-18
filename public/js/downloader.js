@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // PLATFORM DETECTION
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -30,6 +30,7 @@ let detectTimeout;
 
 function initDownloader() {
     const urlInput = $('urlInput');
+
     if (!urlInput) return;
 
     urlInput.addEventListener('input', (e) => {
@@ -40,6 +41,7 @@ function initDownloader() {
             const platform = detectPlatform(url);
             const badge = $('platformBadge');
             const wrapper = $('inputWrapper');
+
             if (platform && url.length > 10) {
                 state.platform = platform;
                 badge.innerHTML = `<i class="${platform.icon}"></i>`;
@@ -71,8 +73,10 @@ function showDlSection(section) {
                     'completeSection', 'playlistSection', 'batchProgressSection', 'batchCompleteSection'];
     panels.forEach(id => {
         const el = document.getElementById(id);
+
         if (el) el.classList.add('hidden');
     });
+
     if (section) {
         const map = {
             loading: 'loadingSection', error: 'errorSection', media: 'mediaSection',
@@ -81,6 +85,7 @@ function showDlSection(section) {
             batchComplete: 'batchCompleteSection',
         };
         const el = document.getElementById(map[section]);
+
         if (el) el.classList.remove('hidden');
     }
 }
@@ -88,6 +93,7 @@ function showDlSection(section) {
 async function apiCall(endpoint, data) {
     const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     const json = await res.json();
+
     if (!res.ok) throw new Error(json.error || 'Request failed');
     return json;
 }
@@ -95,6 +101,7 @@ async function apiCall(endpoint, data) {
 async function analyzeURL() {
     const urlInput = $('urlInput');
     const url = urlInput.value.trim();
+
     if (!url) { showToast('Please enter a URL', 'error'); return; }
     if (!url.match(/^https?:\/\/.+/i)) { urlInput.value = 'https://' + url; state.url = urlInput.value; } else { state.url = url; }
 
@@ -104,15 +111,18 @@ async function analyzeURL() {
     try {
         const data = await apiCall('/api/analyze', { url: state.url });
         state.mediaInfo = data;
+
         if (data.platform) {
             state.platform = data.platform;
             document.documentElement.style.setProperty('--platform-color', data.platform.color);
         }
+
         if (data.type === 'playlist') { renderPlaylist(data); showDlSection('playlist'); resolveUnknownTitles(); }
         else { renderMediaInfo(data); showDlSection('media'); }
     } catch (err) {
         let msg = err.message || 'Failed to analyze URL';
         msg = msg.replace(/^ERROR:\s*/, '').replace(/\[\w+\]\s*\w+:\s*/, '');
+
         if (msg.length > 150) msg = msg.substring(0, 150) + '...';
         $('errorText').textContent = msg;
         showDlSection('error');
@@ -123,10 +133,12 @@ function retryAnalysis() { analyzeURL(); }
 
 function renderMediaInfo(data) {
     const thumb = $('mediaThumbnail');
+
     if (data.thumbnail) {
         thumb.src = data.thumbnail;
         thumb.onerror = () => { thumb.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" fill="%23222"><rect width="320" height="180"/><text x="160" y="95" text-anchor="middle" fill="%23666" font-size="14">No Thumbnail</text></svg>'); };
     }
+
     if (data.duration) {
         const m = Math.floor(data.duration / 60), s = Math.floor(data.duration % 60);
         $('mediaDuration').textContent = `${m}:${s.toString().padStart(2, '0')}`;
@@ -142,6 +154,7 @@ function renderMediaInfo(data) {
 
     const isAudioOnly = data.platform && !data.platform.supports_video;
     const mp4Tab = $('formatTabs').querySelector('[data-format="mp4"]');
+
     if (isAudioOnly) { mp4Tab.classList.add('disabled'); selectFormat('mp3'); } else { mp4Tab.classList.remove('disabled'); }
     renderQualities(data.formats || []);
 }
@@ -153,6 +166,7 @@ function renderQualities(formats) {
     bestChip.className = 'quality-chip active'; bestChip.dataset.quality = 'best';
     bestChip.innerHTML = 'Best Quality'; bestChip.onclick = () => selectQuality('best');
     grid.appendChild(bestChip);
+
     for (const q of formats.filter(f => f.height > 0)) {
         const chip = document.createElement('button');
         chip.className = 'quality-chip'; chip.dataset.quality = q.quality;
@@ -160,6 +174,7 @@ function renderQualities(formats) {
         chip.innerHTML = `${q.quality}${sizeLabel}`; chip.onclick = () => selectQuality(q.quality);
         grid.appendChild(chip);
     }
+
     state.selectedQuality = 'best';
 }
 
@@ -167,6 +182,7 @@ function selectFormat(format) {
     state.selectedFormat = format;
     $$('.format-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.format === format));
     const qs = $('qualitySection');
+
     if (qs) { format === 'mp4' ? qs.classList.remove('hidden') : qs.classList.add('hidden'); }
 }
 
@@ -179,6 +195,7 @@ async function startDownload() {
     if (!state.url) return;
     $('downloadBtn').disabled = true;
     showDlSection('progress');
+
     try {
         const data = await apiCall('/api/download', { url: state.url, format: state.selectedFormat, quality: state.selectedQuality, title: state.mediaInfo?.title || '' });
         state.downloadId = data.download_id;
@@ -198,6 +215,7 @@ function pollDownloadStatus() {
         try {
             const res = await fetch(`/api/status/${state.downloadId}`);
             const data = await res.json();
+
             if (data.status === 'completed') {
                 clearInterval(state.pollInterval); state.pollInterval = null;
                 $('progressBar').style.width = '100%'; $('progressTitle').textContent = 'Complete!'; $('progressStatus').textContent = 'Preparing file...';
@@ -210,8 +228,10 @@ function pollDownloadStatus() {
                 const pct = data.progress || 0;
                 $('progressBar').style.width = Math.max(pct, 2) + '%';
                 const pctEl = $('progressPct'); if (pctEl) pctEl.textContent = pct > 0 ? pct.toFixed(1) + '%' : '';
+
                 if (data.speed) { const el = $('progressSpeed'); if (el) el.textContent = data.speed; }
                 const etaEl = $('progressEta'); if (etaEl) etaEl.textContent = (data.eta != null && data.eta >= 0) ? formatETA(data.eta) : '';
+
                 if (data.filesize) { const el = $('progressSize'); if (el) el.textContent = data.filesize; }
                 if (data.status === 'processing') { $('progressStatus').textContent = 'Processing file...'; $('progressBar').style.width = '95%'; }
                 else if (data.status === 'downloading') { $('progressStatus').textContent = 'Downloading...'; }
@@ -223,14 +243,18 @@ function pollDownloadStatus() {
 
 function resetDownloaderUI() {
     const urlInput = $('urlInput');
+
     if (urlInput) urlInput.value = '';
     state.url = ''; state.mediaInfo = null; state.downloadId = null;
     state.selectedFormat = 'mp3'; state.selectedQuality = 'best';
     state.isDownloading = false; state.playlistItems = []; state.batchResults = [];
+
     if (state.pollInterval) { clearInterval(state.pollInterval); state.pollInterval = null; }
     const badge = $('platformBadge');
+
     if (badge) { badge.innerHTML = '<i class="fas fa-link"></i>'; badge.classList.remove('detected'); badge.style.background = ''; }
     const wrapper = $('inputWrapper');
+
     if (wrapper) wrapper.classList.remove('detected');
     const db = $('downloadBtn'); if (db) db.disabled = false;
     const pb = $('progressBar'); if (pb) pb.style.width = '0%';
@@ -238,6 +262,7 @@ function resetDownloaderUI() {
     const bf = $('batchFiles'); if (bf) bf.innerHTML = '';
     $$('#tool-downloader .format-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.format === 'mp3'));
     showDlSection(null);
+
     if (urlInput) urlInput.focus();
 }
 
@@ -253,11 +278,13 @@ function renderPlaylist(data) {
 
     const isAudioOnly = data.platform && !data.platform.supports_video;
     const mp4Tab = $('playlistFormatTabs')?.querySelector('[data-format="mp4"]');
+
     if (mp4Tab) { isAudioOnly ? mp4Tab.classList.add('disabled') : mp4Tab.classList.remove('disabled'); }
     if (isAudioOnly) selectFormat('mp3');
 
     const container = $('playlistItems');
     container.innerHTML = '';
+
     for (const item of state.playlistItems) {
         const el = document.createElement('div');
         el.className = 'playlist-item selected'; el.dataset.index = item.index;
@@ -267,6 +294,7 @@ function renderPlaylist(data) {
         el.addEventListener('click', () => toggleItem(el));
         container.appendChild(el);
     }
+
     updateSelectedCount();
     state.resolvingTitles = false; state.resolveAborted = false;
     const resolving = $('playlistResolving'); if (resolving) resolving.classList.add('hidden');
@@ -275,30 +303,38 @@ function renderPlaylist(data) {
 
 async function resolveUnknownTitles() {
     const unknowns = state.playlistItems.filter(item => /^Track \d+$/.test(item.title));
+
     if (unknowns.length === 0) return;
     state.resolvingTitles = true; state.resolveAborted = false;
     const resolving = $('playlistResolving'); if (resolving) resolving.classList.remove('hidden');
     const skipBtn = $('resolvingSkipBtn'); if (skipBtn) skipBtn.classList.add('hidden');
     const resolvingText = $('resolvingText');
+
     if (resolvingText) resolvingText.textContent = `Loading track names (0/${unknowns.length})...`;
     const skipTimer = setTimeout(() => { if (state.resolvingTitles && !state.resolveAborted && skipBtn) skipBtn.classList.remove('hidden'); }, 3000);
     let resolved = 0;
+
     for (const item of unknowns) {
         if (state.resolveAborted) break;
         try {
             const resp = await fetch('/api/resolve-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: item.url }) });
             const data = await resp.json();
+
             if (state.resolveAborted) break;
             if (data.title && data.title.trim()) {
                 item.title = data.title;
                 const el = $('playlistItems')?.querySelector(`[data-index="${item.index}"]`);
+
                 if (el) { const titleEl = el.querySelector('.playlist-item-title'); if (titleEl) { titleEl.textContent = data.title; titleEl.classList.add('just-resolved'); setTimeout(() => titleEl.classList.remove('just-resolved'), 700); } }
             }
         } catch (err) { /* skip */ }
         resolved++;
+
         if (!state.resolveAborted && resolvingText) resolvingText.textContent = `Loading track names (${resolved}/${unknowns.length})...`;
     }
+
     clearTimeout(skipTimer); state.resolvingTitles = false;
+
     if (resolving) resolving.classList.add('hidden');
 }
 
@@ -329,6 +365,7 @@ function updateSelectedCount() {
 
 async function startPlaylistDownload() {
     const selectedEls = [...$$('.playlist-item.selected')];
+
     if (selectedEls.length === 0) { showToast('Select at least one item to download', 'error'); return; }
     const selectedItems = selectedEls.map(el => { const idx = parseInt(el.dataset.index); return state.playlistItems[idx]; });
     state.batchResults = [];
@@ -336,17 +373,20 @@ async function startPlaylistDownload() {
     const total = selectedItems.length;
     $('batchTotalNum').textContent = total; $('batchCurrentNum').textContent = '0';
     $('batchOverallBar').style.width = '0%'; $('batchTitle').textContent = 'Downloading playlist...';
+
     for (let i = 0; i < total; i++) {
         const item = selectedItems[i], num = i + 1;
         $('batchCurrentNum').textContent = num; $('batchOverallBar').style.width = ((num - 1) / total * 100) + '%';
         $('batchStatus').textContent = `Item ${num} of ${total}`; $('batchItemName').textContent = item.title || `Track ${num}`;
         $('batchItemBar').style.width = '0%'; $('batchItemPct').textContent = ''; $('batchItemSpeed').textContent = ''; $('batchItemEta').textContent = '';
+
         try {
             const data = await apiCall('/api/download', { url: item.url, format: state.selectedFormat, quality: 'best', title: item.title || '' });
             const result = await pollBatchItem(data.download_id);
             state.batchResults.push({ title: item.title, ...result });
         } catch (err) { state.batchResults.push({ title: item.title, status: 'error', error: err.message }); }
     }
+
     $('batchOverallBar').style.width = '100%';
     renderBatchComplete(); showDlSection('batchComplete');
 }
@@ -357,6 +397,7 @@ function pollBatchItem(downloadId) {
             try {
                 const res = await fetch(`/api/status/${downloadId}`);
                 const data = await res.json();
+
                 if (data.status === 'completed') {
                     clearInterval(interval); $('batchItemBar').style.width = '100%'; $('batchItemPct').textContent = '100%';
                     resolve({ status: 'completed', download_url: data.download_url, filename: data.filename });
@@ -366,6 +407,7 @@ function pollBatchItem(downloadId) {
                     const pct = data.progress || 0;
                     $('batchItemBar').style.width = Math.max(pct, 2) + '%';
                     $('batchItemPct').textContent = pct > 0 ? pct.toFixed(1) + '%' : '';
+
                     if (data.speed) $('batchItemSpeed').textContent = data.speed;
                     if (data.eta != null && data.eta >= 0) $('batchItemEta').textContent = formatETA(data.eta);
                 }
@@ -379,13 +421,16 @@ function renderBatchComplete() {
     const fail = state.batchResults.filter(r => r.status === 'error').length;
     $('batchCompleteText').textContent = fail === 0 ? `All ${success} downloads complete!` : `${success} completed, ${fail} failed`;
     const container = $('batchFiles'); container.innerHTML = '';
+
     for (const result of state.batchResults) {
         const row = document.createElement('div'); row.className = 'batch-file-row';
+
         if (result.status === 'completed') {
             row.innerHTML = `<span class="batch-file-name">${escapeHTML(result.title)}</span><a class="batch-file-save" href="${result.download_url}" download="${escapeHTML(lumaTag(result.filename || 'download'))}"><i class="fas fa-save"></i> Save</a>`;
         } else {
             row.innerHTML = `<span class="batch-file-name">${escapeHTML(result.title)}</span><span class="batch-file-error"><i class="fas fa-times-circle"></i> Failed</span>`;
         }
+
         container.appendChild(row);
     }
 }

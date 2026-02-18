@@ -41,26 +41,32 @@ string json_str(const json& j, const string& key, const string& def) {
 string sanitize_utf8(const string& s) {
     string out;
     out.reserve(s.size());
+
     for (unsigned char c : s) {
         if (c < 0x80) out += static_cast<char>(c);
         else out += '_';
     }
+
     return out;
 }
 
 string clean_filename(const string& raw) {
     string out;
+
     for (unsigned char c : raw) {
         if (c >= 0x80) continue;
         if (std::isalnum(c) || c == '-' || c == '(' || c == ')') out += static_cast<char>(c);
         else if (c == ' ' || c == '_' || c == '.') out += ' ';
     }
+
     string result;
     bool prev_space = true;
+
     for (char c : out) {
         if (c == ' ') { if (!prev_space) result += ' '; prev_space = true; }
         else { result += c; prev_space = false; }
     }
+
     while (!result.empty() && result.back() == ' ') result.pop_back();
     if (result.empty()) result = "download";
     return result;
@@ -69,18 +75,22 @@ string clean_filename(const string& raw) {
 string escape_arg(const string& arg) {
 #ifdef _WIN32
     string escaped = "\"";
+
     for (char c : arg) {
         if (c == '"') escaped += "\\\"";
         else escaped += c;
     }
+
     escaped += "\"";
     return escaped;
 #else
     string escaped = "'";
+
     for (char c : arg) {
         if (c == '\'') escaped += "'\\''";
         else escaped += c;
     }
+
     escaped += "'";
     return escaped;
 #endif
@@ -137,18 +147,22 @@ void refresh_system_path() {
     array<char, 32768> buffer;
     string full_cmd = cmd + " 2>&1";
     unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(full_cmd.c_str(), "r"), _pclose);
+
     if (pipe) {
         while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
             new_path += buffer.data();
         }
     }
+
     while (!new_path.empty() && (new_path.back() == '\n' || new_path.back() == '\r' || new_path.back() == ' ')) {
         new_path.pop_back();
     }
+
     if (!new_path.empty()) {
         _putenv_s("PATH", new_path.c_str());
         cout << "[Luma Tools] System PATH refreshed" << endl;
     }
+
 #endif
 }
 
@@ -162,12 +176,16 @@ string find_executable(const string& name, const vector<string>& extra_paths) {
     string wcmd = "which " + name + " 2>&1";
     unique_ptr<FILE, decltype(&pclose)> pipe(popen(wcmd.c_str(), "r"), pclose);
 #endif
+
     if (pipe) {
         while (fgets(buf.data(), buf.size(), pipe.get()) != nullptr) { result += buf.data(); }
     }
+
     auto nl = result.find('\n');
+
     if (nl != string::npos) result = result.substr(0, nl);
     result.erase(std::remove(result.begin(), result.end(), '\r'), result.end());
+
     if (!result.empty() && fs::exists(result)) return result;
     for (const auto& p : extra_paths) { if (fs::exists(p)) return p; }
     return "";
@@ -177,6 +195,7 @@ string find_ytdlp() {
     {
         int code;
         string ver = exec_command("yt-dlp --version", code);
+
         if (!ver.empty() && ver.find("not recognized") == string::npos
             && ver.find("not found") == string::npos) {
             return "yt-dlp";
@@ -191,6 +210,7 @@ string find_ytdlp() {
 
     if (localappdata) {
         string pybase = string(localappdata) + "\\Programs\\Python";
+
         if (fs::exists(pybase)) {
             for (const auto& entry : fs::directory_iterator(pybase)) {
                 if (entry.is_directory()) {
@@ -199,19 +219,23 @@ string find_ytdlp() {
             }
         }
     }
+
     if (userprofile) {
         for (const char* ver : {"310", "311", "312", "313"}) {
             candidates.push_back(string(userprofile) + "\\AppData\\Local\\Programs\\Python\\Python" + ver + "\\Scripts\\yt-dlp.exe");
         }
+
         candidates.push_back(string(userprofile) + "\\.local\\bin\\yt-dlp.exe");
         candidates.push_back(string(userprofile) + "\\scoop\\shims\\yt-dlp.exe");
     }
+
     if (appdata) candidates.push_back(string(appdata) + "\\Python\\Scripts\\yt-dlp.exe");
     candidates.push_back("C:\\ProgramData\\chocolatey\\bin\\yt-dlp.exe");
 #else
     candidates.push_back("/usr/local/bin/yt-dlp");
     candidates.push_back("/usr/bin/yt-dlp");
     const char* home = std::getenv("HOME");
+
     if (home) candidates.push_back(string(home) + "/.local/bin/yt-dlp");
 #endif
 
@@ -226,8 +250,10 @@ string find_ytdlp() {
     {
         int code;
         string ver = exec_command("py -m yt_dlp --version", code);
+
         if (!ver.empty() && ver.find("not recognized") == string::npos) return "py -m yt_dlp";
     }
+
 #endif
     return "";
 }
@@ -235,21 +261,27 @@ string find_ytdlp() {
 string find_ghostscript() {
 #ifdef _WIN32
     auto gs = find_executable("gswin64c");
+
     if (!gs.empty()) return gs;
     gs = find_executable("gswin32c");
+
     if (!gs.empty()) return gs;
     gs = find_executable("gs");
+
     if (!gs.empty()) return gs;
     const char* pf = std::getenv("ProgramFiles");
     string progfiles = pf ? pf : "C:\\Program Files";
     try {
         string gs_dir = progfiles + "\\gs";
+
         if (fs::exists(gs_dir)) {
             for (const auto& entry : fs::directory_iterator(gs_dir)) {
                 if (entry.is_directory()) {
                     string c = entry.path().string() + "\\bin\\gswin64c.exe";
+
                     if (fs::exists(c)) return c;
                     c = entry.path().string() + "\\bin\\gswin32c.exe";
+
                     if (fs::exists(c)) return c;
                 }
             }
@@ -257,6 +289,7 @@ string find_ghostscript() {
     } catch (...) {}
 #else
     auto gs = find_executable("gs");
+
     if (!gs.empty()) return gs;
 #endif
     return "";
@@ -299,12 +332,14 @@ void update_download_status(const string& id, const json& status) {
 
 json get_download_status(const string& id) {
     lock_guard<mutex> lock(downloads_mutex);
+
     if (download_status_map.count(id)) return download_status_map[id];
     return {{"error", "not_found"}};
 }
 
 string get_downloads_dir() {
     string dir = "downloads";
+
     if (!fs::exists(dir)) fs::create_directories(dir);
     return dir;
 }
@@ -320,17 +355,20 @@ string generate_job_id() {
 void update_job(const string& id, const json& status, const string& result_path) {
     lock_guard<mutex> lock(jobs_mutex);
     job_status_map[id] = status;
+
     if (!result_path.empty()) job_results_map[id] = result_path;
 }
 
 json get_job(const string& id) {
     lock_guard<mutex> lock(jobs_mutex);
+
     if (job_status_map.count(id)) return job_status_map[id];
     return {{"error", "not_found"}};
 }
 
 string get_job_result_path(const string& id) {
     lock_guard<mutex> lock(jobs_mutex);
+
     if (job_results_map.count(id)) return job_results_map[id];
     return "";
 }
@@ -339,6 +377,7 @@ string get_job_result_path(const string& id) {
 
 string get_processing_dir() {
     string dir = "processing";
+
     if (!fs::exists(dir)) fs::create_directories(dir);
     return dir;
 }
@@ -351,6 +390,7 @@ string read_file_binary(const string& path) {
 string mime_from_ext(const string& ext) {
     string e = ext;
     std::transform(e.begin(), e.end(), e.begin(), ::tolower);
+
     if (e == ".jpg" || e == ".jpeg") return "image/jpeg";
     if (e == ".png") return "image/png";
     if (e == ".webp") return "image/webp";
@@ -376,11 +416,13 @@ string mime_from_ext(const string& ext) {
 
 void send_file_response(httplib::Response& res, const string& path, const string& filename) {
     auto data = read_file_binary(path);
+
     if (data.empty()) {
         res.status = 500;
         res.set_content(json({{"error", "Failed to read output file"}}).dump(), "application/json");
         return;
     }
+
     string ext = fs::path(filename).extension().string();
     res.set_content(data, mime_from_ext(ext));
     res.set_header("Content-Disposition", "attachment; filename=\"" + filename + "\"");

@@ -4,12 +4,15 @@
 // Simple join for vector<string>
 static std::string join(const std::vector<std::string>& v, const std::string& delim) {
     std::ostringstream oss;
+
     for (size_t i = 0; i < v.size(); ++i) {
         if (i) oss << delim;
         oss << v[i];
     }
+
     return oss.str();
 }
+
 /**
  * Luma Tools — File processing tool route handlers
  * All /api/tools/* endpoints (image, video, audio, PDF)
@@ -31,8 +34,10 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         int quality = 75;
+
         if (req.has_file("quality")) {
             try { quality = std::stoi(req.get_file_value("quality").content); } catch (...) {}
         }
@@ -47,6 +52,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string qarg;
         string e = ext;
         std::transform(e.begin(), e.end(), e.begin(), ::tolower);
+
         if (e == ".jpg" || e == ".jpeg") {
             int qv = 2 + (100 - quality) * 29 / 100;
             qarg = "-q:v " + to_string(qv);
@@ -72,6 +78,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("Image Compress", "Failed for: " + file.filename);
             res.set_content(json({{"error", "Image compression failed"}}).dump(), "application/json");
         }
+
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
@@ -82,6 +89,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string width = req.has_file("width") ? req.get_file_value("width").content : "";
         string height = req.has_file("height") ? req.get_file_value("height").content : "";
@@ -116,6 +124,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("Image Resize", "Failed for: " + file.filename);
             res.set_content(json({{"error", "Image resize failed"}}).dump(), "application/json");
         }
+
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
@@ -126,6 +135,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "png";
 
@@ -149,6 +159,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("Image Convert", "Failed for: " + file.filename);
             res.set_content(json({{"error", "Image conversion failed"}}).dump(), "application/json");
         }
+
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
@@ -159,6 +170,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
 
@@ -170,6 +182,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
 
         string codec;
+
         if (format == "mp3") codec = "-c:a libmp3lame -q:a 2";
         else if (format == "aac" || format == "m4a") codec = "-c:a aac -b:a 192k";
         else if (format == "wav") codec = "-c:a pcm_s16le";
@@ -190,6 +203,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("Audio Convert", "Failed for: " + file.filename);
             res.set_content(json({{"error", "Audio conversion failed"}}).dump(), "application/json");
         }
+
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
@@ -200,6 +214,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string preset = req.has_file("preset") ? req.get_file_value("preset").content : "medium";
 
@@ -215,6 +230,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         thread([jid, input_path, output_path, preset, orig_name]() {
             // Map preset names from frontend (light/medium/heavy) to CRF values
             int crf = 26;
+
             if (preset == "light")       crf = 28;
             else if (preset == "medium") crf = 26;
             else if (preset == "heavy")  crf = 32;
@@ -236,6 +252,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 discord_log_error("Video Compress", "Failed for: " + orig_name);
                 update_job(jid, {{"status", "error"}, {"error", "Video compression failed"}});
             }
+
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
 
@@ -249,6 +266,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string start = req.has_file("start") ? req.get_file_value("start").content : "00:00:00";
         string end   = req.has_file("end")   ? req.get_file_value("end").content   : "";
@@ -274,6 +292,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         thread([jid, input_path, output_path, start, end, out_ext, orig_name, mode]() {
             string cmd;
+
             if (mode == "precise") {
                 // Frame-accurate: re-encode (slower but exact frame cuts)
                 cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
@@ -285,6 +304,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
                     " -ss " + start + " -to " + end + " -c copy " + escape_arg(output_path);
             }
+
             cout << "[Luma Tools] Video trim (" << mode << "): " << cmd << endl;
             int code;
             exec_command(cmd, code);
@@ -296,6 +316,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 discord_log_error("Video Trim", "Failed for: " + orig_name);
                 update_job(jid, {{"status", "error"}, {"error", "Video trimming failed"}});
             }
+
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
 
@@ -309,6 +330,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp4";
 
@@ -324,6 +346,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         thread([jid, input_path, output_path, format, out_ext, orig_name]() {
             string codec;
+
             if (format == "mp4")       codec = "-c:v libx264 -c:a aac";
             else if (format == "webm") codec = "-c:v libvpx-vp9 -c:a libopus";
             else if (format == "mkv")  codec = "-c:v libx264 -c:a aac";
@@ -344,6 +367,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 discord_log_error("Video Convert", "Failed for: " + orig_name);
                 update_job(jid, {{"status", "error"}, {"error", "Video conversion failed"}});
             }
+
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
 
@@ -357,6 +381,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
 
@@ -372,6 +397,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         thread([jid, input_path, output_path, format, out_ext, orig_name]() {
             string codec;
+
             if (format == "mp3")                      codec = "-c:a libmp3lame -q:a 2";
             else if (format == "aac" || format == "m4a") codec = "-c:a aac -b:a 192k";
             else if (format == "wav")                 codec = "-c:a pcm_s16le";
@@ -391,6 +417,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 discord_log_error("Extract Audio", "Failed for: " + orig_name);
                 update_job(jid, {{"status", "error"}, {"error", "Audio extraction failed"}});
             }
+
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
 
@@ -408,11 +435,13 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Get(R"(/api/tools/result/(.+))", [](const httplib::Request& req, httplib::Response& res) {
         string id = req.matches[1];
         string path = get_job_result_path(id);
+
         if (path.empty() || !fs::exists(path)) {
             res.status = 404;
             res.set_content(json({{"error", "Result not found"}}).dump(), "application/json");
             return;
         }
+
         json status = get_job(id);
         string filename = json_str(status, "filename", "processed_file");
         send_file_response(res, path, filename);
@@ -425,11 +454,13 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "Ghostscript not installed. PDF tools require Ghostscript."}}).dump(), "application/json");
             return;
         }
+
         if (!req.has_file("file")) {
             res.status = 400;
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string level = req.has_file("level") ? req.get_file_value("level").content : "ebook";
 
@@ -455,6 +486,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("PDF Compress", "Failed for: " + file.filename);
             res.set_content(json({{"error", "PDF compression failed"}}).dump(), "application/json");
         }
+
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
@@ -465,10 +497,13 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "Ghostscript not installed. PDF tools require Ghostscript."}}).dump(), "application/json");
             return;
         }
+
         int count_val = 0;
+
         if (req.has_file("count")) {
             try { count_val = std::stoi(req.get_file_value("count").content); } catch (...) {}
         }
+
         if (count_val < 2) {
             res.status = 400;
             res.set_content(json({{"error", "At least 2 PDF files required"}}).dump(), "application/json");
@@ -483,6 +518,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         for (int i = 0; i < count_val; i++) {
             string key = "file" + to_string(i);
+
             if (!req.has_file(key)) continue;
             auto f = req.get_file_value(key);
             string path = proc_dir + "/" + jid + "_in" + to_string(i) + ".pdf";
@@ -495,6 +531,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         if (input_paths.size() < 2) {
             res.status = 400;
             res.set_content(json({{"error", "At least 2 valid PDF files required"}}).dump(), "application/json");
+
             for (auto& p : input_paths) try { fs::remove(p); } catch (...) {}
             return;
         }
@@ -502,6 +539,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string output_path = proc_dir + "/" + jid + "_merged.pdf";
         string cmd = escape_arg(g_ghostscript_path) +
             " -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=" + escape_arg(output_path);
+
         for (const auto& p : input_paths) cmd += " " + escape_arg(p);
 
         cout << "[Luma Tools] PDF merge: " << cmd << endl;
@@ -515,6 +553,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("PDF Merge", "Merge failed");
             res.set_content(json({{"error", "PDF merge failed"}}).dump(), "application/json");
         }
+
         for (auto& p : input_paths) try { fs::remove(p); } catch (...) {}
         try { fs::remove(output_path); } catch (...) {}
     });
@@ -526,11 +565,13 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "Ghostscript not installed. PDF tools require Ghostscript."}}).dump(), "application/json");
             return;
         }
+
         if (!req.has_file("file")) {
             res.status = 400;
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "png";
         string dpi = req.has_file("dpi") ? req.get_file_value("dpi").content : "200";
@@ -543,6 +584,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string out_pattern = proc_dir + "/" + jid + "_page_%03d." + format;
 
         string device = "png16m";
+
         if (format == "jpg" || format == "jpeg") device = "jpeg";
         else if (format == "tiff" || format == "tif") device = "tiff24nc";
 
@@ -556,10 +598,12 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         exec_command(cmd, code);
 
         vector<string> pages;
+
         for (int i = 1; i <= 999; i++) {
             char buf[32];
             snprintf(buf, sizeof(buf), "%03d", i);
             string page_path = proc_dir + "/" + jid + "_page_" + buf + "." + format;
+
             if (fs::exists(page_path)) pages.push_back(page_path);
             else break;
         }
@@ -578,17 +622,20 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         } else {
             json files_json = json::array();
             string base_name = fs::path(file.filename).stem().string();
+
             for (size_t i = 0; i < pages.size(); i++) {
                 string page_name = base_name + "_page" + to_string(i + 1) + "." + format;
                 string dest = dl_dir + "/" + page_name;
                 try { fs::copy_file(pages[i], dest, fs::copy_options::overwrite_existing); } catch (...) {}
                 files_json.push_back({{"name", page_name}, {"url", "/downloads/" + page_name}});
             }
+
             json resp = {{"pages", files_json}, {"count", (int)pages.size()}};
             res.set_content(resp.dump(), "application/json");
         }
 
         try { fs::remove(input_path); } catch (...) {}
+
         for (auto& p : pages) try { fs::remove(p); } catch (...) {}
     });
 
@@ -618,6 +665,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 " -i " + escape_arg(palette_path) +
                 " -lavfi \"" + vf + "[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5\" -loop 0 " + escape_arg(output_path);
             exec_command(cmd2, code);
+
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + ".gif"}}, output_path);
             else { discord_log_error("Video to GIF", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","GIF conversion failed"}}); }
@@ -641,6 +689,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 " -movflags faststart -pix_fmt yuv420p -vf \"scale=trunc(iw/2)*2:trunc(ih/2)*2\""
                 " -c:v libx264 -crf 20 " + escape_arg(output_path);
             int code; exec_command(cmd, code);
+
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + ".mp4"}}, output_path);
             else { discord_log_error("GIF to Video", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","GIF to video conversion failed"}}); }
@@ -663,6 +712,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         thread([jid, input_path, output_path, orig_name, ext]() {
             string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " -an -c:v copy " + escape_arg(output_path);
             int code; exec_command(cmd, code);
+
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_muted" + ext}}, output_path);
             else { discord_log_error("Remove Audio", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","Removing audio failed"}}); }
@@ -676,6 +726,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
         double speed = 2.0;
+
         if (req.has_file("speed")) try { speed = std::stod(req.get_file_value("speed").content); } catch (...) {}
         if (speed < 0.25) speed = 0.25; if (speed > 4.0) speed = 4.0;
         discord_log_tool("Video Speed", file.filename + " (" + to_string(speed) + "x)");
@@ -688,6 +739,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             double pts = 1.0 / speed;
             // atempo supports 0.5–2.0; chain for beyond
             string atempo; double rem = speed;
+
             if (rem > 2.0) { while (rem > 2.0) { atempo += "atempo=2.0,"; rem /= 2.0; } atempo += "atempo=" + to_string(rem); }
             else if (rem < 0.5) { while (rem < 0.5) { atempo += "atempo=0.5,"; rem *= 2.0; } atempo += "atempo=" + to_string(rem); }
             else atempo = "atempo=" + to_string(rem);
@@ -695,11 +747,13 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 " -filter_complex \"[0:v]setpts=" + to_string(pts) + "*PTS[v];[0:a]" + atempo + "[a]\"" +
                 " -map \"[v]\" -map \"[a]\" -c:v libx264 -crf 20 -preset fast -c:a aac " + escape_arg(output_path);
             int code; exec_command(cmd, code);
+
             if (!fs::exists(output_path) || fs::file_size(output_path) == 0) {
                 cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
                     " -vf \"setpts=" + to_string(pts) + "*PTS\" -an -c:v libx264 -crf 20 " + escape_arg(output_path);
                 exec_command(cmd, code);
             }
+
             if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
                 char s[16]; snprintf(s, sizeof(s), "%.1fx", speed);
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_" + string(s) + ".mp4"}}, output_path);
@@ -720,6 +774,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string output_path = get_processing_dir() + "/" + jid + "_frame.png";
         string cmd = ffmpeg_cmd() + " -y -ss " + timestamp + " -i " + escape_arg(input_path) + " -frames:v 1 -q:v 2 " + escape_arg(output_path);
         int code; exec_command(cmd, code);
+
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
             send_file_response(res, output_path, fs::path(file.filename).stem().string() + "_frame.png");
         } else { res.status = 500; res.set_content(json({{"error","Frame extraction failed"}}).dump(), "application/json"); }
@@ -740,6 +795,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
                 " -vf deshake -c:v libx264 -crf 20 -preset fast -c:a aac " + escape_arg(output_path);
             int code; exec_command(cmd, code);
+
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_stabilized.mp4"}}, output_path);
             else { discord_log_error("Video Stabilize", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","Stabilization failed"}}); }
@@ -763,6 +819,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
                 " -af loudnorm=I=-16:TP=-1.5:LRA=11 " + escape_arg(output_path);
             int code; exec_command(cmd, code);
+
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
                 update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_normalized" + ext}}, output_path);
             else { discord_log_error("Audio Normalize", "Failed for: " + orig_name); update_job(jid, {{"status","error"},{"error","Normalization failed"}}); }
@@ -782,6 +839,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string output_path = get_processing_dir() + "/" + jid + "_subs." + format;
         string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " -map 0:s:0 " + escape_arg(output_path);
         int code; exec_command(cmd, code);
+
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
             send_file_response(res, output_path, fs::path(file.filename).stem().string() + "." + format);
         } else { res.status = 500; res.set_content(json({{"error","No subtitle track found in this video"}}).dump(), "application/json"); }
@@ -799,10 +857,12 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string output_path = get_processing_dir() + "/" + jid + "_clean" + ext;
         string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " -map_metadata -1 -c copy " + escape_arg(output_path);
         int code; exec_command(cmd, code);
+
         if (!fs::exists(output_path) || fs::file_size(output_path) == 0) {
             cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " -map_metadata -1 " + escape_arg(output_path);
             exec_command(cmd, code);
         }
+
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
             send_file_response(res, output_path, fs::path(file.filename).stem().string() + "_clean" + ext);
         } else { res.status = 500; res.set_content(json({{"error","Metadata removal failed"}}).dump(), "application/json"); }
@@ -820,29 +880,36 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string base_name = fs::path(file.filename).stem().string();
         vector<int> sizes = {16, 32, 48, 180, 192, 512};
         json files_json = json::array();
+
         for (int sz : sizes) {
             string out_name = base_name + "_" + to_string(sz) + "x" + to_string(sz) + ".png";
             string out_path = proc_dir + "/" + jid + "_" + to_string(sz) + ".png";
             string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
                 " -vf \"scale=" + to_string(sz) + ":" + to_string(sz) + ":flags=lanczos\" " + escape_arg(out_path);
             int code; exec_command(cmd, code);
+
             if (fs::exists(out_path) && fs::file_size(out_path) > 0) {
                 string dest = dl_dir + "/" + out_name;
                 try { fs::copy_file(out_path, dest, fs::copy_options::overwrite_existing); } catch (...) {}
                 files_json.push_back({{"name", out_name}, {"url", "/downloads/" + out_name}, {"size", to_string(sz) + "x" + to_string(sz)}});
             }
+
             try { fs::remove(out_path); } catch (...) {}
         }
+
         string ico_name = base_name + "_favicon.ico";
         string ico_path = proc_dir + "/" + jid + ".ico";
         string ico_cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " -vf scale=32:32:flags=lanczos " + escape_arg(ico_path);
         int ico_code; exec_command(ico_cmd, ico_code);
+
         if (fs::exists(ico_path) && fs::file_size(ico_path) > 0) {
             string dest = dl_dir + "/" + ico_name;
             try { fs::copy_file(ico_path, dest, fs::copy_options::overwrite_existing); } catch (...) {}
             files_json.push_back({{"name", ico_name}, {"url", "/downloads/" + ico_name}, {"size", "ICO"}});
         }
+
         try { fs::remove(ico_path); fs::remove(input_path); } catch (...) {}
+
         if (files_json.empty()) { res.status = 500; res.set_content(json({{"error","Favicon generation failed"}}).dump(), "application/json"); }
         else res.set_content(json({{"pages", files_json}, {"count", (int)files_json.size()}}).dump(), "application/json");
     });
@@ -854,6 +921,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string x_s = req.has_file("x") ? req.get_file_value("x").content : "0";
         string y_s = req.has_file("y") ? req.get_file_value("y").content : "0";
@@ -889,6 +957,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("Image Crop", "Failed for: " + file.filename);
             res.set_content(json({{"error", "Image crop failed"}}).dump(), "application/json");
         }
+
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
@@ -899,8 +968,10 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string method = "auto";
+
         if (req.has_file("method")) method = req.get_file_value("method").content;
 
         discord_log_tool("Background Remover", file.filename + " (" + method + ")");
@@ -948,6 +1019,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("Background Remover", "Failed for: " + file.filename);
             res.set_content(json({{"error", "Background removal failed. If using Auto mode, ensure rembg is installed."}}).dump(), "application/json");
         }
+
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
@@ -958,19 +1030,23 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
             return;
         }
+
         auto file = req.get_file_value("file");
         string regions_json = req.has_file("regions") ? req.get_file_value("regions").content : "";
+
         if (regions_json.empty()) {
             res.status = 400;
             res.set_content(json({{"error", "No redaction regions provided"}}).dump(), "application/json");
             return;
         }
+
         json regions;
         try { regions = json::parse(regions_json); } catch (...) {
             res.status = 400;
             res.set_content(json({{"error", "Invalid regions JSON"}}).dump(), "application/json");
             return;
         }
+
         discord_log_tool("Redact Video", file.filename);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -978,9 +1054,11 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string output_path = get_processing_dir() + "/" + jid + "_redacted" + ext;
         // Build FFmpeg filter string
         vector<string> filters;
+
         for (const auto& reg : regions) {
             int x = reg.value("x", 0), y = reg.value("y", 0), w = reg.value("w", 0), h = reg.value("h", 0);
             string type = reg.value("type", "box");
+
             if (w < 8 || h < 8) continue;
             if (type == "box") {
                 filters.push_back("drawbox=x=" + to_string(x) + ":y=" + to_string(y) + ":w=" + to_string(w) + ":h=" + to_string(h) + ":color=black@1:t=fill");
@@ -988,12 +1066,15 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 filters.push_back("boxblur=enable='between(t,0,1)',luma_radius=20:luma_power=1:chroma_radius=10:chroma_power=1, crop=x=" + to_string(x) + ":y=" + to_string(y) + ":w=" + to_string(w) + ":h=" + to_string(h));
             }
         }
+
         string vf = join(filters, ",");
         string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path);
+
         if (!vf.empty()) cmd += " -vf \"" + vf + "\"";
         cmd += " " + escape_arg(output_path);
         cout << "[Luma Tools] Redact video: " << cmd << endl;
         int code; exec_command(cmd, code);
+
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
             string out_name = fs::path(file.filename).stem().string() + "_redacted" + ext;
             send_file_response(res, output_path, out_name);
@@ -1002,12 +1083,14 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             discord_log_error("Redact Video", "Failed for: " + file.filename);
             res.set_content(json({{"error", "Video redaction failed"}}).dump(), "application/json");
         }
+
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
 
     // ── POST /api/tools/images-to-pdf ───────────────────────────────────────
     svr.Post("/api/tools/images-to-pdf", [](const httplib::Request& req, httplib::Response& res) {
         int count_val = 0;
+
         if (req.has_file("count")) try { count_val = std::stoi(req.get_file_value("count").content); } catch (...) {}
         if (count_val < 1) { res.status = 400; res.set_content(json({{"error","At least 1 image required"}}).dump(),"application/json"); return; }
         discord_log_tool("Images to PDF", to_string(count_val) + " images");
@@ -1018,24 +1101,30 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         vector<ImgInfo> imgs;
         string ffprobe_path = g_ffmpeg_exe;
         auto fp = ffprobe_path.rfind("ffmpeg");
+
         if (fp != string::npos) ffprobe_path.replace(fp, 6, "ffprobe");
         for (int i = 0; i < count_val; i++) {
             string key = "file" + to_string(i);
+
             if (!req.has_file(key)) continue;
             auto f = req.get_file_value(key);
             string raw_path = proc_dir + "/" + jid + "_in" + to_string(i) + fs::path(f.filename).extension().string();
             { ofstream out(raw_path, std::ios::binary); out.write(f.content.data(), f.content.size()); }
             string jpg_path = proc_dir + "/" + jid + "_img" + to_string(i) + ".jpg";
             int code; exec_command(ffmpeg_cmd() + " -y -i " + escape_arg(raw_path) + " -q:v 2 " + escape_arg(jpg_path), code);
+
             if (fs::exists(jpg_path) && fs::file_size(jpg_path) > 0) {
                 string dims = exec_command(escape_arg(ffprobe_path) + " -v quiet -show_entries stream=width,height -of csv=p=0 " + escape_arg(jpg_path), code);
                 int w = 612, h = 792;
                 auto comma = dims.find(',');
+
                 if (comma != string::npos) { try { w = std::stoi(dims.substr(0, comma)); h = std::stoi(dims.substr(comma + 1)); } catch (...) {} }
                 imgs.push_back({jpg_path, w, h});
             }
+
             try { fs::remove(raw_path); } catch (...) {}
         }
+
         if (imgs.empty()) { res.status = 500; res.set_content(json({{"error","No valid images"}}).dump(), "application/json"); return; }
         // Build minimal PDF with embedded JPEG images
         string output_path = proc_dir + "/" + jid + "_output.pdf";
@@ -1046,8 +1135,10 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             pdf << "%PDF-1.4\n%\xe2\xe3\xcf\xd3\n";
             off[1] = (long)pdf.tellp(); pdf << "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n";
             off[2] = (long)pdf.tellp(); pdf << "2 0 obj\n<< /Type /Pages /Kids [";
+
             for (int i = 0; i < np; i++) { if (i) pdf << " "; pdf << (3+i*3) << " 0 R"; }
             pdf << "] /Count " << np << " >>\nendobj\n";
+
             for (int i = 0; i < np; i++) {
                 ifstream img(imgs[i].path, std::ios::binary);
                 string jdata((std::istreambuf_iterator<char>(img)), std::istreambuf_iterator<char>());
@@ -1066,13 +1157,17 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 pdf.write(jdata.data(), jdata.size());
                 pdf << "\nendstream\nendobj\n";
             }
+
             int to = 2 + np * 3; long xo = (long)pdf.tellp();
             pdf << "xref\n0 " << (to+1) << "\n0000000000 65535 f \n";
+
             for (int i = 1; i <= to; i++) { char b[21]; snprintf(b, sizeof(b), "%010ld 00000 n \n", off[i]); pdf << b; }
             pdf << "trailer\n<< /Size " << (to+1) << " /Root 1 0 R >>\nstartxref\n" << xo << "\n%%EOF\n";
         }
+
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) send_file_response(res, output_path, "images.pdf");
         else { res.status = 500; res.set_content(json({{"error","PDF generation failed"}}).dump(), "application/json"); }
+
         for (auto& im : imgs) try { fs::remove(im.path); } catch (...) {}
         try { fs::remove(output_path); } catch (...) {}
     });
@@ -1085,6 +1180,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         json hashes;
+
         for (const auto& algo : {"MD5", "SHA1", "SHA256"}) {
             int code; string output = exec_command("certutil -hashfile " + escape_arg(input_path) + " " + algo, code);
             istringstream iss(output); string line;
@@ -1092,8 +1188,10 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             line.erase(std::remove(line.begin(), line.end(), ' '), line.end());
             line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
             line.erase(std::remove(line.begin(), line.end(), '\n'), line.end());
+
             if (code == 0 && !line.empty() && line.find("CertUtil") == string::npos) hashes[algo] = line;
         }
+
         try { fs::remove(input_path); } catch (...) {}
         res.set_content(json({{"filename", file.filename}, {"size", (long long)file.content.size()}, {"hashes", hashes}}).dump(), "application/json");
     });

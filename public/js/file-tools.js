@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // FILE UPLOAD HANDLING
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -13,6 +13,7 @@ function initUploadZones() {
         zone.addEventListener('drop', e => {
             e.preventDefault(); zone.classList.remove('dragover');
             const files = [...e.dataTransfer.files];
+
             if (isMulti) handleMultiFiles(toolId, files);
             else if (files.length > 0) handleFileSelect(toolId, files[0]);
         });
@@ -27,19 +28,24 @@ function initUploadZones() {
 
 function handleFileSelect(toolId, file) {
     const maxSize = parseInt(document.getElementById('uz-' + toolId)?.dataset.max || '52428800');
+
     if (file.size > maxSize) {
         showToast(`File too large. Max ${formatBytes(maxSize)}`, 'error');
         return;
     }
+
     state.files[toolId] = file;
 
     const preview = document.querySelector(`.file-preview[data-tool="${toolId}"]`);
+
     if (preview) {
         preview.classList.remove('hidden');
         preview.querySelector('.file-name').textContent = file.name;
         preview.querySelector('.file-size').textContent = formatBytes(file.size);
     }
+
     const zone = document.getElementById('uz-' + toolId);
+
     if (zone) zone.classList.add('hidden');
 
     hideResult(toolId);
@@ -60,6 +66,7 @@ function handleMultiFiles(toolId, files) {
 
 function renderMultiFileList(toolId) {
     const list = document.querySelector(`.multi-file-list[data-tool="${toolId}"]`);
+
     if (!list) return;
     list.classList.remove('hidden');
     list.innerHTML = '';
@@ -81,8 +88,10 @@ function renderMultiFileList(toolId) {
 function removeFile(toolId) {
     delete state.files[toolId];
     const preview = document.querySelector(`.file-preview[data-tool="${toolId}"]`);
+
     if (preview) preview.classList.add('hidden');
     const zone = document.getElementById('uz-' + toolId);
+
     if (zone) zone.classList.remove('hidden');
     hideResult(toolId);
 }
@@ -90,8 +99,10 @@ function removeFile(toolId) {
 function removeMultiFile(toolId, idx) {
     if (state.multiFiles[toolId]) {
         state.multiFiles[toolId].splice(idx, 1);
+
         if (state.multiFiles[toolId].length === 0) {
             const list = document.querySelector(`.multi-file-list[data-tool="${toolId}"]`);
+
             if (list) list.classList.add('hidden');
         } else {
             renderMultiFileList(toolId);
@@ -101,8 +112,10 @@ function removeMultiFile(toolId, idx) {
 
 function hideResult(toolId) {
     const result = document.querySelector(`.result-section[data-tool="${toolId}"]`);
+
     if (result) result.classList.add('hidden');
     const proc = document.querySelector(`.processing-status[data-tool="${toolId}"]`);
+
     if (proc) proc.classList.add('hidden');
 }
 
@@ -113,76 +126,99 @@ function hideResult(toolId) {
 async function processFile(toolId) {
     if (toolId === 'pdf-merge' || toolId === 'images-to-pdf') {
         const files = state.multiFiles[toolId];
+
         if (toolId === 'pdf-merge' && (!files || files.length < 2)) { showToast('Please select at least 2 PDF files', 'error'); return; }
         if (toolId === 'images-to-pdf' && (!files || files.length < 1)) { showToast('Please select at least 1 image', 'error'); return; }
         return processMultiFile(toolId, files);
     }
+
     if (WASM_TOOLS[toolId]) {
         const file = state.files[toolId];
+
         if (!file) { showToast('Please select a file first', 'error'); return; }
         const cmd = WASM_TOOLS[toolId](file, getWasmOpts(toolId));
+
         if (cmd) return processFileWasm(toolId);
     }
+
     return processFileServer(toolId);
 }
 
 async function processFileServer(toolId) {
     const file = state.files[toolId];
+
     if (!file) { showToast('Please select a file first', 'error'); return; }
 
     const formData = new FormData();
+
     formData.append('file', file);
 
     switch (toolId) {
         case 'image-compress':
+
             formData.append('quality', $('imageCompressQuality').value);
             break;
         case 'image-resize':
+
             formData.append('width', $('resizeWidth').value || '');
             formData.append('height', $('resizeHeight').value || '');
             break;
         case 'image-convert':
+
             formData.append('format', getSelectedFmt('image-convert') || 'png');
             break;
         case 'video-compress':
+
             formData.append('preset', getSelectedPreset('video-compress') || 'medium');
             break;
         case 'video-trim':
+
             formData.append('start', $('trimStart').value || '00:00:00');
             formData.append('end', $('trimEnd').value || '');
             formData.append('mode', getSelectedPreset('video-trim-mode') || 'fast');
+
             if (!$('trimEnd').value) { showToast('Please enter an end time', 'error'); return; }
             break;
         case 'video-convert':
+
             formData.append('format', getSelectedFmt('video-convert') || 'mp4');
             break;
         case 'video-extract-audio':
+
             formData.append('format', getSelectedFmt('video-extract-audio') || 'mp3');
             break;
         case 'audio-convert':
+
             formData.append('format', getSelectedFmt('audio-convert') || 'mp3');
             break;
         case 'pdf-compress':
+
             formData.append('level', getSelectedPreset('pdf-compress') || 'ebook');
             break;
         case 'pdf-to-images':
+
             formData.append('format', getSelectedFmt('pdf-to-images') || 'png');
             formData.append('dpi', $('pdfDpi').value || '200');
             break;
         case 'video-to-gif':
+
             formData.append('fps', $('gifFps').value || '15');
             formData.append('width', $('gifWidth').value || '480');
             break;
         case 'video-speed':
+
             formData.append('speed', $('videoSpeed').value || '2');
             break;
         case 'video-frame':
+
             formData.append('timestamp', $('frameTimestamp').value || '00:00:00');
             break;
         case 'subtitle-extract':
+
             formData.append('format', getSelectedFmt('subtitle-extract') || 'srt');
             break;
         case 'image-crop':
+
             if (!state.cropRect) { showToast('Please select a crop region', 'error'); return; }
             formData.append('x', Math.round(state.cropRect.x).toString());
             formData.append('y', Math.round(state.cropRect.y).toString());
@@ -190,11 +226,13 @@ async function processFileServer(toolId) {
             formData.append('h', Math.round(state.cropRect.h).toString());
             break;
         case 'image-bg-remove':
+
             formData.append('method', getSelectedFmt('bg-remove-method') || 'auto');
             break;
         case 'redact': {
             if (file.type.startsWith('image/')) {
                 const canvas = $('redactCanvas');
+
                 if (!canvas || canvas.width === 0) { showToast('Please draw at least one redaction region', 'error'); return; }
                 showProcessing(toolId, true);
                 canvas.toBlob(blob => {
@@ -206,11 +244,14 @@ async function processFileServer(toolId) {
                 }, file.type.startsWith('image/png') ? 'image/png' : 'image/jpeg', 0.95);
                 return;
             }
+
             if (redactRegions.length === 0) { showToast('Please draw at least one redaction region', 'error'); return; }
             formData.append('regions', JSON.stringify(redactRegions));
             showProcessing(toolId, true);
+
             try {
                 const res = await fetch('/api/tools/redact-video', { method: 'POST', body: formData });
+
                 if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Redaction failed'); }
                 const blob = await res.blob();
                 showResult(toolId, blob, file.name.replace(/\.[^.]+$/, '') + '_redacted' + (file.name.match(/\.[^.]+$/)?.[0] || '.mp4'));
@@ -227,18 +268,23 @@ async function processFileServer(toolId) {
 
     try {
         const res = await fetch('/api/tools/' + toolId, { method: 'POST', body: formData });
+
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: 'Processing failed' }));
             throw new Error(err.error || 'Processing failed');
         }
+
         if (isAsync) {
             const data = await res.json();
+
             if (data.job_id) { pollJobStatus(toolId, data.job_id); }
             else { throw new Error('No job ID returned'); }
         } else {
             const contentType = res.headers.get('content-type') || '';
+
             if (contentType.includes('application/json')) {
                 const data = await res.json();
+
                 if (data.hashes) { showHashResults(toolId, data); }
                 else if (data.pages && data.pages.length > 0) { showMultiResult(toolId, data.pages); }
                 else { throw new Error('No output files'); }
@@ -247,6 +293,7 @@ async function processFileServer(toolId) {
                 const filename = getFilenameFromResponse(res) || file.name;
                 showResult(toolId, blob, filename);
             }
+
             showProcessing(toolId, false);
         }
     } catch (err) {
@@ -258,14 +305,18 @@ async function processFileServer(toolId) {
 async function processMultiFile(toolId, files) {
     const formData = new FormData();
     files.forEach((f, i) => formData.append('file' + i, f));
+
     formData.append('count', files.length.toString());
     showProcessing(toolId, true);
+
     try {
         const res = await fetch('/api/tools/' + toolId, { method: 'POST', body: formData });
+
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: 'Processing failed' }));
             throw new Error(err.error || 'Processing failed');
         }
+
         const blob = await res.blob();
         const filename = getFilenameFromResponse(res) || 'merged.pdf';
         showResult(toolId, blob, filename);
@@ -288,12 +339,15 @@ function pollJobStatus(toolId, jobId) {
         try {
             const res = await fetch(`/api/tools/status/${jobId}`);
             const data = await res.json();
+
             if (data.status === 'completed') {
                 clearInterval(state.jobPolls[toolId]);
                 delete state.jobPolls[toolId];
+
                 if (progressBar) progressBar.style.width = '100%';
                 if (progressPct) progressPct.textContent = '100%';
                 const fileRes = await fetch(`/api/tools/result/${jobId}`);
+
                 if (!fileRes.ok) throw new Error('Failed to download result');
                 const blob = await fileRes.blob();
                 const filename = getFilenameFromResponse(fileRes) || 'processed_file';
@@ -306,6 +360,7 @@ function pollJobStatus(toolId, jobId) {
                 showToast(data.error || 'Processing failed', 'error');
             } else {
                 const pct = data.progress || 0;
+
                 if (progressBar) progressBar.style.width = pct + '%';
                 if (progressPct) progressPct.textContent = pct > 0 ? Math.round(pct) + '%' : '';
                 if (procText && data.stage) procText.textContent = data.stage;
@@ -316,29 +371,36 @@ function pollJobStatus(toolId, jobId) {
 
 function getFilenameFromResponse(res) {
     const disp = res.headers.get('content-disposition');
+
     if (disp) {
         const match = disp.match(/filename[*]?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+
         if (match) return decodeURIComponent(match[1]);
     }
+
     return null;
 }
 
 function showProcessing(toolId, show) {
     const el = document.querySelector(`.processing-status[data-tool="${toolId}"]`);
+
     if (el) el.classList.toggle('hidden', !show);
     const panel = document.getElementById('tool-' + toolId);
     const btn = panel?.querySelector('.process-btn');
+
     if (btn) btn.disabled = show;
 }
 
 function showResult(toolId, blob, filename) {
     const result = document.querySelector(`.result-section[data-tool="${toolId}"]`);
+
     if (!result) return;
     result.classList.remove('hidden');
     const tagged = lumaTag(filename);
     result.querySelector('.result-name').textContent = tagged;
     result.querySelector('.result-size').textContent = formatBytes(blob.size);
     const downloadLink = result.querySelector('.result-download');
+
     if (downloadLink._objectUrl) URL.revokeObjectURL(downloadLink._objectUrl);
     const objectUrl = URL.createObjectURL(blob);
     downloadLink._objectUrl = objectUrl;
@@ -348,6 +410,7 @@ function showResult(toolId, blob, filename) {
 
 function showMultiResult(toolId, pages) {
     const result = document.querySelector(`.result-section[data-tool="${toolId}"]`);
+
     if (!result) return;
     result.classList.remove('hidden');
     result.classList.add('has-multi');
@@ -356,11 +419,13 @@ function showMultiResult(toolId, pages) {
     const downloadLink = result.querySelector('.result-download');
     downloadLink.style.display = 'none';
     let listEl = result.querySelector('.multi-result-list');
+
     if (!listEl) {
         listEl = document.createElement('div');
         listEl.className = 'multi-result-list';
         result.appendChild(listEl);
     }
+
     listEl.innerHTML = pages.map(p => {
         const tagged = lumaTag(p.name);
         return `<a href="${p.url}" download="${escapeHTML(tagged)}" class="result-page-link"><i class="fas fa-download"></i> ${escapeHTML(tagged)}</a>`;
@@ -374,6 +439,7 @@ function showMultiResult(toolId, pages) {
 function detectFileCategory(file) {
     const type = (file.type || '').toLowerCase();
     const name = file.name.toLowerCase();
+
     if (type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|tiff?|ico|gif|svg)$/.test(name)) return 'image';
     if (type.startsWith('video/') || /\.(mp4|webm|avi|mov|mkv|flv|wmv)$/.test(name)) return 'video';
     if (type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|aac|m4a|wma|opus)$/.test(name)) return 'audio';
@@ -388,11 +454,13 @@ function initGlobalDrop() {
 
     document.addEventListener('dragenter', (e) => {
         e.preventDefault();
+
         if (e.dataTransfer?.types?.includes('Files')) { _dragCounter++; overlay.classList.add('visible'); }
     });
     document.addEventListener('dragleave', (e) => {
         e.preventDefault();
         _dragCounter--;
+
         if (_dragCounter <= 0) { _dragCounter = 0; overlay.classList.remove('visible'); }
     });
     document.addEventListener('dragover', (e) => e.preventDefault());
@@ -400,10 +468,13 @@ function initGlobalDrop() {
         e.preventDefault();
         _dragCounter = 0;
         overlay.classList.remove('visible');
+
         if (e.target.closest('.upload-zone')) return;
         const files = [...(e.dataTransfer?.files || [])];
+
         if (files.length === 0) return;
         const category = detectFileCategory(files[0]);
+
         if (!category) { showToast('Unsupported file type', 'error'); return; }
         state.droppedFiles = files;
         state.droppedCategory = category;
@@ -421,6 +492,7 @@ function showQuickActionModal(category, files) {
     const tools = FILE_TOOL_MAP[category] || [];
 
     title.textContent = category.charAt(0).toUpperCase() + category.slice(1) + ' Tools';
+
     if (files.length === 1) {
         fileInfo.textContent = `${files[0].name} (${formatBytes(files[0].size)})`;
     } else {
@@ -436,6 +508,7 @@ function showQuickActionModal(category, files) {
     }
 
     grid.innerHTML = '';
+
     for (const tool of tools) {
         const btn = document.createElement('button');
         btn.className = 'quick-action-btn';
@@ -457,6 +530,7 @@ function closeQuickAction(e) {
 function onQuickActionSelect(toolId) {
     const files = state.droppedFiles;
     $('quickActionBackdrop').classList.remove('visible');
+
     if (files.length > 1) {
         batchQueue.start(toolId, files);
     } else if (files.length === 1) {
@@ -466,6 +540,7 @@ function onQuickActionSelect(toolId) {
             showToast(`File loaded into ${toolId.replace(/-/g, ' ')}`, 'success');
         }, 100);
     }
+
     state.droppedFiles = [];
     state.droppedCategory = null;
 }

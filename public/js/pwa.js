@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // PWA INSTALL PROMPT
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -49,6 +49,7 @@ function installPWA() {
 
 function initParticles() {
     const canvas = document.getElementById('particles');
+
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     let width, height;
@@ -64,28 +65,34 @@ function initParticles() {
 
     function animate() {
         ctx.clearRect(0, 0, width, height);
+
         for (const p of particles) {
             p.x += p.vx; p.y += p.vy;
+
             if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
             if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
             ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fillStyle = `rgba(124, 92, 255, ${p.alpha})`; ctx.fill();
         }
+
         for (let i = 0; i < particles.length; i++) {
             for (let j = i + 1; j < particles.length; j++) {
                 const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
+
                 if (dist < CONNECT_DIST) {
                     ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
                     ctx.strokeStyle = `rgba(124, 92, 255, ${0.05 * (1 - dist / CONNECT_DIST)})`; ctx.lineWidth = 0.5; ctx.stroke();
                 }
             }
         }
+
         requestAnimationFrame(animate);
     }
 
     window.addEventListener('resize', resize);
     resize();
+
     for (let i = 0; i < COUNT; i++) particles.push(create());
     animate();
 }
@@ -111,13 +118,16 @@ function initMobileSwipe() {
         if (!swiping) return;
         const dx = e.changedTouches[0].clientX - touchStartX;
         const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+
         if (dy > Math.abs(dx)) return; // ignore vertical scrolling
         const sidebar = $('sidebar');
+
         if (dx > SWIPE_THRESHOLD && !sidebar.classList.contains('open') && touchStartX < EDGE_ZONE) {
             toggleSidebar(true);
         } else if (dx < -SWIPE_THRESHOLD && sidebar.classList.contains('open')) {
             toggleSidebar(false);
         }
+
         swiping = false;
     }, { passive: true });
 }
@@ -141,19 +151,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
             const si = $('sidebarSearch');
+
             if (si) { si.focus(); si.select(); }
             if (window.innerWidth <= 768 && !$('sidebar').classList.contains('open')) toggleSidebar(true);
         }
+
         if (e.key === 'Escape') closeQuickAction();
     });
 
     // Cache default format/preset selections
     document.querySelectorAll('.format-select-grid').forEach(grid => {
         const active = grid.querySelector('.fmt-btn.active');
+
         if (active && grid.dataset.tool) state.outputFormats[grid.dataset.tool] = active.dataset.fmt;
     });
     document.querySelectorAll('.preset-grid').forEach(grid => {
         const active = grid.querySelector('.preset-btn.active');
+
         if (active && grid.dataset.tool) state.presets[grid.dataset.tool] = active.dataset.val;
     });
 });

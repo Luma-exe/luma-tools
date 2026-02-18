@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════
 // IMAGE CROP TOOL
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -8,6 +8,7 @@ let cropRatio = 'free';
 function initCropCanvas(file) {
     const wrap = $('cropCanvasWrap');
     const canvas = $('cropCanvas');
+
     if (!wrap || !canvas) return;
     wrap.classList.remove('hidden');
     const ctx = canvas.getContext('2d');
@@ -38,22 +39,27 @@ function initCropDrag(canvas) {
         const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top;
         return { x: Math.max(0, Math.min(canvas.width, x)), y: Math.max(0, Math.min(canvas.height, y)) };
     }
+
     function onStart(e) {
         e.preventDefault();
         dragging = true;
         const p = getPos(e); startX = p.x; startY = p.y;
     }
+
     function onMove(e) {
         if (!dragging) return;
         e.preventDefault();
         const p = getPos(e);
         let x = Math.min(startX, p.x), y = Math.min(startY, p.y);
         let w = Math.abs(p.x - startX), h = Math.abs(p.y - startY);
+
         if (cropRatio !== 'free') {
             const parts = cropRatio.split(':').map(Number);
             const r = parts[0] / parts[1];
+
             if (w / h > r) w = h * r; else h = w / r;
         }
+
         w = Math.min(w, canvas.width - x);
         h = Math.min(h, canvas.height - y);
         updateCropSelection(x, y, w, h);
@@ -61,6 +67,7 @@ function initCropDrag(canvas) {
         const sy = parseFloat(canvas.dataset.scaleY);
         state.cropRect = { x: x * sx, y: y * sy, w: w * sx, h: h * sy };
     }
+
     function onEnd() { dragging = false; }
     canvas.addEventListener('mousedown', onStart);
     canvas.addEventListener('mousemove', onMove);
@@ -72,6 +79,7 @@ function initCropDrag(canvas) {
 
 function updateCropSelection(x, y, w, h) {
     const sel = $('cropSelection');
+
     if (!sel) return;
     sel.style.left = x + 'px'; sel.style.top = y + 'px';
     sel.style.width = w + 'px'; sel.style.height = h + 'px';
