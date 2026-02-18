@@ -1676,16 +1676,43 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             string text;
             bool extracted = false;
 
+            // Helper: strip invalid UTF-8 bytes and UTF BOMs so json::dump() never throws
+            auto sanitize_utf8 = [](const string& s) -> string {
+                string out;
+                out.reserve(s.size());
+                size_t i = 0;
+                // Strip UTF-8 BOM (EF BB BF) or UTF-16 BOM (FF FE / FE FF)
+                if (s.size() >= 3 && (unsigned char)s[0]==0xEF && (unsigned char)s[1]==0xBB && (unsigned char)s[2]==0xBF) i = 3;
+                else if (s.size() >= 2 && ((unsigned char)s[0]==0xFF && (unsigned char)s[1]==0xFE)) i = 2;
+                else if (s.size() >= 2 && ((unsigned char)s[0]==0xFE && (unsigned char)s[1]==0xFF)) i = 2;
+                for (; i < s.size(); ) {
+                    unsigned char c = (unsigned char)s[i];
+                    int seq = 0;
+                    if      (c <= 0x7F)                         seq = 1;
+                    else if ((c & 0xE0) == 0xC0 && c >= 0xC2)  seq = 2;
+                    else if ((c & 0xF0) == 0xE0)                seq = 3;
+                    else if ((c & 0xF8) == 0xF0 && c <= 0xF4)  seq = 4;
+                    if (seq == 0) { i++; out += '?'; continue; } // invalid lead byte
+                    if (i + seq > s.size()) { i++; out += '?'; continue; }
+                    bool ok = true;
+                    for (int k = 1; k < seq; k++)
+                        if (((unsigned char)s[i+k] & 0xC0) != 0x80) { ok = false; break; }
+                    if (ok) { out.append(s, i, seq); i += seq; }
+                    else    { out += '?'; i++; }
+                }
+                return out;
+            };
+
             if (!g_ghostscript_path.empty()) {
                 string cmd = escape_arg(g_ghostscript_path) +
                     " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite"
-                    " -dTextFormat=2"
+                    " -dTextFormat=3"
                     " -sOutputFile=" + escape_arg(txt_path) +
                     " " + escape_arg(pdf_path);
                 int code; exec_command(cmd, code);
                 if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
-                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-                    text = ss.str();
+                    ifstream f(txt_path, std::ios::binary); std::ostringstream ss; ss << f.rdbuf();
+                    text = sanitize_utf8(ss.str());
                     extracted = !text.empty();
                 }
             }
@@ -1694,8 +1721,8 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 string cmd = "pdftotext " + escape_arg(pdf_path) + " " + escape_arg(txt_path);
                 int code; exec_command(cmd, code);
                 if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
-                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-                    text = ss.str();
+                    ifstream f(txt_path, std::ios::binary); std::ostringstream ss; ss << f.rdbuf();
+                    text = sanitize_utf8(ss.str());
                     extracted = !text.empty();
                 }
             }
