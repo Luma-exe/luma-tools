@@ -27,7 +27,8 @@ FetchContent_MakeAvailable(json)
 FetchContent_Declare(
     sqlite3
     URL https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip
-    URL_HASH SHA256=67d3fe6d268e6eaddcae3727fce58fce3b9cfd1b0c48ab6727a580b0f3ae4811
+    URL_HASH SHA256=77823cb110929c2bcb0f5d48e4833b5c59a8a6e40cdea3936b99e199dbbe5784
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(sqlite3)
 
