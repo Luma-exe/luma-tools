@@ -69,6 +69,12 @@
 
             <nav class="sidebar-nav" id="sidebarNav">
                 <div class="nav-category">
+                    <div class="nav-category-title">AI &amp; STUDY</div>
+                    <a class="nav-item" data-tool="ai-study-notes" data-location="server" onclick="switchTool('ai-study-notes')">
+                        <i class="fas fa-brain"></i><span>Study Notes</span>
+                    </a>
+                </div>
+                <div class="nav-category">
                     <div class="nav-category-title">DOWNLOAD</div>
                     <a class="nav-item" data-tool="downloader" data-location="server" onclick="switchTool('downloader')">
                         <i class="fas fa-download"></i><span>Media Downloader</span>
@@ -171,12 +177,6 @@
                     </a>
                     <a class="nav-item" data-tool="markdown-to-pdf" data-location="server" onclick="switchTool('markdown-to-pdf')">
                         <i class="fab fa-markdown"></i><span>Markdown to PDF</span>
-                    </a>
-                </div>
-                <div class="nav-category">
-                    <div class="nav-category-title">AI &amp; STUDY</div>
-                    <a class="nav-item" data-tool="ai-study-notes" data-location="server" onclick="switchTool('ai-study-notes')">
-                        <i class="fas fa-brain"></i><span>Study Notes</span>
                     </a>
                 </div>
                 <div class="nav-category">
@@ -294,6 +294,7 @@
                     <div class="landing-tools-overview">
                         <h2>35+ Tools, Zero Ads</h2>
                         <div class="landing-tool-chips">
+                            <span class="landing-chip" onclick="switchTool('ai-study-notes')"><i class="fas fa-brain"></i> AI Study Notes</span>
                             <span class="landing-chip" onclick="switchTool('downloader')"><i class="fas fa-download"></i> Media Downloader</span>
                             <span class="landing-chip" onclick="switchTool('image-compress')"><i class="fas fa-compress-alt"></i> Image Compress</span>
                             <span class="landing-chip" onclick="switchTool('image-resize')"><i class="fas fa-expand-arrows-alt"></i> Image Resize</span>
@@ -322,7 +323,6 @@
                             <span class="landing-chip" onclick="switchTool('pdf-to-images')"><i class="fas fa-images"></i> PDF to Images</span>
                             <span class="landing-chip" onclick="switchTool('images-to-pdf')"><i class="fas fa-file-image"></i> Images to PDF</span>
                             <span class="landing-chip" onclick="switchTool('markdown-to-pdf')"><i class="fab fa-markdown"></i> Markdown to PDF</span>
-                            <span class="landing-chip" onclick="switchTool('ai-study-notes')"><i class="fas fa-brain"></i> AI Study Notes</span>
                             <span class="landing-chip" onclick="switchTool('qr-generate')"><i class="fas fa-qrcode"></i> QR Code</span>
                             <span class="landing-chip" onclick="switchTool('hash-generate')"><i class="fas fa-fingerprint"></i> Hash Generator</span>
                             <span class="landing-chip" onclick="switchTool('base64')"><i class="fas fa-code"></i> Base64</span>
