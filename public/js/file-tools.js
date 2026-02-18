@@ -510,13 +510,30 @@ function showResult(toolId, blob, filename) {
             const pane = document.createElement('div');
             pane.className = 'notes-preview-pane';
 
+            // Helper: copy button
+            const makeCopyBtn = () => {
+                const btn = document.createElement('button');
+                btn.className = 'notes-toggle-btn notes-copy-btn';
+                btn.innerHTML = '<i class="fas fa-copy"></i> Copy Text';
+                btn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(text).then(() => {
+                        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                        setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy Text'; }, 2000);
+                    }).catch(() => showToast('Copy failed', 'error'));
+                });
+                return btn;
+            };
+
             if (isMarkdown) {
-                // Toggle bar
+                // Toggle bar with view buttons + copy button pushed right
                 const toggleBar = document.createElement('div');
                 toggleBar.className = 'notes-preview-toggle';
                 toggleBar.innerHTML =
                     '<button class="notes-toggle-btn active" data-view="rendered"><i class="fas fa-eye"></i> Rendered</button>' +
                     '<button class="notes-toggle-btn" data-view="raw"><i class="fas fa-code"></i> Raw</button>';
+                const copyBtn = makeCopyBtn();
+                copyBtn.style.marginLeft = 'auto';
+                toggleBar.appendChild(copyBtn);
                 pane.appendChild(toggleBar);
 
                 const renderedEl = document.createElement('div');
@@ -531,9 +548,9 @@ function showResult(toolId, blob, filename) {
                 pane.appendChild(rawEl);
 
                 toggleBar.addEventListener('click', e => {
-                    const btn = e.target.closest('.notes-toggle-btn');
+                    const btn = e.target.closest('.notes-toggle-btn[data-view]');
                     if (!btn) return;
-                    toggleBar.querySelectorAll('.notes-toggle-btn').forEach(b => b.classList.remove('active'));
+                    toggleBar.querySelectorAll('.notes-toggle-btn[data-view]').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     if (btn.dataset.view === 'rendered') {
                         renderedEl.classList.remove('hidden');
@@ -544,7 +561,15 @@ function showResult(toolId, blob, filename) {
                     }
                 });
             } else {
-                // Plain text — just show it
+                // Plain text — toolbar with copy button
+                const toggleBar = document.createElement('div');
+                toggleBar.className = 'notes-preview-toggle';
+                toggleBar.innerHTML = '<span class="notes-toggle-label"><i class="fas fa-align-left"></i> Plain Text</span>';
+                const copyBtn = makeCopyBtn();
+                copyBtn.style.marginLeft = 'auto';
+                toggleBar.appendChild(copyBtn);
+                pane.appendChild(toggleBar);
+
                 const rawEl = document.createElement('pre');
                 rawEl.className = 'notes-raw';
                 rawEl.textContent = text;

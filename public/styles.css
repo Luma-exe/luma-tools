@@ -1963,11 +1963,11 @@ body {
 
 .notes-preview-toggle {
     display: flex;
-    gap: 0;
+    align-items: center;
+    gap: 6px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-tertiary);
     padding: 6px 8px;
-    gap: 6px;
 }
 
 .notes-toggle-btn {
@@ -1995,6 +1995,17 @@ body {
     background: var(--accent-subtle);
     border-color: var(--accent);
     color: var(--accent-light);
+}
+
+.notes-toggle-label {
+    font-size: 0.78rem;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 4px;
 }
 
 .notes-rendered {
