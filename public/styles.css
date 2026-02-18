@@ -1951,3 +1951,117 @@ body {
     .upload-zone { padding: 32px 16px; }
     .upload-zone-content i { font-size: 2rem; }
 }
+
+/* ── AI Study Notes: notes preview pane ─────────────────────────────────── */
+.notes-preview-pane {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.notes-preview-toggle {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    padding: 6px 8px;
+    gap: 6px;
+}
+
+.notes-toggle-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    padding: 5px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.notes-toggle-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.notes-toggle-btn.active {
+    background: var(--accent-subtle);
+    border-color: var(--accent);
+    color: var(--accent-light);
+}
+
+.notes-rendered {
+    padding: 20px 24px;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    line-height: 1.7;
+    max-height: 520px;
+    overflow-y: auto;
+}
+
+.notes-rendered h1, .notes-rendered h2, .notes-rendered h3 {
+    color: var(--accent-light);
+    margin: 1.2em 0 0.4em;
+    font-weight: 600;
+}
+.notes-rendered h1 { font-size: 1.25rem; }
+.notes-rendered h2 { font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.notes-rendered h3 { font-size: 0.97rem; }
+
+.notes-rendered p { margin: 0.5em 0; }
+.notes-rendered ul { padding-left: 1.4em; margin: 0.4em 0; }
+.notes-rendered li { margin: 0.2em 0; }
+.notes-rendered strong { color: var(--text-primary); font-weight: 600; }
+.notes-rendered code {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    color: var(--accent-light);
+}
+.notes-rendered pre {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 0.8em 0;
+    overflow-x: auto;
+}
+.notes-rendered pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-primary);
+    font-size: 0.83rem;
+}
+.notes-rendered blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 4px 12px;
+    margin: 0.6em 0;
+    color: var(--text-secondary);
+    background: var(--accent-subtle);
+    border-radius: 0 6px 6px 0;
+}
+.notes-rendered hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
+
+.notes-raw {
+    padding: 20px 24px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 520px;
+    overflow-y: auto;
+    margin: 0;
+}

@@ -465,7 +465,7 @@ function showResult(toolId, blob, filename) {
     downloadLink.style.display = '';
 
     // clear any previous preview / multi list
-    result.querySelectorAll('.result-preview, .result-actions, .multi-result-list, .result-zip-btn').forEach(el => el.remove());
+    result.querySelectorAll('.result-preview, .result-actions, .multi-result-list, .result-zip-btn, .notes-preview-pane').forEach(el => el.remove());
 
     // wrap download button + optional preview in a side-by-side container
     const actions = document.createElement('div');
@@ -503,6 +503,56 @@ function showResult(toolId, blob, filename) {
         // seek to first frame so poster is visible
         preview.addEventListener('loadedmetadata', () => { preview.currentTime = 0.1; }, { once: true });
         actions.appendChild(preview);
+    } else if (toolId === 'ai-study-notes' && /\.(md|txt)$/i.test(filename)) {
+        // Async: read blob text then build preview
+        blob.text().then(text => {
+            const isMarkdown = /\.md$/i.test(filename);
+            const pane = document.createElement('div');
+            pane.className = 'notes-preview-pane';
+
+            if (isMarkdown) {
+                // Toggle bar
+                const toggleBar = document.createElement('div');
+                toggleBar.className = 'notes-preview-toggle';
+                toggleBar.innerHTML =
+                    '<button class="notes-toggle-btn active" data-view="rendered"><i class="fas fa-eye"></i> Rendered</button>' +
+                    '<button class="notes-toggle-btn" data-view="raw"><i class="fas fa-code"></i> Raw</button>';
+                pane.appendChild(toggleBar);
+
+                const renderedEl = document.createElement('div');
+                renderedEl.className = 'notes-rendered';
+                renderedEl.innerHTML = parseMarkdown(text);
+
+                const rawEl = document.createElement('pre');
+                rawEl.className = 'notes-raw hidden';
+                rawEl.textContent = text;
+
+                pane.appendChild(renderedEl);
+                pane.appendChild(rawEl);
+
+                toggleBar.addEventListener('click', e => {
+                    const btn = e.target.closest('.notes-toggle-btn');
+                    if (!btn) return;
+                    toggleBar.querySelectorAll('.notes-toggle-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    if (btn.dataset.view === 'rendered') {
+                        renderedEl.classList.remove('hidden');
+                        rawEl.classList.add('hidden');
+                    } else {
+                        renderedEl.classList.add('hidden');
+                        rawEl.classList.remove('hidden');
+                    }
+                });
+            } else {
+                // Plain text — just show it
+                const rawEl = document.createElement('pre');
+                rawEl.className = 'notes-raw';
+                rawEl.textContent = text;
+                pane.appendChild(rawEl);
+            }
+
+            result.appendChild(pane);
+        });
     }
 }
 
