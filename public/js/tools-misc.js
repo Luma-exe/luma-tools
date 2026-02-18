@@ -219,6 +219,48 @@ function updateWheelBrightness() {
     const ctx = canvas.getContext('2d');
     const cx = canvas.width / 2, cy = canvas.height / 2, radius = cx - 4;
     drawWheel(ctx, cx, cy, radius, val);
+
+    // Re-sample the pixel under the current cursor position so the preview updates instantly
+    const cursor = document.getElementById('wheelCursor');
+    if (!cursor) return;
+    const rect = canvas.getBoundingClientRect();
+    const cursorPctX = parseFloat(cursor.style.left) / 100;
+    const cursorPctY = parseFloat(cursor.style.top) / 100;
+    if (isNaN(cursorPctX) || isNaN(cursorPctY)) return;
+    const sx = Math.round(cursorPctX * canvas.width);
+    const sy = Math.round(cursorPctY * canvas.height);
+    const pixel = ctx.getImageData(sx, sy, 1, 1).data;
+    const [r, g, b] = pixel;
+    const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    cursor.style.background = hex;
+    const previewWheel = document.getElementById('colorPreviewWheel');
+    if (previewWheel) previewWheel.style.background = hex;
+    const hexWheel = document.getElementById('colorHexWheel');
+    if (hexWheel) hexWheel.value = hex;
+    const rgbWheel = document.getElementById('colorRgbWheel');
+    if (rgbWheel) rgbWheel.value = `${r}, ${g}, ${b}`;
+    // Sync to inputs tab too
+    const colorHex = document.getElementById('colorHex');
+    if (colorHex) colorHex.value = hex;
+    const colorRgb = document.getElementById('colorRgb');
+    if (colorRgb) colorRgb.value = `${r}, ${g}, ${b}`;
+    const colorPreview = document.getElementById('colorPreview');
+    if (colorPreview) colorPreview.style.background = hex;
+    // Compute & update HSL
+    const rr = r/255, gg = g/255, bb = b/255;
+    const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
+    let hh = 0, ss = 0, ll = (max + min) / 2;
+    if (max !== min) {
+        const d = max - min;
+        ss = ll > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case rr: hh = ((gg - bb) / d + (gg < bb ? 6 : 0)) / 6; break;
+            case gg: hh = ((bb - rr) / d + 2) / 6; break;
+            case bb: hh = ((rr - gg) / d + 4) / 6; break;
+        }
+    }
+    const colorHsl = document.getElementById('colorHsl');
+    if (colorHsl) colorHsl.value = `${Math.round(hh*360)}, ${Math.round(ss*100)}%, ${Math.round(ll*100)}%`;
 }
 
 // ── Markdown Preview ──────────────────────────────────────────────────────
