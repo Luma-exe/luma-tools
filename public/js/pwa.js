@@ -11,10 +11,12 @@ function _setInstallBtnsVisible(show) {
 }
 
 function initInstallPrompt() {
+    // Show buttons immediately — hide only once confirmed installed
+    _setInstallBtnsVisible(true);
+
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         _deferredInstallPrompt = e;
-        _setInstallBtnsVisible(true);
     });
 
     window.addEventListener('appinstalled', () => {
@@ -22,15 +24,23 @@ function initInstallPrompt() {
         _setInstallBtnsVisible(false);
         showToast('App installed successfully!', 'success');
     });
+
+    // Hide if already running as installed PWA
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+        _setInstallBtnsVisible(false);
+    }
 }
 
 function installPWA() {
-    if (!_deferredInstallPrompt) return;
-    _deferredInstallPrompt.prompt();
-    _deferredInstallPrompt.userChoice.then(() => {
-        _deferredInstallPrompt = null;
-        _setInstallBtnsVisible(false);
-    });
+    if (_deferredInstallPrompt) {
+        _deferredInstallPrompt.prompt();
+        _deferredInstallPrompt.userChoice.then(() => {
+            _deferredInstallPrompt = null;
+        });
+    } else {
+        // Fallback for browsers that suppress beforeinstallprompt (e.g. Brave, Firefox)
+        showToast('To install: click the install icon in your address bar, or use your browser menu and select "Install app"', 'info', 6000);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

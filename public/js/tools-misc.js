@@ -297,19 +297,27 @@ function initColorWheel() {
         const rect = canvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const x = clientX - rect.left, y = clientY - rect.top;
-        const sx = x / rect.width * canvas.width, sy = y / rect.height * canvas.height;
+        let x = clientX - rect.left, y = clientY - rect.top;
+        let sx = x / rect.width * canvas.width, sy = y / rect.height * canvas.height;
         const dx = sx - cx, dy = sy - cy;
-        if (Math.sqrt(dx*dx + dy*dy) > radius) return;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        // Clamp to circle edge so dragging outside still tracks the nearest hue/sat
+        if (dist > radius) {
+            const angle = Math.atan2(dy, dx);
+            sx = cx + Math.cos(angle) * radius;
+            sy = cy + Math.sin(angle) * radius;
+            x = sx / canvas.width * rect.width;
+            y = sy / canvas.height * rect.height;
+        }
         const cursor = $('wheelCursor');
         if (cursor) { cursor.style.left = (x/rect.width*100)+'%'; cursor.style.top = (y/rect.height*100)+'%'; }
         updatePickerFromWheelCoords(sx, sy, cx, cy, radius, parseInt($('wheelBrightness')?.value ?? 100) / 100);
     }
     canvas.addEventListener('mousedown', e => { dragging = true; pickWheel(e); });
-    canvas.addEventListener('mousemove', e => { if (dragging) pickWheel(e); });
+    window.addEventListener('mousemove', e => { if (dragging) pickWheel(e); });
     window.addEventListener('mouseup', () => { dragging = false; });
     canvas.addEventListener('touchstart', e => { e.preventDefault(); dragging = true; pickWheel(e); }, { passive: false });
-    canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) pickWheel(e); }, { passive: false });
+    window.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) pickWheel(e); }, { passive: false });
     canvas.addEventListener('touchend', () => { dragging = false; });
 }
 
@@ -445,10 +453,10 @@ function initSVRectEvents() {
         syncAllColorFields(r, g, b, null);
     }
     canvas.addEventListener('mousedown', e => { dragging = true; pick(e); });
-    canvas.addEventListener('mousemove', e => { if (dragging) pick(e); });
+    window.addEventListener('mousemove', e => { if (dragging) pick(e); });
     window.addEventListener('mouseup', () => { dragging = false; });
     canvas.addEventListener('touchstart', e => { e.preventDefault(); dragging = true; pick(e); }, { passive: false });
-    canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) pick(e); }, { passive: false });
+    window.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) pick(e); }, { passive: false });
     canvas.addEventListener('touchend', () => { dragging = false; });
 }
 
