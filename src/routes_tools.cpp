@@ -3187,14 +3187,16 @@ IMPORTANT RULES:
             return;
         }
 
-        // Step 2: re-zip the extracted contents with paths relative to extract_dir
+        // Step 2: re-zip the extracted contents with paths relative to extract_dir.
+        // Use a wildcard path (extract_dir/*) so 7-Zip treats extract_dir as the
+        // archive root, avoiding compound cd&&7z which breaks exec_command's quoting.
 #ifdef _WIN32
-        string zip_cmd = "cd /d " + escape_arg(extract_dir) + " && "
-            + escape_arg(sevenzip) + " a -tzip " + escape_arg(output_zip) + " . -r";
+        string wildcard_path = extract_dir + "\\*";
 #else
-        string zip_cmd = "cd " + escape_arg(extract_dir) + " && "
-            + escape_arg(sevenzip) + " a -tzip " + escape_arg(output_zip) + " . -r";
+        string wildcard_path = extract_dir + "/*";
 #endif
+        string zip_cmd = escape_arg(sevenzip) + " a -tzip " + escape_arg(output_zip)
+            + " " + escape_arg(wildcard_path) + " -r";
         cout << "[Luma Tools] Archive rezip: " << zip_cmd << endl;
         exec_command(zip_cmd, rc);
 

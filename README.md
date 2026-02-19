@@ -103,6 +103,7 @@ Each tool is labelled **In your browser** (runs locally — nothing is sent to t
 |---------------------|---------|---------------------------------------------------------------|
 | QR Code             | Browser | Generate QR codes from any text or URL                        |
 | Hash Generator      | Server  | Compute file hashes (MD5, SHA1, SHA256, SHA512)               |
+| Archive Extractor   | Server  | Extract ZIP, 7Z, RAR, TAR, ISO, CAB, DMG and 20+ more formats |
 | Citation Generator  | Server  | Generate citations (APA, MLA, Chicago) from URL or DOI        |
 | Base64              | Browser | Encode or decode text as Base64                               |
 | JSON Formatter      | Browser | Format, minify, and validate JSON                             |
