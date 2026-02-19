@@ -3725,18 +3725,27 @@ body {
 .server-offline-banner button:hover { opacity: 1; }
 .server-offline-banner.hidden { display: none; }
 
-/* ── Nav Favourites Star ───────────────────────────────────────────────────── */
-.nav-fav-btn {
-    background: none; border: none; cursor: pointer;
-    color: rgba(255,255,255,0.2); font-size: 0.72rem;
-    padding: 2px 4px; margin-left: auto; flex-shrink: 0;
-    transition: color 0.15s, transform 0.15s;
+/* ── Tool Header Favourites Star ───────────────────────────────────────────── */
+.tool-fav-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 0.85rem;
+    padding: 3px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+    border-radius: 6px;
+    transition: color 0.15s, transform 0.15s, background 0.15s;
     line-height: 1;
+    flex-shrink: 0;
 }
-.nav-fav-btn:hover { color: #fbbf24; transform: scale(1.2); }
-.nav-fav-btn.starred { color: #fbbf24; }
-/* Ensure nav-item laid out as flex row */
-.nav-item { display: flex !important; align-items: center; }
+.tool-fav-btn:hover {
+    color: #fbbf24;
+    transform: scale(1.2);
+    background: rgba(251, 191, 36, 0.08);
+}
+.tool-fav-btn.starred { color: #fbbf24; }
 
 /* ── Collapsible Categories ────────────────────────────────────────────────── */
 .nav-category-title {

@@ -13,7 +13,7 @@ function switchTool(toolId) {
 
     if (navItem && panel) {
         const loc = navItem.dataset.location; // 'browser' | 'server'
-        panel.querySelectorAll('.tool-location-badge').forEach(b => b.remove());
+        panel.querySelectorAll('.tool-location-badge, .tool-fav-btn').forEach(b => b.remove());
 
         if (loc) {
             const badge = document.createElement('span');
@@ -26,7 +26,18 @@ function switchTool(toolId) {
                 : '<i class="fas fa-server"></i> On our server';
             const h2 = panel.querySelector('.tool-header h2');
 
-            if (h2) h2.appendChild(badge);
+            if (h2) {
+                h2.appendChild(badge);
+                // Fav button right after the badge
+                const favs = getFavs();
+                const favBtn = document.createElement('button');
+                favBtn.className = 'tool-fav-btn' + (favs.includes(toolId) ? ' starred' : '');
+                favBtn.dataset.tool = toolId;
+                favBtn.title = favs.includes(toolId) ? 'Remove from favourites' : 'Add to favourites';
+                favBtn.innerHTML = '<i class="fas fa-star"></i>';
+                favBtn.addEventListener('click', (e) => toggleFav(toolId, e));
+                h2.appendChild(favBtn);
+            }
         }
     }
 
@@ -191,10 +202,11 @@ function toggleFav(toolId, e) {
     if (idx >= 0) favs.splice(idx, 1); else favs.push(toolId);
     setFavs(favs);
     renderFavs();
-    // Update all star buttons for this tool
-    document.querySelectorAll(`.nav-fav-btn[data-tool="${toolId}"]`).forEach(btn => {
-        btn.classList.toggle('starred', favs.includes(toolId));
-        btn.title = favs.includes(toolId) ? 'Remove from favourites' : 'Add to favourites';
+    // Update the header fav button if visible
+    const isStarred = favs.includes(toolId);
+    document.querySelectorAll(`.tool-fav-btn[data-tool="${toolId}"]`).forEach(btn => {
+        btn.classList.toggle('starred', isStarred);
+        btn.title = isStarred ? 'Remove from favourites' : 'Add to favourites';
     });
 }
 function renderFavs() {
@@ -209,8 +221,6 @@ function renderFavs() {
         const src = document.querySelector(`.nav-item[data-tool="${toolId}"]`);
         if (!src) return;
         const clone = src.cloneNode(true);
-        // Remove the fav btn from the favs category clone (avoids nesting weirdness)
-        clone.querySelector('.nav-fav-btn')?.remove();
         catEl.appendChild(clone);
     });
 }
@@ -267,20 +277,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (collapsed.includes(label)) titleEl.closest('.nav-category')?.classList.add('collapsed');
         });
     } catch {}
-
-    // ─ Add fav star buttons to every nav-item ─
-    const favs = getFavs();
-    document.querySelectorAll('#sidebarNav .nav-item[data-tool]').forEach(item => {
-        const toolId = item.dataset.tool;
-        if (item.querySelector('.nav-fav-btn')) return; // already added
-        const btn = document.createElement('button');
-        btn.className = 'nav-fav-btn' + (favs.includes(toolId) ? ' starred' : '');
-        btn.dataset.tool = toolId;
-        btn.title = favs.includes(toolId) ? 'Remove from favourites' : 'Add to favourites';
-        btn.innerHTML = '<i class="fas fa-star"></i>';
-        btn.addEventListener('click', (e) => toggleFav(toolId, e));
-        item.appendChild(btn);
-    });
 
     // ─ Render favourites category ─
     renderFavs();
