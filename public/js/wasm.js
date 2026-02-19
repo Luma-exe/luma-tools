@@ -261,7 +261,7 @@ function _resetCanvasBadge(toolId) {
     panel.querySelector('.tool-wasm-warn-badge')?.remove();
 }
 
-// Blue info badge — shown immediately when user picks an SVG file.
+// Blue info badge — shown when SVG is uploaded to a tool that routes it to the server.
 function _handleSvgServerNotice(toolId) {
     const panel = document.getElementById('tool-' + toolId);
     const lb    = panel?.querySelector('.tool-location-badge');
@@ -280,10 +280,30 @@ function _handleSvgServerNotice(toolId) {
     lb.insertAdjacentElement('afterend', note);
 }
 
+// Orange warning badge — shown when SVG is uploaded to a tool that does NOT support it.
+// Clicking the badge is not needed — the error message on submit explains what to do.
+function _handleSvgUnsupportedNotice(toolId) {
+    const panel = document.getElementById('tool-' + toolId);
+    const lb    = panel?.querySelector('.tool-location-badge');
+    if (!lb) return;
+
+    // Keep badge as-is (still browser/server) but add a clear orange warning pill.
+    panel.querySelector('.tool-wasm-warn-badge')?.remove();
+    const warn = document.createElement('span');
+    warn.className = 'tool-wasm-warn-badge';
+    warn.title     = 'This tool does not support SVG. Use Image Convert to rasterise your SVG to PNG or JPEG first.';
+    warn.innerHTML = '<i class="fas fa-triangle-exclamation"></i> SVG not supported';
+    lb.insertAdjacentElement('afterend', warn);
+}
+
 // ─── WASM_TOOLS (public API — checked by file-tools.js & batch.js) ─────────
 // Each value is a function that: (a) proves the tool can run in the browser,
 // (b) returns a truthy cmd-hint so callers know to invoke processFileWasm.
 // Return null to let the caller fall straight through to the server.
+// image-convert is the only Canvas tool that fully supports SVG server-side.
+// All others (compress, resize, crop, bg-remove, metadata-strip) reject SVG.
+const SVG_SERVER_TOOLS = new Set(['image-convert']);
+
 const CANVAS_TOOLS     = new Set(['image-compress','image-resize','image-convert','image-crop','image-bg-remove','metadata-strip']);
 const WASM_AUDIO_TOOLS = new Set(['audio-convert']);
 
@@ -321,7 +341,11 @@ async function processFileWasm(toolId) {
 
         // ── SVG ──────────────────────────────────────────────────────────────
         if (/\.svg$/i.test(file.name) || file.type === 'image/svg+xml') {
-            _handleSvgServerNotice(toolId);
+            if (SVG_SERVER_TOOLS.has(toolId)) {
+                _handleSvgServerNotice(toolId);
+            } else {
+                _handleSvgUnsupportedNotice(toolId);
+            }
             await processFileServer(toolId);
             return;
         }

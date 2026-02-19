@@ -58,12 +58,16 @@ function handleFileSelect(toolId, file) {
     if (toolId === 'video-trim') initWaveform('video-trim', file);
     if (toolId === 'audio-trim') initWaveform('audio-trim', file);
 
-    // Show SVG server notice immediately when user uploads an SVG to a Canvas tool.
+    // Show SVG notice immediately when user uploads an SVG to a Canvas tool.
     // Defer one tick so the badge DOM is stable after switchTool / zone hide.
     if (typeof CANVAS_TOOLS !== 'undefined' && CANVAS_TOOLS.has(toolId)) {
         setTimeout(() => {
             if (/\.svg$/i.test(file.name) || file.type === 'image/svg+xml') {
-                typeof _handleSvgServerNotice === 'function' && _handleSvgServerNotice(toolId);
+                if (typeof SVG_SERVER_TOOLS !== 'undefined' && SVG_SERVER_TOOLS.has(toolId)) {
+                    typeof _handleSvgServerNotice === 'function' && _handleSvgServerNotice(toolId);
+                } else {
+                    typeof _handleSvgUnsupportedNotice === 'function' && _handleSvgUnsupportedNotice(toolId);
+                }
             } else {
                 typeof _resetCanvasBadge === 'function' && _resetCanvasBadge(toolId);
             }

@@ -184,6 +184,17 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         }
 
         auto file = req.get_file_value("file");
+
+        {
+            string ec = fs::path(file.filename).extension().string();
+            std::transform(ec.begin(), ec.end(), ec.begin(), ::tolower);
+            if (ec == ".svg") {
+                res.status = 400;
+                res.set_content(json({{"error", "SVG is a vector format and cannot be compressed. Use Image Convert to rasterise it to PNG or JPEG first."}}).dump(), "application/json");
+                return;
+            }
+        }
+
         int quality = 75;
 
         if (req.has_file("quality")) {
@@ -239,6 +250,17 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         }
 
         auto file = req.get_file_value("file");
+
+        {
+            string ec = fs::path(file.filename).extension().string();
+            std::transform(ec.begin(), ec.end(), ec.begin(), ::tolower);
+            if (ec == ".svg") {
+                res.status = 400;
+                res.set_content(json({{"error", "SVG is a vector format and cannot be resized this way. Use Image Convert to rasterise it to PNG first."}}).dump(), "application/json");
+                return;
+            }
+        }
+
         string width = req.has_file("width") ? req.get_file_value("width").content : "";
         string height = req.has_file("height") ? req.get_file_value("height").content : "";
 
@@ -1137,6 +1159,17 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
     svr.Post("/api/tools/metadata-strip", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
+
+        {
+            string ec = fs::path(file.filename).extension().string();
+            std::transform(ec.begin(), ec.end(), ec.begin(), ::tolower);
+            if (ec == ".svg") {
+                res.status = 400;
+                res.set_content(json({{"error", "SVG metadata stripping is not supported. SVG is an XML format — open it in a text editor to remove metadata manually."}}).dump(), "application/json");
+                return;
+            }
+        }
+
         discord_log_tool("Metadata Strip", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -1210,6 +1243,17 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         }
 
         auto file = req.get_file_value("file");
+
+        {
+            string ec = fs::path(file.filename).extension().string();
+            std::transform(ec.begin(), ec.end(), ec.begin(), ::tolower);
+            if (ec == ".svg") {
+                res.status = 400;
+                res.set_content(json({{"error", "SVG is a vector format and cannot be cropped this way. Use Image Convert to rasterise it to PNG first."}}).dump(), "application/json");
+                return;
+            }
+        }
+
         string x_s = req.has_file("x") ? req.get_file_value("x").content : "0";
         string y_s = req.has_file("y") ? req.get_file_value("y").content : "0";
         string w_s = req.has_file("w") ? req.get_file_value("w").content : "";
@@ -1257,6 +1301,17 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         }
 
         auto file = req.get_file_value("file");
+
+        {
+            string ec = fs::path(file.filename).extension().string();
+            std::transform(ec.begin(), ec.end(), ec.begin(), ::tolower);
+            if (ec == ".svg") {
+                res.status = 400;
+                res.set_content(json({{"error", "SVG files are not supported for background removal. Use Image Convert to rasterise it to PNG first."}}).dump(), "application/json");
+                return;
+            }
+        }
+
         string method = "auto";
 
         if (req.has_file("method")) method = req.get_file_value("method").content;
