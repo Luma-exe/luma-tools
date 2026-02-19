@@ -2958,60 +2958,40 @@ body {
 }
 
 .flashcard-export {
+    margin-bottom: 0;
+}
+
+/* ── Flashcard section wrapper + label ─────────────────────────────────────── */
+.fc-section {
+    margin-bottom: 14px;
+}
+.fc-section-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.9px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
     display: flex;
-    justify-content: center;
-    gap: 12px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
+    align-items: center;
+    gap: 5px;
     flex-wrap: wrap;
 }
-
-/* Confidence rating buttons */
-.flashcard-confidence {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin: 4px 0 14px;
-    flex-wrap: wrap;
+.fc-label-sub {
+    text-transform: none;
+    letter-spacing: 0;
+    font-style: italic;
+    font-size: 0.68rem;
+    opacity: 0.75;
 }
 
-.conf-btn {
-    padding: 7px 18px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    cursor: pointer;
-    font-size: 0.88rem;
-    transition: all 0.2s;
-}
-.conf-btn:hover { transform: translateY(-1px); filter: brightness(1.15); }
-.conf-btn.conf-known  { border-color: #00e68a; background: rgba(0,230,138,0.15); color: #00e68a; }
-.conf-btn.conf-unsure { border-color: #ffa040; background: rgba(255,160,64,0.15); color: #ffa040; }
-.conf-btn.conf-unknown{ border-color: #ff4d6a; background: rgba(255,77,106,0.15); color: #ff4d6a; }
-
-/* Flashcard topic tag */
-.flashcard-tag {
-    display: inline-block;
-    padding: 3px 11px;
-    border-radius: 20px;
-    background: rgba(124,92,255,0.18);
-    border: 1px solid rgba(124,92,255,0.4);
-    font-size: 0.72rem;
-    color: var(--accent-light);
-    letter-spacing: 0.3px;
-    margin-bottom: 10px;
-}
-
-/* Topic filter bar */
+/* ── Topic filter bar ──────────────────────────────────────────────────────── */
 .flashcard-filter {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
-    margin-bottom: 14px;
+    gap: 6px;
 }
 .filter-pill {
-    padding: 4px 13px;
+    padding: 4px 11px;
     border-radius: 20px;
     border: 1px solid var(--border);
     background: var(--bg-secondary);
@@ -3019,22 +2999,111 @@ body {
     font-size: 0.78rem;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 .filter-pill:hover { border-color: var(--accent); color: var(--text-primary); }
-.filter-pill.active { border-color: var(--accent); background: rgba(124,92,255,0.15); color: var(--accent-light); }
+.filter-pill.active { border-color: var(--accent); background: rgba(124,92,255,0.15); color: var(--accent-light); font-weight: 500; }
+.pill-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    font-size: 0.65rem;
+    color: inherit;
+    opacity: 0.8;
+}
+.filter-pill.active .pill-count { background: rgba(124,92,255,0.25); }
 
-/* Confidence summary stats */
+/* ── Confidence stats bar ─────────────────────────────────────────────────── */
 .flashcard-stats {
     display: flex;
+    align-items: center;
     justify-content: center;
-    gap: 16px;
-    margin-bottom: 14px;
-    font-size: 0.82rem;
+    gap: 14px;
+    margin-bottom: 12px;
+    padding: 7px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.8rem;
     flex-wrap: wrap;
 }
 .stat-known   { color: #00e68a; }
 .stat-unsure  { color: #ffa040; }
 .stat-unknown { color: #ff4d6a; }
+.stat-total   { color: var(--text-muted); font-size: 0.73rem; margin-left: 4px; }
+
+/* ── Confidence rating section ────────────────────────────────────────────── */
+.fc-confidence-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+}
+.flashcard-confidence {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.conf-btn {
+    flex: 1;
+    min-width: 90px;
+    max-width: 140px;
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-card, var(--bg-primary));
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: all 0.18s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+.conf-btn:hover { transform: translateY(-2px); border-color: var(--text-secondary); color: var(--text-primary); }
+.conf-icon { font-size: 1.3rem; line-height: 1; }
+.conf-label { font-size: 0.78rem; font-weight: 500; }
+.conf-btn.conf-known-btn.active  { border-color: #00e68a; background: rgba(0,230,138,0.12); color: #00e68a; }
+.conf-btn.conf-unsure-btn.active { border-color: #ffa040; background: rgba(255,160,64,0.12); color: #ffa040; }
+.conf-btn.conf-unknown-btn.active{ border-color: #ff4d6a; background: rgba(255,77,106,0.12); color: #ff4d6a; }
+/* Card border colour reflects current card rating */
+.flashcard.conf-known  { box-shadow: 0 0 0 2px rgba(0,230,138,0.45); }
+.flashcard.conf-unsure { box-shadow: 0 0 0 2px rgba(255,160,64,0.45); }
+.flashcard.conf-unknown{ box-shadow: 0 0 0 2px rgba(255,77,106,0.45); }
+
+/* ── Export row ──────────────────────────────────────────────────────────── */
+.fc-export-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.export-fmt {
+    font-size: 0.7rem;
+    opacity: 0.55;
+    margin-left: 2px;
+}
+
+/* ── Topic tag badge on card face ────────────────────────────────────────── */
+.flashcard-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(124,92,255,0.15);
+    border: 1px solid rgba(124,92,255,0.35);
+    font-size: 0.7rem;
+    color: var(--accent-light);
+    letter-spacing: 0.3px;
+    margin-bottom: 10px;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    AI PRACTICE QUIZ

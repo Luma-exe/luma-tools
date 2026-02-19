@@ -177,19 +177,23 @@ function renderFlashcardsUI() {
     const showFilter = allTags.length > 1;
 
     const filterHtml = showFilter ? `
-        <div class="flashcard-filter">
-            <button class="filter-pill ${!activeTagFilter ? 'active' : ''}" onclick="setFlashcardTagFilter(null)">All (${flashcardsData.length})</button>
-            ${allTags.map(tag => {
-                const cnt = flashcardsData.filter(c => c.tag === tag).length;
-                return `<button class="filter-pill ${activeTagFilter === tag ? 'active' : ''}" onclick="setFlashcardTagFilter(${JSON.stringify(tag)})">${escapeHtml(tag)} (${cnt})</button>`;
-            }).join('')}
+        <div class="fc-section">
+            <div class="fc-section-label"><i class="fas fa-tag"></i> Filter by topic</div>
+            <div class="flashcard-filter">
+                <button class="filter-pill ${!activeTagFilter ? 'active' : ''}" onclick="setFlashcardTagFilter(null)">All <span class="pill-count">${flashcardsData.length}</span></button>
+                ${allTags.map(tag => {
+                    const cnt = flashcardsData.filter(c => c.tag === tag).length;
+                    return `<button class="filter-pill ${activeTagFilter === tag ? 'active' : ''}" onclick="setFlashcardTagFilter(${JSON.stringify(tag)})">${escapeHtml(tag)} <span class="pill-count">${cnt}</span></button>`;
+                }).join('')}
+            </div>
         </div>` : '';
 
     const statsHtml = ratedCount > 0 ? `
         <div class="flashcard-stats">
-            <span class="stat-known">✅ ${knownCount} Known</span>
-            <span class="stat-unsure">😐 ${unsureCount} Unsure</span>
-            <span class="stat-unknown">❌ ${unknownCount} Don&#39;t know</span>
+            <span class="stat-known"><i class="fas fa-check-circle"></i> ${knownCount} Got it</span>
+            <span class="stat-unsure"><i class="fas fa-minus-circle"></i> ${unsureCount} Almost</span>
+            <span class="stat-unknown"><i class="fas fa-times-circle"></i> ${unknownCount} Missed</span>
+            <span class="stat-total">${ratedCount} of ${flashcardsData.length} rated</span>
         </div>` : '';
 
     const confClass = conf === 'known' ? 'conf-known' : conf === 'unsure' ? 'conf-unsure' : conf === 'unknown' ? 'conf-unknown' : '';
@@ -203,7 +207,7 @@ function renderFlashcardsUI() {
         <div class="flashcard-viewer">
             ${filterHtml}
             <div class="flashcard-progress">
-                <span>Card ${currentCardIndex + 1} of ${filteredIndices.length}${restudyMode ? ' — Re-study mode' : ''}</span>
+                <span>Card ${currentCardIndex + 1} of ${filteredIndices.length}${restudyMode ? ' &mdash; <em>Re-study mode</em>' : ''}</span>
                 <div class="flashcard-progress-bar">
                     <div class="flashcard-progress-fill" style="width:${((currentCardIndex + 1) / filteredIndices.length) * 100}%"></div>
                 </div>
@@ -223,22 +227,28 @@ function renderFlashcardsUI() {
                     </div>
                 </div>
             </div>
-            <div class="flashcard-hint">Click card to flip &bull; Rate your confidence below:</div>
-            <div class="flashcard-confidence">
-                <button class="conf-btn ${conf === 'known'   ? 'conf-known'   : ''}" onclick="rateCard('known'  )">&#x2705; Know it</button>
-                <button class="conf-btn ${conf === 'unsure'  ? 'conf-unsure'  : ''}" onclick="rateCard('unsure' )">&#x1F610; Unsure</button>
-                <button class="conf-btn ${conf === 'unknown' ? 'conf-unknown' : ''}" onclick="rateCard('unknown')">&#x274C; Don&#39;t know</button>
-            </div>
+            <div class="flashcard-hint"><i class="fas fa-hand-pointer"></i> Click card to flip</div>
             <div class="flashcard-nav">
                 <button class="btn-secondary" onclick="prevCard()" ${currentCardIndex === 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Prev</button>
                 <button class="btn-secondary" onclick="shuffleCards()"><i class="fas fa-random"></i> Shuffle</button>
                 ${restudyBtn}
                 <button class="btn-secondary" onclick="nextCard()" ${currentCardIndex === filteredIndices.length - 1 ? 'disabled' : ''}>Next <i class="fas fa-chevron-right"></i></button>
             </div>
-            <div class="flashcard-export">
-                <button class="btn-secondary" onclick="exportFlashcardsAnki()"><i class="fas fa-download"></i> Anki</button>
-                <button class="btn-secondary" onclick="exportFlashcardsQuizlet()"><i class="fas fa-graduation-cap"></i> Quizlet</button>
-                <button class="btn-secondary" onclick="exportFlashcardsJSON()"><i class="fas fa-file-export"></i> JSON</button>
+            <div class="fc-section fc-confidence-section">
+                <div class="fc-section-label"><i class="fas fa-brain"></i> How well did you know this? <span class="fc-label-sub">— auto-advances to next card</span></div>
+                <div class="flashcard-confidence">
+                    <button class="conf-btn conf-known-btn  ${conf === 'known'   ? 'active' : ''}" onclick="rateCard('known'  )"><span class="conf-icon">✅</span><span class="conf-label">Got it</span></button>
+                    <button class="conf-btn conf-unsure-btn ${conf === 'unsure'  ? 'active' : ''}" onclick="rateCard('unsure' )"><span class="conf-icon">😐</span><span class="conf-label">Almost</span></button>
+                    <button class="conf-btn conf-unknown-btn ${conf === 'unknown' ? 'active' : ''}" onclick="rateCard('unknown')"><span class="conf-icon">❌</span><span class="conf-label">Missed it</span></button>
+                </div>
+            </div>
+            <div class="fc-section flashcard-export">
+                <div class="fc-section-label"><i class="fas fa-file-export"></i> Export deck <span class="fc-label-sub">— import into your flashcard app</span></div>
+                <div class="fc-export-row">
+                    <button class="btn-secondary" onclick="exportFlashcardsAnki()" title="Export as Anki-compatible tab-separated .txt"><i class="fas fa-download"></i> Anki <span class="export-fmt">.txt</span></button>
+                    <button class="btn-secondary" onclick="exportFlashcardsQuizlet()" title="Export as Quizlet-compatible CSV"><i class="fas fa-graduation-cap"></i> Quizlet <span class="export-fmt">.csv</span></button>
+                    <button class="btn-secondary" onclick="exportFlashcardsJSON()" title="Export full deck as JSON"><i class="fas fa-code"></i> JSON <span class="export-fmt">.json</span></button>
+                </div>
             </div>
         </div>
     `;
