@@ -99,6 +99,7 @@ function mimeFromExt(filename) {
         'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
         'webp': 'image/webp', 'bmp': 'image/bmp', 'tiff': 'image/tiff',
         'ico': 'image/x-icon', 'gif': 'image/gif', 'avif': 'image/avif',
+        'svg': 'image/svg+xml',
         'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'flac': 'audio/flac',
         'ogg': 'audio/ogg', 'aac': 'audio/aac', 'm4a': 'audio/mp4',
         'mp4': 'video/mp4', 'webm': 'video/webm',
@@ -192,7 +193,7 @@ async function processFileWasm(toolId) {
     const builder = WASM_TOOLS[toolId];
     const cmd = builder ? builder(file, opts) : null;
 
-    if (!cmd) return processFileServer(toolId);
+    if (!cmd || /\.svg$/i.test(file.name)) return processFileServer(toolId); // SVG needs server-side librsvg
 
     // If the page is not cross-origin isolated, SharedArrayBuffer is unavailable
     // and ffmpeg.wasm will fail immediately — skip straight to the server fallback.
@@ -245,7 +246,7 @@ async function processFileWasmDirect(toolId, file) {
     const builder = WASM_TOOLS[toolId];
     const cmd = builder ? builder(file, opts) : null;
 
-    if (!cmd) return processFileServerDirect(toolId, file);
+    if (!cmd || /\.svg$/i.test(file.name)) return processFileServerDirect(toolId, file); // SVG needs server-side librsvg
 
     try {
         const blob = await WasmProcessor.process(file, cmd.args, cmd.output);

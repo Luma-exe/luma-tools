@@ -446,7 +446,7 @@ function showProcessing(toolId, show) {
     if (btn) btn.disabled = show;
 }
 
-const IMAGE_EXTS = /\.(png|jpe?g|webp|gif|bmp|tiff?|ico|avif|heic|heif)$/i;
+const IMAGE_EXTS = /\.(png|jpe?g|webp|gif|bmp|tiff?|ico|avif|heic|heif|svg)$/i;
 const VIDEO_EXTS = /\.(mp4|webm|mov|avi|mkv|ogv|ogg)$/i;
 
 function showResult(toolId, blob, filename, jobId = null) {
