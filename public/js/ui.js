@@ -309,7 +309,11 @@ const AI_MODELS = {
     },
     'llama-3.1-8b-instant': {
         badge: 'L3.1 8B', short: 'Llama 3.1 8B', tier: 'Fallback 2', tpd: '500k/day',
-        desc: 'Fast & lightweight. Highest daily allowance. Used as last resort.'
+        desc: 'Fast & lightweight. Highest daily allowance. Used when cloud quotas are low.'
+    },
+    'ollama:llama3.2': {
+        badge: 'Local', short: 'Llama 3.2 (Local)', tier: 'Local Device', tpd: 'Unlimited',
+        desc: 'Runs locally on the server via Ollama. No API quota. Used only when all cloud models are exhausted.'
     }
 };
 
@@ -327,7 +331,7 @@ function showModelBadge(toolId, modelId) {
         h2.appendChild(badge);
     }
     const allModels = Object.entries(AI_MODELS).map(([id, m]) => `
-        <div class="tmb-model ${id === modelId ? 'active' : ''}">
+        <div class="tmb-model ${id === modelId ? 'active' : ''} ${id.startsWith('ollama:') ? 'tmb-local' : ''}">
             <div class="tmb-model-row">
                 <span class="tmb-tier">${m.tier}</span>
                 <span class="tmb-name">${m.short}</span>
@@ -335,5 +339,7 @@ function showModelBadge(toolId, modelId) {
             </div>
             <div class="tmb-desc">${m.desc}</div>
         </div>`).join('');
-    badge.innerHTML = `<i class="fas fa-robot"></i> ${model.badge}<div class="tmb-tooltip"><div class="tmb-header">AI Model Chain</div>${allModels}<div class="tmb-why">Currently using <strong>${model.short}</strong> &mdash; ${model.tier}</div></div>`;
+    const isLocal = modelId.startsWith('ollama:');
+    const whyColor = isLocal ? '#4ade80' : '#fbbf24';
+    badge.innerHTML = `<i class="fas fa-robot"></i> ${model.badge}<div class="tmb-tooltip"><div class="tmb-header">AI Model Chain</div>${allModels}<div class="tmb-why" style="color:${whyColor}">Currently using <strong>${model.short}</strong> &mdash; ${model.tier}</div></div>`;
 }

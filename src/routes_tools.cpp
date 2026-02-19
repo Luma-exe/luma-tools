@@ -67,6 +67,32 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
             break;
         } catch (...) {}
     }
+    // ── Ollama local fallback ─────────────────────────────────────────────────
+    if (!result.ok) {
+        string ollama_rf = proc + "/" + prefix + "_ollama_resp.json";
+        // Build Ollama-compat payload (messages array stays the same)
+        json ol_payload = payload;
+        ol_payload["model"] = "llama3.2";
+        string ol_pf = proc + "/" + prefix + "_ollama_pl.json";
+        { ofstream f(ol_pf); f << ol_payload.dump(); }
+        string ol_cmd = "curl -s -X POST http://localhost:11434/v1/chat/completions"
+                        " -H \"Content-Type: application/json\""
+                        " -d @" + escape_arg(ol_pf) +
+                        " -o " + escape_arg(ollama_rf);
+        int ol_rc; exec_command(ol_cmd, ol_rc);
+        if (fs::exists(ollama_rf) && fs::file_size(ollama_rf) > 0) {
+            try {
+                std::ifstream f(ollama_rf); std::ostringstream ss; ss << f.rdbuf();
+                auto rj = json::parse(ss.str());
+                if (rj.contains("choices") && !rj["choices"].empty()) {
+                    result.response = rj;
+                    result.model_used = "ollama:llama3.2";
+                    result.ok = true;
+                }
+            } catch (...) {}
+        }
+        try { fs::remove(ol_pf); fs::remove(ollama_rf); } catch (...) {}
+    }
     try { fs::remove(pf); fs::remove(hf); fs::remove(rf); } catch (...) {}
     return result;
 }

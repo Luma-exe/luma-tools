@@ -1568,6 +1568,8 @@ body {
     background: var(--bg-tertiary); color: var(--text-muted); flex-shrink: 0;
 }
 .tmb-model.active .tmb-tier { background: rgba(250, 204, 21, 0.15); color: #fbbf24; }
+.tmb-model.active.tmb-local .tmb-tier { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+.tmb-model.active.tmb-local { background: rgba(74, 222, 128, 0.06); border-color: rgba(74, 222, 128, 0.2); }
 .tmb-name { font-size: 0.72rem; font-weight: 600; color: var(--text-primary); flex: 1; }
 .tmb-tpd { font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono); }
 .tmb-desc { font-size: 0.65rem; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
