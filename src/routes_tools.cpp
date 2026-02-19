@@ -2187,4 +2187,4 @@ IMPORTANT RULES:
         }
 
         res.set_content(json({{"improved_notes", improved_notes}}).dump(), "application/json");
-    });
+    });}
