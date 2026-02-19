@@ -2068,10 +2068,9 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
     // ── POST /api/tools/ai-improve-notes ────────────────────────────────────
     // Takes current notes + feedback and generates improved notes
     svr.Post("/api/tools/ai-improve-notes", [](const httplib::Request& req, httplib::Response& res) {
-        string api_key = get_groq_api_key();
-        if (api_key.empty()) {
-            res.status = 500;
-            res.set_content(json({{"error", "Groq API key not configured"}}).dump(), "application/json");
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
             return;
         }
 
@@ -2138,8 +2137,7 @@ IMPORTANT RULES:
             {"max_tokens", 8192}
         };
 
-        string proc = g_downloads_dir + "/processing";
-        if (!fs::exists(proc)) fs::create_directories(proc);
+        string proc = get_processing_dir();
         
         string payload_file = proc + "/improve_" + job_id + "_payload.json";
         string resp_file = proc + "/improve_" + job_id + "_resp.json";
@@ -2148,7 +2146,7 @@ IMPORTANT RULES:
         { ofstream f(payload_file); f << payload.dump(); }
 
         string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H \"Authorization: Bearer " + api_key + "\" "
+                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
                           "-H \"Content-Type: application/json\" "
                           "-d @" + escape_arg(payload_file) + " "
                           "-D " + escape_arg(hdr_file) + " "
