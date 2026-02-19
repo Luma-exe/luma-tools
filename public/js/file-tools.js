@@ -490,11 +490,11 @@ function showResult(toolId, blob, filename, jobId = null) {
     downloadLink.download = tagged;
     downloadLink.style.display = '';
 
+    // Rescue downloadLink from any nested wrapper before cleanup removes it
+    if (downloadLink.parentNode !== result) result.appendChild(downloadLink);
+
     // clear any previous preview / multi list
     result.querySelectorAll('.result-preview, .result-actions, .multi-result-list, .result-zip-btn, .notes-preview-pane').forEach(el => el.remove());
-
-    // Re-attach downloadLink to result in case it was inside a removed .result-actions
-    if (!downloadLink.parentNode) result.appendChild(downloadLink);
 
     // wrap download button + optional preview in a side-by-side container
     const actions = document.createElement('div');
@@ -1005,6 +1005,8 @@ function detectFileCategory(file) {
     if (/\.(md|markdown)$/.test(name) || type === 'text/markdown') return 'markdown';
     if (/\.csv$/.test(name) || type === 'text/csv') return 'csv';
     if (/\.json$/.test(name) || type === 'application/json') return 'json';
+    if (/\.(zip|7z|rar|tar|gz|bz2|xz|tgz|tbz2|txz|cab|iso|lzh|arj|z|lzma|zst|apk|jar|war|ear|deb|rpm|dmg|wim|msi|cbz|cbr|appx|nupkg|crx|xpi|whl|egg)$/.test(name)) return 'archive';
+    if (/\.(docx?|pptx?|xlsx?|odt|ods|odp|txt|rtf|epub)$/.test(name)) return 'document';
     return null;
 }
 
