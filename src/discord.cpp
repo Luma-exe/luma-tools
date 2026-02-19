@@ -244,7 +244,7 @@ void discord_log_server_start(int port, const string& version) {
                         json probe_payload = {
                             {"model", model_id},
                             {"messages", json::array({{{"role","user"},{"content","hi"}}})},
-                            {"max_tokens", 1}
+                            {"max_tokens", 50}
                         };
                         { ofstream f(pf); f << probe_payload.dump(); }
                         { ofstream f(hf); f << "Authorization: Bearer " << cap_groq_key
@@ -307,17 +307,18 @@ void discord_log_server_start(int port, const string& version) {
 
         // Groq AI model token remaining
         if (!cap_groq_key.empty()) {
-            desc += "\n\n**🤖 AI Models — Groq (tokens remaining)**\n";
+            desc += "\n\n**🤖 AI Models (tokens remaining per minute)**\n";
             for (const auto& entry : GROQ_PROBE_MODELS) {
                 auto it = tokens_map.find(entry.first);
                 if (it != tokens_map.end())
-                    desc += "🔵 " + entry.second + " › `" + to_string(it->second) + "`\n";
+                    desc += "☁️ " + entry.second + " › `" + to_string(it->second) + "`\n";
                 else
-                    desc += "🔵 " + entry.second + " › *probe failed*\n";
+                    desc += "☁️ " + entry.second + " › *probe failed*\n";
             }
-            desc.pop_back();  // remove trailing newline
+            desc += (cap_ollama ? "🏠 Ollama (local) › `Unlimited`" : "🏠 Ollama (local) › *not running*");
         } else {
             desc += "\n\n❌ **Groq API key not set** — AI tools unavailable";
+            if (cap_ollama) desc += "\n🏠 Ollama (local) › `Unlimited`";
         }
 
         discord_log("🚀 Server Online", desc, 0x5865F2);
