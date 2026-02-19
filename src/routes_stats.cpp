@@ -175,6 +175,35 @@ tr:last-child td{border-bottom:none}
        transition:opacity .3s;pointer-events:none;z-index:9999}
 .toast.show{opacity:1}
 .loading{color:var(--muted);font-size:.875rem;padding:16px 0;text-align:center}
+/* Admin panel */
+.admin-tab-btn{margin-left:8px;padding:7px 16px;background:rgba(124,92,255,.12);
+  border:1px solid rgba(124,92,255,.35);border-radius:8px;color:#a88aff;
+  font-size:.875rem;cursor:pointer}
+.admin-tab-btn:hover,.admin-tab-btn.active{background:var(--purple-dim);
+  border-color:rgba(124,92,255,.6);color:var(--text)}
+#adminPanel{padding:24px 32px 0;max-width:1300px;margin:auto}
+.admin-tool-row td input[type=number]{width:72px;background:rgba(255,255,255,.06);
+  border:1px solid var(--border);border-radius:6px;color:var(--text);
+  padding:5px 8px;font-size:.82rem}
+.admin-tool-row td input[type=text]{width:160px;background:rgba(255,255,255,.06);
+  border:1px solid var(--border);border-radius:6px;color:var(--text);
+  padding:5px 8px;font-size:.82rem}
+.toggle-switch{position:relative;display:inline-block;width:38px;height:20px}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#333;
+  border-radius:20px;transition:.25s}
+.toggle-slider::before{content:"";position:absolute;left:3px;top:3px;
+  width:14px;height:14px;background:#666;border-radius:50%;transition:.25s}
+.toggle-switch input:checked + .toggle-slider{background:rgba(124,92,255,.5)}
+.toggle-switch input:checked + .toggle-slider::before{transform:translateX(18px);background:var(--purple)}
+.save-tool-btn{padding:5px 12px;background:rgba(124,92,255,.15);
+  border:1px solid rgba(124,92,255,.35);border-radius:6px;
+  color:#a88aff;font-size:.8rem;cursor:pointer}
+.save-tool-btn:hover{background:var(--purple-dim)}
+.badge-server{font-size:.65rem;padding:1px 5px;border-radius:4px;
+  background:rgba(124,92,255,.2);color:#a88aff;vertical-align:middle;margin-left:4px}
+.badge-browser{font-size:.65rem;padding:1px 5px;border-radius:4px;
+  background:rgba(96,165,250,.15);color:#60a5fa;vertical-align:middle;margin-left:4px}
 </style>
 </head>
 <body>
@@ -189,6 +218,7 @@ tr:last-child td{border-bottom:none}
   <button class="range-btn" data-range="month">Last 30 Days</button>
   <button class="range-btn" data-range="all">All Time</button>
   <button class="digest-btn" id="digestBtn">&#x1F4EC; Send Digest</button>
+  <button class="admin-tab-btn" id="adminTabBtn">&#x1F527; Admin</button>
 </div>
 
 <div class="main">
@@ -233,6 +263,27 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="adminPanel" style="display:none">
+  <div class="section">
+    <h2>&#x1F527; Tool Configuration</h2>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:16px">Changes are saved per-tool immediately. <b style="color:var(--text)">Rate/min</b> = max API calls per IP per minute (0 = unlimited). <b style="color:var(--text)">Max file</b> = MB (0 = no limit). <b style="color:var(--text)">Max chars</b> = text input limit (0 = no limit).</p>
+    <div style="overflow-x:auto">
+    <table id="adminToolsTable">
+      <thead>
+        <tr>
+          <th>Tool</th><th>Type</th><th>Enabled</th>
+          <th>Rate/min</th><th>Max file (MB)</th><th>Max chars</th>
+          <th>Note</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="adminToolsBody">
+        <tr><td colspan="8" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
 
 <script>
 Chart.defaults.color = '#666';
@@ -372,6 +423,155 @@ document.getElementById('digestBtn').addEventListener('click', async () => {
 
 initCharts();
 load();
+)HTML"
+// Split string literal to stay under MSVC's per-literal size limit
+R"HTML(
+// ── Admin Panel ──────────────────────────────────────────────────────────────
+const ALL_TOOLS = [
+  {id:'ai-study-notes',     loc:'server'},
+  {id:'ai-flashcards',      loc:'server'},
+  {id:'ai-quiz',            loc:'server'},
+  {id:'ai-key-terms',       loc:'server'},
+  {id:'ai-paraphrase',      loc:'server'},
+  {id:'citation-gen',       loc:'server'},
+  {id:'mind-map',           loc:'server'},
+  {id:'youtube-summary',    loc:'server'},
+  {id:'downloader',         loc:'server'},
+  {id:'metadata-strip',     loc:'server'},
+  {id:'image-bg-remove',    loc:'server'},
+  {id:'image-watermark',    loc:'server'},
+  {id:'video-compress',     loc:'server'},
+  {id:'video-trim',         loc:'server'},
+  {id:'video-convert',      loc:'server'},
+  {id:'video-extract-audio',loc:'server'},
+  {id:'video-to-gif',       loc:'server'},
+  {id:'gif-to-video',       loc:'server'},
+  {id:'video-remove-audio', loc:'server'},
+  {id:'video-speed',        loc:'server'},
+  {id:'video-frame',        loc:'server'},
+  {id:'video-stabilize',    loc:'server'},
+  {id:'subtitle-extract',   loc:'server'},
+  {id:'audio-normalize',    loc:'server'},
+  {id:'audio-trim',         loc:'server'},
+  {id:'pdf-compress',       loc:'server'},
+  {id:'pdf-merge',          loc:'server'},
+  {id:'pdf-split',          loc:'server'},
+  {id:'pdf-to-images',      loc:'server'},
+  {id:'images-to-pdf',      loc:'server'},
+  {id:'markdown-to-pdf',    loc:'server'},
+  {id:'hash-generate',      loc:'server'},
+  {id:'csv-json',           loc:'server'},
+  {id:'redact',             loc:'browser'},
+  {id:'image-compress',     loc:'browser'},
+  {id:'image-resize',       loc:'browser'},
+  {id:'image-convert',      loc:'browser'},
+  {id:'favicon-generate',   loc:'browser'},
+  {id:'image-crop',         loc:'browser'},
+  {id:'screenshot-annotate',loc:'browser'},
+  {id:'color-palette',      loc:'browser'},
+  {id:'audio-convert',      loc:'browser'},
+  {id:'resume-builder',     loc:'browser'},
+  {id:'invoice-gen',        loc:'browser'},
+  {id:'qr-generate',        loc:'browser'},
+  {id:'base64',             loc:'browser'},
+  {id:'json-format',        loc:'browser'},
+  {id:'color-convert',      loc:'browser'},
+  {id:'markdown-preview',   loc:'browser'},
+  {id:'diff-checker',       loc:'browser'},
+  {id:'word-counter',       loc:'browser'},
+  {id:'unix-date',          loc:'browser'},
+  {id:'regex-tester',       loc:'browser'},
+  {id:'code-beautify',      loc:'browser'},
+  {id:'uuid-gen',           loc:'browser'},
+  {id:'url-encode',         loc:'browser'},
+];
+
+let adminLoaded = false;
+
+async function loadAdminTools() {
+  try {
+    const data = await fetch('/api/admin/tools').then(r => r.json());
+    // index by tool_id
+    const cfgMap = {};
+    (data.tools || []).forEach(t => cfgMap[t.tool_id] = t);
+
+    const tbody = document.getElementById('adminToolsBody');
+    tbody.innerHTML = '';
+    ALL_TOOLS.forEach(t => {
+      const cfg = cfgMap[t.id] || { enabled: true, rate_limit_min: 0, max_file_mb: 0, max_text_chars: 0, note: '' };
+      const isServer = t.loc === 'server';
+      const badge = isServer
+        ? '<span class="badge-server">server</span>'
+        : '<span class="badge-browser">browser</span>';
+      const tr = document.createElement('tr');
+      tr.className = 'admin-tool-row';
+      tr.dataset.tool = t.id;
+      tr.innerHTML =
+        '<td><code style="font-size:.82rem">' + t.id + '</code>' + badge + '</td>' +
+        '<td style="color:var(--muted);font-size:.78rem">' + t.loc + '</td>' +
+        '<td><label class="toggle-switch"><input type="checkbox" class="adm-enabled"' +
+          (cfg.enabled ? ' checked' : '') + '><span class="toggle-slider"></span></label></td>' +
+        '<td><input type="number" class="adm-rl" min="0" max="9999" value="' + (cfg.rate_limit_min||0) + '"></td>' +
+        '<td><input type="number" class="adm-mb" min="0" max="9999" value="' + (cfg.max_file_mb||0) + '"></td>' +
+        '<td><input type="number" class="adm-chars" min="0" max="999999" value="' + (cfg.max_text_chars||0) + '"></td>' +
+        '<td><input type="text" class="adm-note" placeholder="optional note" value="' + (cfg.note||'').replace(/"/g,'&quot;') + '"></td>' +
+        '<td><button class="save-tool-btn" onclick="saveToolCfg(this)">Save</button></td>';
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    showToast('Admin load error: ' + e.message);
+  }
+}
+
+async function saveToolCfg(btn) {
+  const tr = btn.closest('tr');
+  const toolId = tr.dataset.tool;
+  const body = {
+    enabled:        tr.querySelector('.adm-enabled').checked,
+    rate_limit_min: parseInt(tr.querySelector('.adm-rl').value)    || 0,
+    max_file_mb:    parseInt(tr.querySelector('.adm-mb').value)    || 0,
+    max_text_chars: parseInt(tr.querySelector('.adm-chars').value) || 0,
+    note:           tr.querySelector('.adm-note').value,
+  };
+  try {
+    const res = await fetch('/api/admin/tools/' + toolId, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      btn.textContent = 'Saved!';
+      setTimeout(() => btn.textContent = 'Save', 1800);
+    } else {
+      showToast('Save failed for ' + toolId);
+    }
+  } catch(e) {
+    showToast('Save error: ' + e.message);
+  }
+}
+
+const mainDiv   = document.querySelector('.main');
+const adminDiv  = document.getElementById('adminPanel');
+const adminBtn  = document.getElementById('adminTabBtn');
+const rangeBtns = document.querySelectorAll('.range-btn');
+
+adminBtn.addEventListener('click', () => {
+  const isAdmin = adminDiv.style.display !== 'none';
+  if (isAdmin) {
+    adminDiv.style.display = 'none';
+    mainDiv.style.display  = '';
+    adminBtn.classList.remove('active');
+    rangeBtns.forEach(b => b.style.display = '');
+    document.getElementById('digestBtn').style.display = '';
+  } else {
+    adminDiv.style.display = '';
+    mainDiv.style.display  = 'none';
+    adminBtn.classList.add('active');
+    rangeBtns.forEach(b => b.style.display = 'none');
+    document.getElementById('digestBtn').style.display = 'none';
+    if (!adminLoaded) { adminLoaded = true; loadAdminTools(); }
+  }
+});
 </script>
 </body>
 </html>)HTML";
@@ -486,6 +686,43 @@ void register_stats_routes(httplib::Server& svr) {
     svr.Post("/api/stats/digest", [](const httplib::Request& req, httplib::Response& res) {
         if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
         thread([]() { stat_send_daily_digest(); }).detach();
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // GET /api/admin/tools  — list all tool configs
+    svr.Get("/api/admin/tools", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        auto configs = get_all_tool_configs();
+        json arr = json::array();
+        for (auto& c : configs) {
+            arr.push_back({{
+                {"tool_id",        c.tool_id},
+                {"enabled",        c.enabled},
+                {"rate_limit_min", c.rate_limit_min},
+                {"max_file_mb",    c.max_file_mb},
+                {"max_text_chars", c.max_text_chars},
+                {"note",           c.note}
+            }});
+        }
+        res.set_content(json({{"tools", arr}}).dump(), "application/json");
+    });
+
+    // POST /api/admin/tools/:id  — update a tool config
+    svr.Post("/api/admin/tools/([^/]+)", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        string tool_id = req.matches[1];
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400; res.set_content(R"({"error":"Invalid JSON"})", "application/json"); return;
+        }
+        ToolConfig cfg = get_tool_config(tool_id); // load existing or default
+        cfg.tool_id        = tool_id;
+        if (body.contains("enabled"))        cfg.enabled        = body["enabled"].get<bool>();
+        if (body.contains("rate_limit_min")) cfg.rate_limit_min = body["rate_limit_min"].get<int>();
+        if (body.contains("max_file_mb"))    cfg.max_file_mb    = body["max_file_mb"].get<int>();
+        if (body.contains("max_text_chars")) cfg.max_text_chars = body["max_text_chars"].get<int>();
+        if (body.contains("note"))           cfg.note           = body["note"].get<string>();
+        set_tool_config(cfg);
         res.set_content(R"({"ok":true})", "application/json");
     });
 }

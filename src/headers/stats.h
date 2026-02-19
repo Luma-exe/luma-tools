@@ -50,3 +50,18 @@ int64_t stat_days_ago(int n);
 
 void stat_send_daily_digest();
 void stat_start_daily_scheduler();
+
+// --- Tool config control (admin panel) --------------------------------------
+
+struct ToolConfig {
+    string tool_id;
+    bool   enabled        = true;
+    int    rate_limit_min = 0;   // 0 = use global limit
+    int    max_file_mb    = 0;   // 0 = no extra limit
+    int    max_text_chars = 0;   // 0 = no extra limit
+    string note;
+};
+
+ToolConfig             get_tool_config(const string& tool_id);
+void                   set_tool_config(const ToolConfig& cfg);
+vector<ToolConfig>     get_all_tool_configs();

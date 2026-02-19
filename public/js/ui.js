@@ -40,6 +40,18 @@ function switchTool(toolId) {
     const si = $('sidebarSearch');
 
     if (si && si.value) { si.value = ''; filterSidebarTools(); }
+
+    // Deep linking
+    try { history.pushState({ tool: toolId }, '', toolId === 'landing' ? '/' : '#' + toolId); } catch {}
+    // Restore saved per-tool settings
+    restoreToolSettings(toolId);
+    // Server-offline warning for server-side tools
+    const banner = $('serverOfflineBanner');
+    if (banner) {
+        const _navItem = document.querySelector(`.nav-item[data-tool="${toolId}"]`);
+        const isServer = _navItem?.dataset.location === 'server';
+        banner.classList.toggle('hidden', !(isServer && window._serverOnline === false));
+    }
 }
 
 function toggleSidebar(forceState) {
@@ -73,6 +85,12 @@ function filterSidebarTools() {
         });
         cat.classList.toggle('search-hidden', !anyVisible);
     });
+    // Show empty state when actively searching and nothing found
+    const empty = $('searchEmpty');
+    if (empty) {
+        const anyVisible = [...cats].some(c => !c.classList.contains('search-hidden'));
+        empty.classList.toggle('hidden', !q || anyVisible);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -85,7 +103,7 @@ function selectOutputFmt(btn) {
     btn.classList.add('active');
     const toolId = grid.dataset.tool;
 
-    if (toolId) state.outputFormats[toolId] = btn.dataset.fmt;
+    if (toolId) { state.outputFormats[toolId] = btn.dataset.fmt; try { localStorage.setItem('lt_f_' + toolId, btn.dataset.fmt); } catch {} }
 }
 
 function selectPreset(btn) {
@@ -94,7 +112,7 @@ function selectPreset(btn) {
     btn.classList.add('active');
     const toolId = grid.dataset.tool;
 
-    if (toolId) state.presets[toolId] = btn.dataset.val;
+    if (toolId) { state.presets[toolId] = btn.dataset.val; try { localStorage.setItem('lt_p_' + toolId, btn.dataset.val); } catch {} }
 }
 
 function selectWmPos(btn) {
@@ -130,3 +148,152 @@ function getSelectedPreset(toolId) {
     const active = grid?.querySelector('.preset-btn.active');
     return active?.dataset.val || '';
 }
+
+// ──────────────────────────────────────────────────────────────
+// PER-TOOL SETTINGS MEMORY
+// ──────────────────────────────────────────────────────────────
+function restoreToolSettings(toolId) {
+    try {
+        // Restore saved output format
+        const savedFmt = localStorage.getItem('lt_f_' + toolId);
+        if (savedFmt) {
+            const fmtGrid = document.querySelector(`.format-select-grid[data-tool="${toolId}"]`);
+            if (fmtGrid) {
+                const fmtBtn = fmtGrid.querySelector(`.fmt-btn[data-fmt="${savedFmt}"]`);
+                if (fmtBtn) { fmtGrid.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active')); fmtBtn.classList.add('active'); state.outputFormats[toolId] = savedFmt; }
+            }
+        }
+        // Restore saved preset
+        const savedPreset = localStorage.getItem('lt_p_' + toolId);
+        if (savedPreset) {
+            const presetGrid = document.querySelector(`.preset-grid[data-tool="${toolId}"]`);
+            if (presetGrid) {
+                const presetBtn = presetGrid.querySelector(`.preset-btn[data-val="${savedPreset}"]`);
+                if (presetBtn) { presetGrid.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active')); presetBtn.classList.add('active'); state.presets[toolId] = savedPreset; }
+            }
+        }
+    } catch {}
+}
+
+// ──────────────────────────────────────────────────────────────
+// FAVOURITES
+// ──────────────────────────────────────────────────────────────
+function getFavs() {
+    try { return JSON.parse(localStorage.getItem('lt_favs') || '[]'); } catch { return []; }
+}
+function setFavs(arr) {
+    try { localStorage.setItem('lt_favs', JSON.stringify(arr)); } catch {}
+}
+function toggleFav(toolId, e) {
+    if (e) e.stopPropagation();
+    const favs = getFavs();
+    const idx  = favs.indexOf(toolId);
+    if (idx >= 0) favs.splice(idx, 1); else favs.push(toolId);
+    setFavs(favs);
+    renderFavs();
+    // Update all star buttons for this tool
+    document.querySelectorAll(`.nav-fav-btn[data-tool="${toolId}"]`).forEach(btn => {
+        btn.classList.toggle('starred', favs.includes(toolId));
+        btn.title = favs.includes(toolId) ? 'Remove from favourites' : 'Add to favourites';
+    });
+}
+function renderFavs() {
+    const favs = getFavs();
+    const catEl = $('navCatFavs');
+    if (!catEl) return;
+    // Remove old fav nav-items
+    catEl.querySelectorAll('.nav-item').forEach(el => el.remove());
+    if (favs.length === 0) { catEl.style.display = 'none'; return; }
+    catEl.style.display = '';
+    favs.forEach(toolId => {
+        const src = document.querySelector(`.nav-item[data-tool="${toolId}"]`);
+        if (!src) return;
+        const clone = src.cloneNode(true);
+        // Remove the fav btn from the favs category clone (avoids nesting weirdness)
+        clone.querySelector('.nav-fav-btn')?.remove();
+        catEl.appendChild(clone);
+    });
+}
+
+// ──────────────────────────────────────────────────────────────
+// COLLAPSIBLE CATEGORIES
+// ──────────────────────────────────────────────────────────────
+function toggleNavCat(titleEl) {
+    const cat = titleEl.closest('.nav-category');
+    if (!cat) return;
+    cat.classList.toggle('collapsed');
+    // Persist collapsed state
+    const label = titleEl.childNodes[0]?.textContent?.trim() || '';
+    try {
+        const collapsed = JSON.parse(localStorage.getItem('lt_cats_collapsed') || '[]');
+        const idx = collapsed.indexOf(label);
+        if (cat.classList.contains('collapsed')) { if (idx < 0) collapsed.push(label); }
+        else { if (idx >= 0) collapsed.splice(idx, 1); }
+        localStorage.setItem('lt_cats_collapsed', JSON.stringify(collapsed));
+    } catch {}
+}
+
+// ──────────────────────────────────────────────────────────────
+// HISTORY DRAWER
+// ──────────────────────────────────────────────────────────────
+function toggleHistoryDrawer(open) {
+    const drawer = $('historyDrawer');
+    if (!drawer) return;
+    const isOpen = typeof open === 'boolean' ? open : !drawer.classList.contains('open');
+    drawer.classList.toggle('open', isOpen);
+    drawer.setAttribute('aria-hidden', String(!isOpen));
+}
+
+// ──────────────────────────────────────────────────────────────
+// INITIALISATION (DOMContentLoaded)
+// ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    // ─ Add chevrons + onclick to all nav-category-titles ─
+    document.querySelectorAll('#sidebarNav .nav-category-title').forEach(titleEl => {
+        if (!titleEl.querySelector('.nav-cat-chevron')) {
+            const ch = document.createElement('i');
+            ch.className = 'fas fa-chevron-down nav-cat-chevron';
+            titleEl.appendChild(ch);
+        }
+        titleEl.style.cursor = 'pointer';
+        titleEl.onclick = () => toggleNavCat(titleEl);
+    });
+
+    // ─ Restore collapsed categories ─
+    try {
+        const collapsed = JSON.parse(localStorage.getItem('lt_cats_collapsed') || '[]');
+        document.querySelectorAll('#sidebarNav .nav-category-title').forEach(titleEl => {
+            const label = titleEl.childNodes[0]?.textContent?.trim() || '';
+            if (collapsed.includes(label)) titleEl.closest('.nav-category')?.classList.add('collapsed');
+        });
+    } catch {}
+
+    // ─ Add fav star buttons to every nav-item ─
+    const favs = getFavs();
+    document.querySelectorAll('#sidebarNav .nav-item[data-tool]').forEach(item => {
+        const toolId = item.dataset.tool;
+        if (item.querySelector('.nav-fav-btn')) return; // already added
+        const btn = document.createElement('button');
+        btn.className = 'nav-fav-btn' + (favs.includes(toolId) ? ' starred' : '');
+        btn.dataset.tool = toolId;
+        btn.title = favs.includes(toolId) ? 'Remove from favourites' : 'Add to favourites';
+        btn.innerHTML = '<i class="fas fa-star"></i>';
+        btn.addEventListener('click', (e) => toggleFav(toolId, e));
+        item.appendChild(btn);
+    });
+
+    // ─ Render favourites category ─
+    renderFavs();
+
+    // ─ Deep-link: restore tool from URL hash ─
+    const hash = location.hash.replace('#', '').trim();
+    if (hash && document.getElementById('tool-' + hash)) {
+        switchTool(hash);
+    }
+
+    // ─ Handle browser back/forward ─
+    window.addEventListener('popstate', (e) => {
+        const toolId = e.state?.tool || 'landing';
+        if (document.getElementById('tool-' + toolId)) switchTool(toolId);
+    });
+});

@@ -204,16 +204,32 @@ int main() {
     // CORS headers + rate limiting on /api/tools/*
     static std::mutex g_rate_mutex;
     static std::unordered_map<std::string, std::pair<int, std::time_t>> g_rate_map;
+    // Per-tool per-IP rate limit map: tool_id -> ip -> {count, window_start}
+    static std::unordered_map<std::string, std::unordered_map<std::string, std::pair<int,std::time_t>>> g_tool_rate_map;
     svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type");
 
-        // Rate-limit processing endpoints: 30 requests per 60 seconds per IP
         if (req.path.find("/api/tools/") == 0 && req.method == "POST") {
+            // Extract tool id from path: /api/tools/<tool-id>
+            string tool_id = req.path.substr(11); // after "/api/tools/"
+            auto slash = tool_id.find('/');
+            if (slash != string::npos) tool_id = tool_id.substr(0, slash);
+
+            // Check tool enabled/config
+            ToolConfig cfg = get_tool_config(tool_id);
+            if (!cfg.enabled) {
+                res.status = 503;
+                res.set_content(json({{"error", "This tool is currently disabled by the administrator."}}).dump(), "application/json");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+
             auto now = std::time(nullptr);
             auto ip  = req.remote_addr;
             std::lock_guard<std::mutex> lk(g_rate_mutex);
+
+            // Global rate limit: 30 requests per 60 seconds per IP
             auto& entry = g_rate_map[ip];
             if (now - entry.second >= 60) { entry.first = 0; entry.second = now; }
             entry.first++;
@@ -222,6 +238,20 @@ int main() {
                 res.set_header("Retry-After", "60");
                 res.set_content(R"({"error":"Too many requests. Please wait a moment."})", "application/json");
                 return httplib::Server::HandlerResponse::Handled;
+            }
+
+            // Per-tool rate limit (if configured)
+            if (cfg.rate_limit_min > 0) {
+                auto& tool_map = g_tool_rate_map[tool_id];
+                auto& tool_entry = tool_map[ip];
+                if (now - tool_entry.second >= 60) { tool_entry.first = 0; tool_entry.second = now; }
+                tool_entry.first++;
+                if (tool_entry.first > cfg.rate_limit_min) {
+                    res.status = 429;
+                    res.set_header("Retry-After", "60");
+                    res.set_content(json({{"error", "Rate limit exceeded for this tool. Please wait a moment."}}).dump(), "application/json");
+                    return httplib::Server::HandlerResponse::Handled;
+                }
             }
         }
         return httplib::Server::HandlerResponse::Unhandled;

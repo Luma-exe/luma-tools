@@ -68,6 +68,12 @@
             </div>
 
             <nav class="sidebar-nav" id="sidebarNav">
+                <!-- Favourites (populated by JS) -->
+                <div class="nav-category nav-cat-favs" id="navCatFavs" style="display:none">
+                    <div class="nav-category-title" onclick="toggleNavCat(this)">
+                        FAVOURITES <i class="fas fa-chevron-down nav-cat-chevron"></i>
+                    </div>
+                </div>
                 <div class="nav-category">
                     <div class="nav-category-title">AI &amp; STUDY</div>
                     <a class="nav-item" data-tool="ai-study-notes" data-location="server" onclick="switchTool('ai-study-notes')">
@@ -102,16 +108,13 @@
                     </a>
                 </div>
                 <div class="nav-category">
-                    <div class="nav-category-title">ANNOTATE</div>
+                    <div class="nav-category-title">IMAGE</div>
                     <a class="nav-item" data-tool="screenshot-annotate" data-location="browser" onclick="switchTool('screenshot-annotate')">
                         <i class="fas fa-pencil-alt"></i><span>Screenshot Annotator</span>
                     </a>
                     <a class="nav-item" data-tool="color-palette" data-location="browser" onclick="switchTool('color-palette')">
                         <i class="fas fa-eye-dropper"></i><span>Color Palette</span>
                     </a>
-                </div>
-                <div class="nav-category">
-                    <div class="nav-category-title">IMAGE</div>
                     <a class="nav-item" data-tool="image-compress" data-location="browser" onclick="switchTool('image-compress')">
                         <i class="fas fa-compress-alt"></i><span>Compress</span>
                     </a>
@@ -264,11 +267,18 @@
                     </a>
                 </div>
             </nav>
+            <div class="search-empty hidden" id="searchEmpty">
+                <i class="fas fa-search-minus"></i>
+                <p>No tools found</p>
+            </div>
 
             <div class="sidebar-footer">
                 <div class="sidebar-credit"><i class="fas fa-bolt"></i> Built by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener">Luma</a></div>
                 <button class="install-app-btn" id="installAppBtn" onclick="installPWA()">
                     <i class="fas fa-download"></i> Install App
+                </button>
+                <button class="history-open-btn" id="historyBtn" onclick="toggleHistoryDrawer(true)">
+                    <i class="fas fa-history"></i> History
                 </button>
                 <div class="server-status" id="serverStatus">
                     <div class="status-ticker">
@@ -286,8 +296,25 @@
             <a class="mobile-logo" href="#" onclick="switchTool('landing'); return false;"><i class="fas fa-bolt"></i> LUMA<span>TOOLS</span></a>
         </div>
 
+        <!-- ═══════════════ HISTORY DRAWER ═══════════════ -->
+        <div class="history-drawer" id="historyDrawer" aria-hidden="true">
+            <div class="history-drawer-header">
+                <span><i class="fas fa-history"></i> Result History</span>
+                <button class="history-close-btn" onclick="toggleHistoryDrawer(false)"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="history-list" id="historyList">
+                <p class="history-empty">No results yet. Process a file to see history here.</p>
+            </div>
+        </div>
+
         <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
         <main class="main-content">
+            <!-- Server offline banner -->
+            <div class="server-offline-banner hidden" id="serverOfflineBanner">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Server is currently offline &mdash; server-side tools are unavailable. Browser tools still work.</span>
+                <button onclick="this.parentElement.classList.add('hidden')" aria-label="Dismiss"><i class="fas fa-times"></i></button>
+            </div>
 
             <!-- ──────────── LANDING / WELCOME PAGE ──────────── -->
             <div class="tool-panel active" id="tool-landing">

@@ -455,6 +455,8 @@ function showResult(toolId, blob, filename, jobId = null) {
     const tagged = lumaTag(filename);
     result.querySelector('.result-name').textContent = tagged;
     result.querySelector('.result-size').textContent = formatBytes(blob.size);
+    // Add to result history
+    addToHistory(toolId, tagged, blob);
     const downloadLink = result.querySelector('.result-download');
 
     if (downloadLink._objectUrl) URL.revokeObjectURL(downloadLink._objectUrl);
@@ -984,6 +986,7 @@ let _dragCounter = 0;
 function initGlobalDrop() {
     const overlay = $('dropOverlay');
 
+    document.addEventListener('paste', onGlobalPaste);
     document.addEventListener('dragenter', (e) => {
         e.preventDefault();
 
@@ -1059,6 +1062,73 @@ function closeQuickAction(e) {
     state.droppedCategory = null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CTRL+V PASTE AUTO-DETECT
+// ═══════════════════════════════════════════════════════════════════════════
+function onGlobalPaste(e) {
+    // Ignore if user is focused on a text input/textarea
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const fileItems = [...items].filter(i => i.kind === 'file');
+    if (fileItems.length === 0) return;
+
+    e.preventDefault();
+    const files = fileItems.map(i => i.getAsFile()).filter(Boolean);
+    if (files.length === 0) return;
+
+    const category = detectFileCategory(files[0]);
+    if (!category) { showToast('Pasted file type not supported', 'error'); return; }
+    showToast('File detected from clipboard — choose a tool', 'info');
+    state.droppedFiles = files;
+    state.droppedCategory = category;
+    showQuickActionModal(category, files);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RESULT HISTORY
+// ═══════════════════════════════════════════════════════════════════════════
+const _historyItems = []; // [{toolId, filename, blobUrl, size, ts}]
+const HISTORY_MAX = 30;
+
+function addToHistory(toolId, filename, blob) {
+    // Revoke oldest if at limit
+    if (_historyItems.length >= HISTORY_MAX) {
+        const oldest = _historyItems.pop();
+        try { URL.revokeObjectURL(oldest.blobUrl); } catch {}
+    }
+    const blobUrl = URL.createObjectURL(blob);
+    _historyItems.unshift({ toolId, filename, blobUrl, size: blob.size, ts: Date.now() });
+    renderHistoryDrawer();
+    // Briefly flash history button to notify user
+    const btn = typeof $ === 'function' ? $('historyBtn') : document.getElementById('historyBtn');
+    if (btn) { btn.classList.add('pulse'); setTimeout(() => btn.classList.remove('pulse'), 1200); }
+}
+
+function renderHistoryDrawer() {
+    const list = typeof $ === 'function' ? $('historyList') : document.getElementById('historyList');
+    if (!list) return;
+    if (_historyItems.length === 0) {
+        list.innerHTML = '<p class="history-empty">No results yet. Process a file to see history here.</p>';
+        return;
+    }
+    list.innerHTML = '';
+    _historyItems.forEach(item => {
+        const age = Date.now() - item.ts;
+        const ageStr = age < 60000 ? 'just now' : age < 3600000 ? Math.floor(age / 60000) + 'm ago' : Math.floor(age / 3600000) + 'h ago';
+        const el = document.createElement('div');
+        el.className = 'history-item';
+        el.innerHTML =
+            '<div class="history-item-info">' +
+            '  <span class="history-item-name" title="' + item.filename + '">' + item.filename + '</span>' +
+            '  <span class="history-item-meta">' + item.toolId.replace(/-/g, '\u00a0') + ' · ' + formatBytes(item.size) + ' · ' + ageStr + '</span>' +
+            '</div>' +
+            '<a class="history-item-dl" href="' + item.blobUrl + '" download="' + item.filename + '" title="Download again"><i class="fas fa-download"></i></a>';
+        list.appendChild(el);
+    });
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // AI STUDY NOTES — INPUT MODE TOGGLE & PROCESSING
 // ═══════════════════════════════════════════════════════════════════════════

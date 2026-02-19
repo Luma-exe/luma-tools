@@ -11,6 +11,10 @@ async function checkServerHealth() {
         const data = await res.json();
 
         if (data.status === 'ok') {
+            window._serverOnline = true;
+            // Hide offline banner if it was showing
+            const banner = typeof $ === 'function' ? $('serverOfflineBanner') : document.getElementById('serverOfflineBanner');
+            if (banner) banner.classList.add('hidden');
             const items = [];
             items.push({ label: 'Server',      value: data.server || 'Online',                                   ok: true });
             items.push({ label: 'FFmpeg',       value: data.ffmpeg_available ? 'Available' : 'Missing',           ok: data.ffmpeg_available });
@@ -31,10 +35,18 @@ async function checkServerHealth() {
             tickerTrack.innerHTML = once + '<span class="ticker-sep">│</span>' + once + '<span class="ticker-sep">│</span>';
             initTickerDrag(tickerTrack);
         } else {
+            window._serverOnline = false;
             tickerTrack.innerHTML = '<span class="status-text">Server error</span>';
         }
     } catch {
+        window._serverOnline = false;
         tickerTrack.innerHTML = '<span class="status-text">Server offline</span>';
+        // Show offline banner if a server tool is currently active
+        const banner = typeof $ === 'function' ? $('serverOfflineBanner') : document.getElementById('serverOfflineBanner');
+        if (banner) {
+            const activeNav = document.querySelector('.nav-item.active');
+            if (activeNav?.dataset.location === 'server') banner.classList.remove('hidden');
+        }
     }
 }
 

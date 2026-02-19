@@ -2144,20 +2144,19 @@ IMPORTANT RULES:
         string hdr_file = proc + "/improve_" + job_id + "_hdr.txt";
         
         { ofstream f(payload_file); f << payload.dump(); }
+        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
 
-        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
-                          "-H \"Content-Type: application/json\" "
-                          "-d @" + escape_arg(payload_file) + " "
-                          "-D " + escape_arg(hdr_file) + " "
-                          "-o " + escape_arg(resp_file);
+        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                          " -H @" + escape_arg(hdr_file) +
+                          " -d @" + escape_arg(payload_file) +
+                          " -o " + escape_arg(resp_file);
 
-        int rc = system(curl_cmd.c_str());
+        int rc; exec_command(curl_cmd, rc);
         
         string improved_notes;
         bool success = false;
         
-        if (rc == 0 && fs::exists(resp_file)) {
+        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
             try {
                 ifstream f(resp_file);
                 std::ostringstream ss;
@@ -2286,20 +2285,21 @@ IMPORTANT RULES:
 
         string payload_file = proc + "/" + jid + "_payload.json";
         string resp_file = proc + "/" + jid + "_resp.json";
+        string hdr_file = proc + "/" + jid + "_hdr.txt";
         { ofstream f(payload_file); f << payload.dump(); }
+        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
 
-        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
-                          "-H \"Content-Type: application/json\" "
-                          "-d @" + escape_arg(payload_file) + " "
-                          "-o " + escape_arg(resp_file);
+        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                          " -H @" + escape_arg(hdr_file) +
+                          " -d @" + escape_arg(payload_file) +
+                          " -o " + escape_arg(resp_file);
 
-        int rc = system(curl_cmd.c_str());
+        int rc; exec_command(curl_cmd, rc);
         
         json flashcards = json::array();
         bool success = false;
         
-        if (rc == 0 && fs::exists(resp_file)) {
+        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
             try {
                 ifstream f(resp_file);
                 std::ostringstream ss; ss << f.rdbuf();
@@ -2434,20 +2434,21 @@ IMPORTANT RULES:
 
         string payload_file = proc + "/" + jid + "_payload.json";
         string resp_file = proc + "/" + jid + "_resp.json";
+        string hdr_file = proc + "/" + jid + "_hdr.txt";
         { ofstream f(payload_file); f << payload.dump(); }
+        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
 
-        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
-                          "-H \"Content-Type: application/json\" "
-                          "-d @" + escape_arg(payload_file) + " "
-                          "-o " + escape_arg(resp_file);
+        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                          " -H @" + escape_arg(hdr_file) +
+                          " -d @" + escape_arg(payload_file) +
+                          " -o " + escape_arg(resp_file);
 
-        int rc = system(curl_cmd.c_str());
+        int rc; exec_command(curl_cmd, rc);
         
         json questions = json::array();
         bool success = false;
         
-        if (rc == 0 && fs::exists(resp_file)) {
+        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
             try {
                 ifstream f(resp_file);
                 std::ostringstream ss; ss << f.rdbuf();
@@ -2565,20 +2566,21 @@ IMPORTANT RULES:
 
         string payload_file = proc + "/" + jid + "_payload.json";
         string resp_file = proc + "/" + jid + "_resp.json";
+        string hdr_file = proc + "/" + jid + "_hdr.txt";
         { ofstream f(payload_file); f << payload.dump(); }
+        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
 
-        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
-                          "-H \"Content-Type: application/json\" "
-                          "-d @" + escape_arg(payload_file) + " "
-                          "-o " + escape_arg(resp_file);
+        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                          " -H @" + escape_arg(hdr_file) +
+                          " -d @" + escape_arg(payload_file) +
+                          " -o " + escape_arg(resp_file);
 
-        int rc = system(curl_cmd.c_str());
+        int rc; exec_command(curl_cmd, rc);
         
         json terms = json::array();
         bool success = false;
         
-        if (rc == 0 && fs::exists(resp_file)) {
+        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
             try {
                 ifstream f(resp_file);
                 std::ostringstream ss; ss << f.rdbuf();
@@ -2659,20 +2661,21 @@ IMPORTANT RULES:
         string jid = generate_job_id();
         string payload_file = proc + "/" + jid + "_payload.json";
         string resp_file = proc + "/" + jid + "_resp.json";
+        string hdr_file = proc + "/" + jid + "_hdr.txt";
         { ofstream f(payload_file); f << payload.dump(); }
+        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
 
-        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
-                          "-H \"Content-Type: application/json\" "
-                          "-d @" + escape_arg(payload_file) + " "
-                          "-o " + escape_arg(resp_file);
+        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                          " -H @" + escape_arg(hdr_file) +
+                          " -d @" + escape_arg(payload_file) +
+                          " -o " + escape_arg(resp_file);
 
-        int rc = system(curl_cmd.c_str());
+        int rc; exec_command(curl_cmd, rc);
         
         string result;
         bool success = false;
         
-        if (rc == 0 && fs::exists(resp_file)) {
+        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
             try {
                 ifstream f(resp_file);
                 std::ostringstream ss; ss << f.rdbuf();
@@ -2721,10 +2724,14 @@ IMPORTANT RULES:
             string jid = generate_job_id();
             string resp_file = proc + "/" + jid + "_doi.json";
             
-            string curl_cmd = "curl -s -L -H \"Accept: application/vnd.citationstyles.csl+json\" \"https://doi.org/" + doi + "\" -o " + escape_arg(resp_file);
-            int rc = system(curl_cmd.c_str());
+            string accept_file = proc + "/" + jid + "_accept.txt";
+            { ofstream fa(accept_file); fa << "Accept: application/vnd.citationstyles.csl+json"; }
+            string curl_cmd = "curl -s -L -H @" + escape_arg(accept_file) +
+                              " https://doi.org/" + doi +
+                              " -o " + escape_arg(resp_file);
+            int rc; exec_command(curl_cmd, rc);
             
-            if (rc == 0 && fs::exists(resp_file)) {
+            if (fs::exists(resp_file)) {
                 try {
                     ifstream f(resp_file);
                     std::ostringstream ss; ss << f.rdbuf();
@@ -2764,10 +2771,11 @@ IMPORTANT RULES:
             string jid = generate_job_id();
             string resp_file = proc + "/" + jid + "_page.html";
             
-            string curl_cmd = "curl -s -L -A \"Mozilla/5.0\" \"" + url + "\" -o " + escape_arg(resp_file);
-            int rc = system(curl_cmd.c_str());
+            string curl_cmd = "curl -s -L -A Mozilla/5.0 " + escape_arg(url) +
+                              " -o " + escape_arg(resp_file);
+            int rc; exec_command(curl_cmd, rc);
             
-            if (rc == 0 && fs::exists(resp_file)) {
+            if (fs::exists(resp_file)) {
                 ifstream f(resp_file);
                 std::ostringstream ss; ss << f.rdbuf();
                 string html = ss.str();
@@ -2928,20 +2936,21 @@ IMPORTANT RULES:
 
         string payload_file = proc + "/" + jid + "_payload.json";
         string resp_file = proc + "/" + jid + "_resp.json";
+        string hdr_file = proc + "/" + jid + "_hdr.txt";
         { ofstream f(payload_file); f << payload.dump(); }
+        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
 
-        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
-                          "-H \"Content-Type: application/json\" "
-                          "-d @" + escape_arg(payload_file) + " "
-                          "-o " + escape_arg(resp_file);
+        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                          " -H @" + escape_arg(hdr_file) +
+                          " -d @" + escape_arg(payload_file) +
+                          " -o " + escape_arg(resp_file);
 
-        int rc = system(curl_cmd.c_str());
+        int rc; exec_command(curl_cmd, rc);
 
         json result;
         bool success = false;
 
-        if (rc == 0 && fs::exists(resp_file)) {
+        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
             try {
                 ifstream f(resp_file);
                 std::ostringstream ss; ss << f.rdbuf();
@@ -3095,6 +3104,7 @@ IMPORTANT RULES:
                 {{"role", "system"}, {"content", system_prompt}},
                 {{"role", "user"}, {"content", user_prompt}}
             }},
+            {"response_format", {{"type", "json_object"}}},
             {"temperature", 0.5},
             {"max_tokens", 2048}
         };
@@ -3103,13 +3113,12 @@ IMPORTANT RULES:
         string resp_file    = proc + "/" + jid + "_resp.json";
         string hdr_file     = proc + "/" + jid + "_auth.txt";
         { ofstream f(payload_file); f << payload.dump(); }
-        { ofstream f(hdr_file);     f << "Authorization: Bearer " << g_groq_key; }
+        { ofstream f(hdr_file); f << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
 
-        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H @" + escape_arg(hdr_file) + " "
-                          "-H \"Content-Type: application/json\" "
-                          "-d @" + escape_arg(payload_file) + " "
-                          "-o " + escape_arg(resp_file);
+        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                          " -H @" + escape_arg(hdr_file) +
+                          " -d @" + escape_arg(payload_file) +
+                          " -o " + escape_arg(resp_file);
 
         int rc;
         exec_command(curl_cmd, rc);

@@ -158,6 +158,14 @@ void stat_init_db() {
         CREATE INDEX IF NOT EXISTS idx_stats_ts      ON stats(ts);
         CREATE INDEX IF NOT EXISTS idx_stats_kind    ON stats(kind);
         CREATE INDEX IF NOT EXISTS idx_stats_ts_kind ON stats(ts, kind);
+        CREATE TABLE IF NOT EXISTS tool_config (
+            tool_id        TEXT PRIMARY KEY,
+            enabled        INTEGER NOT NULL DEFAULT 1,
+            rate_limit_min INTEGER NOT NULL DEFAULT 0,
+            max_file_mb    INTEGER NOT NULL DEFAULT 0,
+            max_text_chars INTEGER NOT NULL DEFAULT 0,
+            note           TEXT    NOT NULL DEFAULT ''
+        );
     )";
     char* errmsg = nullptr;
     if (sqlite3_exec(g_db, schema, nullptr, nullptr, &errmsg) != SQLITE_OK) {
@@ -407,4 +415,75 @@ void stat_start_daily_scheduler() {
             stat_send_daily_digest();
         }
     }).detach();
+}
+
+// === Tool config =============================================================
+
+ToolConfig get_tool_config(const string& tool_id) {
+    ToolConfig cfg;
+    cfg.tool_id = tool_id;
+    if (!g_db) return cfg;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "SELECT enabled, rate_limit_min, max_file_mb, max_text_chars, note "
+                      "FROM tool_config WHERE tool_id=?";
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, tool_id.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            cfg.enabled        = sqlite3_column_int(stmt, 0) != 0;
+            cfg.rate_limit_min = sqlite3_column_int(stmt, 1);
+            cfg.max_file_mb    = sqlite3_column_int(stmt, 2);
+            cfg.max_text_chars = sqlite3_column_int(stmt, 3);
+            auto note_ptr      = sqlite3_column_text(stmt, 4);
+            cfg.note           = note_ptr ? reinterpret_cast<const char*>(note_ptr) : "";
+        }
+        sqlite3_finalize(stmt);
+    }
+    return cfg;
+}
+
+void set_tool_config(const ToolConfig& cfg) {
+    if (!g_db) return;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "INSERT INTO tool_config(tool_id, enabled, rate_limit_min, max_file_mb, max_text_chars, note) "
+                      "VALUES(?,?,?,?,?,?) "
+                      "ON CONFLICT(tool_id) DO UPDATE SET "
+                      "enabled=excluded.enabled, rate_limit_min=excluded.rate_limit_min, "
+                      "max_file_mb=excluded.max_file_mb, max_text_chars=excluded.max_text_chars, "
+                      "note=excluded.note";
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, cfg.tool_id.c_str(),  -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt,  2, cfg.enabled ? 1 : 0);
+        sqlite3_bind_int(stmt,  3, cfg.rate_limit_min);
+        sqlite3_bind_int(stmt,  4, cfg.max_file_mb);
+        sqlite3_bind_int(stmt,  5, cfg.max_text_chars);
+        sqlite3_bind_text(stmt, 6, cfg.note.c_str(),     -1, SQLITE_TRANSIENT);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+}
+
+vector<ToolConfig> get_all_tool_configs() {
+    vector<ToolConfig> out;
+    if (!g_db) return out;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "SELECT tool_id, enabled, rate_limit_min, max_file_mb, max_text_chars, note FROM tool_config ORDER BY tool_id";
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            ToolConfig cfg;
+            auto id_ptr  = sqlite3_column_text(stmt, 0);
+            cfg.tool_id        = id_ptr ? reinterpret_cast<const char*>(id_ptr) : "";
+            cfg.enabled        = sqlite3_column_int(stmt, 1) != 0;
+            cfg.rate_limit_min = sqlite3_column_int(stmt, 2);
+            cfg.max_file_mb    = sqlite3_column_int(stmt, 3);
+            cfg.max_text_chars = sqlite3_column_int(stmt, 4);
+            auto note_ptr      = sqlite3_column_text(stmt, 5);
+            cfg.note           = note_ptr ? reinterpret_cast<const char*>(note_ptr) : "";
+            out.push_back(cfg);
+        }
+        sqlite3_finalize(stmt);
+    }
+    return out;
 }
