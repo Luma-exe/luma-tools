@@ -201,8 +201,6 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             try { quality = std::stoi(req.get_file_value("quality").content); } catch (...) {}
         }
 
-        discord_log_tool("Image Compress", file.filename, req.remote_addr);
-
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
@@ -230,11 +228,13 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         exec_command(cmd, code);
 
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            discord_log_tool("Image Compress", file.filename, req.remote_addr);
             string out_name = fs::path(file.filename).stem().string() + "_compressed" + ext;
             send_file_response(res, output_path, out_name);
         } else {
+            string err_msg = "Image compression failed for: " + mask_filename(file.filename);
+            discord_log_error("Image Compress", err_msg);
             res.status = 500;
-            discord_log_error("Image Compress", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Image compression failed"}}).dump(), "application/json");
         }
 
@@ -270,8 +270,6 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             return;
         }
 
-        discord_log_tool("Image Resize", file.filename, req.remote_addr);
-
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
@@ -287,11 +285,13 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         exec_command(cmd, code);
 
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            discord_log_tool("Image Resize", file.filename, req.remote_addr);
             string out_name = fs::path(file.filename).stem().string() + "_resized" + ext;
             send_file_response(res, output_path, out_name);
         } else {
+            string err_msg = "Image resize failed for: " + mask_filename(file.filename);
+            discord_log_error("Image Resize", err_msg);
             res.status = 500;
-            discord_log_error("Image Resize", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Image resize failed"}}).dump(), "application/json");
         }
 
@@ -318,8 +318,6 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "Unsupported output format: " + format}}).dump(), "application/json");
             return;
         }
-
-        discord_log_tool("Image Convert", file.filename + " -> " + format, req.remote_addr);
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -371,6 +369,8 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             }
 
             if (!rasterised) {
+                string err_msg = "SVG rasterisation failed for " + mask_filename(file.filename) + " — rsvg-convert, inkscape or ImageMagick must be installed on the server";
+                discord_log_error("Image Convert", err_msg);
                 try { fs::remove(input_path); } catch (...) {}
                 res.status = 500;
                 res.set_content(json({{"error", "SVG rasterisation failed — rsvg-convert, inkscape or ImageMagick must be installed on the server."}}).dump(), "application/json");
@@ -381,6 +381,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             // If the requested output is PNG and we already have the raster, serve it directly
             if (format == "png") {
+                discord_log_tool("Image Convert", file.filename + " -> png (SVG rasterised)", req.remote_addr);
                 string out_name = fs::path(file.filename).stem().string() + ".png";
                 send_file_response(res, png_path, out_name);
                 try { fs::remove(input_path); fs::remove(png_path); } catch (...) {}
@@ -404,11 +405,15 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         exec_command(cmd, code);
 
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            string label = file.filename + " -> " + format;
+            if (in_ext == ".svg") label += " (SVG rasterised)";
+            discord_log_tool("Image Convert", label, req.remote_addr);
             string out_name = fs::path(file.filename).stem().string() + out_ext;
             send_file_response(res, output_path, out_name);
         } else {
+            string err_msg = "Image conversion failed for: " + mask_filename(file.filename) + " -> " + format;
+            discord_log_error("Image Convert", err_msg);
             res.status = 500;
-            discord_log_error("Image Convert", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Image conversion failed"}}).dump(), "application/json");
         }
 
