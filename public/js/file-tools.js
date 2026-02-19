@@ -779,7 +779,7 @@ function showResult(toolId, blob, filename, jobId = null) {
                                 const rawView = pane.querySelector('.notes-raw');
                                 
                                 if (renderedView) {
-                                    renderedView.innerHTML = marked.parse(improvedNotes);
+                                    renderedView.innerHTML = parseMarkdown(improvedNotes);
                                 }
                                 if (rawView) {
                                     rawView.textContent = improvedNotes;

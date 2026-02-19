@@ -2307,6 +2307,27 @@ body {
     line-height: 1.5;
 }
 
+/* Quick Stats Row */
+.ncp-quick-stats {
+    display: flex;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-tertiary);
+}
+
+.ncp-quick-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+}
+
 .ncp-quick-stat i {
     font-size: 0.9rem;
 }
