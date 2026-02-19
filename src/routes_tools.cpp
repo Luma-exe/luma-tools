@@ -2064,4 +2064,129 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
 
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
     });
-}
+
+    // ── POST /api/tools/ai-improve-notes ────────────────────────────────────
+    // Takes current notes + feedback and generates improved notes
+    svr.Post("/api/tools/ai-improve-notes", [](const httplib::Request& req, httplib::Response& res) {
+        string api_key = get_groq_api_key();
+        if (api_key.empty()) {
+            res.status = 500;
+            res.set_content(json({{"error", "Groq API key not configured"}}).dump(), "application/json");
+            return;
+        }
+
+        string job_id = req.get_file_value("job_id").content;
+        string current_notes = req.get_file_value("current_notes").content;
+        string feedback_json = req.get_file_value("feedback").content;
+
+        if (current_notes.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "No notes provided"}}).dump(), "application/json");
+            return;
+        }
+
+        // Parse feedback
+        json feedback;
+        try {
+            feedback = json::parse(feedback_json);
+        } catch (...) {
+            feedback = json::object();
+        }
+        
+        auto gaps = feedback.value("gaps", json::array());
+        auto tips = feedback.value("studyTips", json::array());
+        auto missed = feedback.value("missed", json::array());
+
+        // Build the improvement prompt
+        string gaps_list, tips_list, missed_list;
+        for (const auto& g : gaps) gaps_list += "- " + g.get<string>() + "\n";
+        for (const auto& t : tips) tips_list += "- " + t.get<string>() + "\n";
+        for (const auto& m : missed) missed_list += "- " + m.get<string>() + "\n";
+
+        string system_prompt = R"(You are an expert study notes editor. Your task is to improve the user's study notes based on specific feedback. 
+
+IMPORTANT RULES:
+1. Keep the same overall structure and format (Markdown)
+2. ADD content for missing topics - don't just mention them, actually explain them
+3. Expand on weak areas with more detail and examples
+4. Maintain the user's writing style
+5. Do NOT remove existing good content
+6. Output ONLY the improved notes - no explanations or meta-commentary)";
+
+        string user_prompt = "Here are my current study notes:\n\n---\n" + current_notes + "\n---\n\n";
+        
+        if (!missed_list.empty()) {
+            user_prompt += "MISSING TOPICS (add these with proper explanations):\n" + missed_list + "\n";
+        }
+        if (!gaps_list.empty()) {
+            user_prompt += "AREAS TO IMPROVE:\n" + gaps_list + "\n";
+        }
+        if (!tips_list.empty()) {
+            user_prompt += "SUGGESTIONS TO INCORPORATE:\n" + tips_list + "\n";
+        }
+        
+        user_prompt += "\nPlease improve my notes by addressing the above feedback. Output only the improved notes in Markdown format.";
+
+        // Call Groq API
+        json payload = {
+            {"model", "llama-3.3-70b-versatile"},
+            {"messages", {
+                {{"role", "system"}, {"content", system_prompt}},
+                {{"role", "user"}, {"content", user_prompt}}
+            }},
+            {"temperature", 0.4},
+            {"max_tokens", 8192}
+        };
+
+        string proc = g_downloads_dir + "/processing";
+        if (!fs::exists(proc)) fs::create_directories(proc);
+        
+        string payload_file = proc + "/improve_" + job_id + "_payload.json";
+        string resp_file = proc + "/improve_" + job_id + "_resp.json";
+        string hdr_file = proc + "/improve_" + job_id + "_hdr.txt";
+        
+        { ofstream f(payload_file); f << payload.dump(); }
+
+        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
+                          "-H \"Authorization: Bearer " + api_key + "\" "
+                          "-H \"Content-Type: application/json\" "
+                          "-d @" + escape_arg(payload_file) + " "
+                          "-D " + escape_arg(hdr_file) + " "
+                          "-o " + escape_arg(resp_file);
+
+        int rc = system(curl_cmd.c_str());
+        
+        string improved_notes;
+        bool success = false;
+        
+        if (rc == 0 && fs::exists(resp_file)) {
+            try {
+                ifstream f(resp_file);
+                std::ostringstream ss;
+                ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+                
+                if (resp_json.contains("choices") && resp_json["choices"].is_array() && !resp_json["choices"].empty()) {
+                    improved_notes = resp_json["choices"][0]["message"]["content"].get<string>();
+                    success = true;
+                } else if (resp_json.contains("error")) {
+                    string msg = resp_json["error"].value("message", "AI API error");
+                    res.status = 500;
+                    res.set_content(json({{"error", msg}}).dump(), "application/json");
+                    try { fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
+                    return;
+                }
+            } catch (...) {}
+        }
+
+        // Cleanup temp files
+        try { fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
+
+        if (!success) {
+            res.status = 500;
+            res.set_content(json({{"error", "Failed to improve notes"}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(json({{"improved_notes", improved_notes}}).dump(), "application/json");
+    });

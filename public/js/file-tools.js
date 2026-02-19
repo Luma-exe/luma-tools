@@ -575,6 +575,13 @@ function showResult(toolId, blob, filename, jobId = null) {
                         const scoreBg = score >= 80 ? 'rgba(0,230,138,0.1)' : score >= 60 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)';
                         const scoreIcon = score >= 80 ? 'fa-circle-check' : score >= 60 ? 'fa-circle-exclamation' : 'fa-circle-xmark';
 
+                        // SVG ring calculation
+                        const ringSize = 100;
+                        const strokeWidth = 8;
+                        const radius = (ringSize - strokeWidth) / 2;
+                        const circumference = 2 * Math.PI * radius;
+                        const strokeDashoffset = circumference - (score / 100) * circumference;
+
                         const panel = document.createElement('div');
                         panel.className = 'notes-coverage-panel';
 
@@ -590,46 +597,44 @@ function showResult(toolId, blob, filename, jobId = null) {
                                 </button>
                             </div>
                             
-                            <!-- Main Score Banner -->
-                            <div class="ncp-score-banner" style="background:${scoreBg}; border-color:${scoreColor}">
-                                <div class="ncp-score-main">
-                                    <div class="ncp-score-number" style="color:${scoreColor}">${score}<span class="ncp-score-percent">%</span></div>
-                                    <div class="ncp-score-verdict" style="color:${scoreColor}">
+                            <!-- Score Section with Circle -->
+                            <div class="ncp-score-section">
+                                <div class="ncp-ring-container">
+                                    <svg class="ncp-ring-svg" viewBox="0 0 ${ringSize} ${ringSize}">
+                                        <circle class="ncp-ring-bg" cx="${ringSize/2}" cy="${ringSize/2}" r="${radius}" 
+                                            stroke-width="${strokeWidth}" fill="none" stroke="rgba(255,255,255,0.1)"/>
+                                        <circle class="ncp-ring-progress" cx="${ringSize/2}" cy="${ringSize/2}" r="${radius}"
+                                            stroke-width="${strokeWidth}" fill="none" stroke="${scoreColor}"
+                                            stroke-linecap="round" stroke-dasharray="${circumference}" 
+                                            stroke-dashoffset="${strokeDashoffset}" transform="rotate(-90 ${ringSize/2} ${ringSize/2})"/>
+                                    </svg>
+                                    <div class="ncp-ring-inner">
+                                        <span class="ncp-ring-score">${score}</span>
+                                        <span class="ncp-ring-percent">%</span>
+                                    </div>
+                                </div>
+                                <div class="ncp-score-info">
+                                    <div class="ncp-verdict" style="color:${scoreColor}">
                                         <i class="fas ${scoreIcon}"></i>
                                         ${esc(verdict)}
                                     </div>
+                                    <div class="ncp-summary">${esc(summary)}</div>
                                 </div>
-                                <div class="ncp-score-summary">${esc(summary)}</div>
                             </div>
                             
                             <!-- Quick Stats Row -->
                             <div class="ncp-quick-stats">
                                 <div class="ncp-quick-stat">
-                                    <div class="ncp-quick-stat-icon" style="background:rgba(0,230,138,0.15); color:#00e68a">
-                                        <i class="fas fa-check"></i>
-                                    </div>
-                                    <div class="ncp-quick-stat-info">
-                                        <span class="ncp-quick-stat-value">${covered.length} <span class="ncp-quick-stat-total">of ${keyConcepts.length}</span></span>
-                                        <span class="ncp-quick-stat-label">Topics Covered</span>
-                                    </div>
+                                    <i class="fas fa-circle-check"></i>
+                                    <span><strong>${covered.length}</strong>/${keyConcepts.length} Covered</span>
                                 </div>
-                                <div class="ncp-quick-stat">
-                                    <div class="ncp-quick-stat-icon" style="background:rgba(245,158,11,0.15); color:#f59e0b">
-                                        <i class="fas fa-exclamation"></i>
-                                    </div>
-                                    <div class="ncp-quick-stat-info">
-                                        <span class="ncp-quick-stat-value">${missed.length}</span>
-                                        <span class="ncp-quick-stat-label">Topics Missing</span>
-                                    </div>
+                                <div class="ncp-quick-stat ncp-stat--warn">
+                                    <i class="fas fa-triangle-exclamation"></i>
+                                    <span><strong>${missed.length}</strong> Missing</span>
                                 </div>
-                                <div class="ncp-quick-stat">
-                                    <div class="ncp-quick-stat-icon" style="background:rgba(139,92,246,0.15); color:var(--accent)">
-                                        <i class="fas fa-star"></i>
-                                    </div>
-                                    <div class="ncp-quick-stat-info">
-                                        <span class="ncp-quick-stat-value">${highCovered.length} <span class="ncp-quick-stat-total">of ${highPriority.length}</span></span>
-                                        <span class="ncp-quick-stat-label">High Priority</span>
-                                    </div>
+                                <div class="ncp-quick-stat ncp-stat--accent">
+                                    <i class="fas fa-star"></i>
+                                    <span><strong>${highCovered.length}</strong>/${highPriority.length} Priority</span>
                                 </div>
                             </div>
                             
@@ -706,7 +711,21 @@ function showResult(toolId, blob, filename, jobId = null) {
                                     </div>
                                 ` : '<p class="ncp-empty">No specific study tips generated.</p>'}
                             </div>
+                            
+                            <!-- Improve Notes Action -->
+                            <div class="ncp-action-bar">
+                                <button class="ncp-improve-btn" id="ncp-improve-btn">
+                                    <i class="fas fa-wand-magic-sparkles"></i>
+                                    <span>Improve My Notes</span>
+                                </button>
+                                <p class="ncp-action-hint">AI will enhance your notes based on the feedback above</p>
+                            </div>
                         `;
+                        
+                        // Store feedback data for improve feature
+                        panel.dataset.feedback = JSON.stringify({ gaps, studyTips, missed: missed.map(c => c.topic) });
+                        panel.dataset.notesText = notesText;
+                        panel.dataset.jobId = jobId;
                         
                         // Add tab switching logic
                         panel.querySelectorAll('.ncp-tab-btn').forEach(tabBtn => {
@@ -716,6 +735,59 @@ function showResult(toolId, blob, filename, jobId = null) {
                                 tabBtn.classList.add('active');
                                 panel.querySelector(`[data-tab-content="${tabBtn.dataset.tab}"]`).classList.add('active');
                             });
+                        });
+                        
+                        // Add improve notes handler
+                        panel.querySelector('#ncp-improve-btn').addEventListener('click', async function() {
+                            const improveBtn = this;
+                            const feedback = JSON.parse(panel.dataset.feedback);
+                            const currentNotes = panel.dataset.notesText;
+                            const currentJobId = panel.dataset.jobId;
+                            
+                            improveBtn.disabled = true;
+                            improveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Improving...</span>';
+                            
+                            try {
+                                const formData = new FormData();
+                                formData.append('job_id', currentJobId);
+                                formData.append('current_notes', currentNotes);
+                                formData.append('feedback', JSON.stringify(feedback));
+                                
+                                const resp = await fetch('/api/tools/ai-improve-notes', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                
+                                if (!resp.ok) throw new Error('Failed to improve notes');
+                                const result = await resp.json();
+                                
+                                if (result.error) throw new Error(result.error);
+                                
+                                // Update the displayed notes
+                                const improvedNotes = result.improved_notes || '';
+                                const renderedView = pane.querySelector('.notes-rendered');
+                                const rawView = pane.querySelector('.notes-raw');
+                                
+                                if (renderedView) {
+                                    renderedView.innerHTML = marked.parse(improvedNotes);
+                                }
+                                if (rawView) {
+                                    rawView.textContent = improvedNotes;
+                                }
+                                
+                                // Update stored notes text for re-analysis
+                                panel.dataset.notesText = improvedNotes;
+                                
+                                // Close the panel and show success
+                                panel.remove();
+                                btn.innerHTML = '<i class="fas fa-chart-bar"></i> Coverage Report';
+                                showToast('Notes improved! Run coverage report again to see your new score.', 'success');
+                                
+                            } catch (err) {
+                                showToast(err.message || 'Failed to improve notes', 'error');
+                                improveBtn.disabled = false;
+                                improveBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> <span>Improve My Notes</span>';
+                            }
                         });
 
                         pane.appendChild(panel);
