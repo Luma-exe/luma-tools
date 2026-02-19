@@ -13,6 +13,7 @@
  */
 
 #include "common.h"
+#include "discord.h"
 #include "stats.h"
 #include "routes.h"
 
@@ -768,6 +769,34 @@ void register_stats_routes(httplib::Server& svr) {
 
     // OPTIONS /api/stats/event  (CORS preflight)
     svr.Options("/api/stats/event", [](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        res.status = 204;
+    });
+
+    // POST /api/wasm/error  (PUBLIC — browser reports WASM/Canvas failures for Discord logging)
+    svr.Post("/api/wasm/error", [](const httplib::Request& req, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        try {
+            auto body  = json::parse(req.body);
+            string tool  = body.value("tool",  "unknown");
+            string error = body.value("error", "unknown");
+            bool   coi   = body.value("crossOriginIsolated", false);
+            bool   sab   = body.value("sharedArrayBuffer",   false);
+            string ua    = body.value("ua", "");
+            if (ua.size() > 200) ua = ua.substr(0, 200) + "…";
+
+            string desc = "🛠️ **Tool** › `" + tool + "`\n"
+                          "💥 **Error** › " + error.substr(0, 300) + "\n"
+                          "🔒 **crossOriginIsolated** › " + (coi ? "✅ true" : "❌ false") + "\n"
+                          "🧵 **SharedArrayBuffer** › "   + (sab ? "✅ true" : "❌ false") + "\n"
+                          "🌐 **UA** › `" + ua + "`";
+            discord_log("⚠️ Browser WASM / Canvas Error", desc, 0xFFA500); // orange
+        } catch (...) {}
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+    svr.Options("/api/wasm/error", [](const httplib::Request&, httplib::Response& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type");
