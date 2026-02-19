@@ -1554,6 +1554,20 @@ body {
 }
 .tool-location-badge i { font-size: 0.6rem; }
 
+/* ─── WASM Fallback Warning Badge ────────────────────────────────────────── */
+/* Shown between location badge and fav button when browser WASM is unavailable */
+.tool-wasm-warn-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 20px;
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em;
+    margin-left: 6px; cursor: default; user-select: none;
+    white-space: nowrap; flex-shrink: 0;
+    background: rgba(251, 146, 60, 0.12);
+    color: #fb923c;
+    border: 1px solid rgba(251, 146, 60, 0.3);
+}
+.tool-wasm-warn-badge i { font-size: 0.6rem; }
+
 /* ─── AI Model Badge ───────────────────────────────────────────── */
 .tool-model-badge {
     display: inline-flex; align-items: center; gap: 5px;

@@ -2,6 +2,10 @@
 // FFMPEG.WASM — client-side processing
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Persists for the session — set true once WASM fails so subsequent tool opens
+// immediately show the correct badge without waiting for a failed attempt.
+window._wasmFailed = false;
+
 const WasmProcessor = {
     ffmpeg: null,
     loaded: false,
@@ -93,6 +97,29 @@ function mimeFromExt(filename) {
     return map[ext] || 'application/octet-stream';
 }
 
+// ─── Badge helper ────────────────────────────────────────────────────────────
+// Updates the location badge to "On our server" and inserts the orange warning
+// badge between the location badge and the fav button.
+function _applyWasmFallbackBadge(toolId, reason) {
+    const panel = document.getElementById('tool-' + toolId);
+    const lb    = panel?.querySelector('.tool-location-badge');
+    if (!lb) return;
+
+    lb.className = 'tool-location-badge loc-server';
+    lb.title     = 'Running on our server — browser WASM unavailable';
+    lb.innerHTML = '<i class="fas fa-server"></i> On our server';
+
+    // Remove any stale warning badge, then insert a fresh one
+    panel.querySelector('.tool-wasm-warn-badge')?.remove();
+    const warn = document.createElement('span');
+    warn.className = 'tool-wasm-warn-badge';
+    warn.title     = reason || (crossOriginIsolated
+        ? 'Browser WASM processing failed — using server fallback'
+        : 'Browser WASM unavailable: page is not cross-origin isolated');
+    warn.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Browser WASM failed';
+    lb.insertAdjacentElement('afterend', warn);
+}
+
 // Tool command builders — return { args, output } or null (falls back to server)
 const WASM_TOOLS = {
     'image-compress': (file, opts) => {
@@ -156,6 +183,22 @@ async function processFileWasm(toolId) {
 
     if (!cmd) return processFileServer(toolId);
 
+    // If the page is not cross-origin isolated, SharedArrayBuffer is unavailable
+    // and ffmpeg.wasm will fail immediately — skip straight to the server fallback.
+    if (!crossOriginIsolated || window._wasmFailed) {
+        showProcessing(toolId, true);
+        try {
+            await processFileServer(toolId);
+            window._wasmFailed = true;
+            _applyWasmFallbackBadge(toolId,
+                !crossOriginIsolated
+                    ? 'Page is not cross-origin isolated — WASM requires COOP/COEP headers'
+                    : 'WASM failed earlier this session — using server fallback');
+        } catch (e) { showToast(e.message, 'error'); }
+        finally    { showProcessing(toolId, false); }
+        return;
+    }
+
     showProcessing(toolId, true);
     const procEl = document.querySelector(`.processing-status[data-tool="${toolId}"]`);
     const procText = procEl?.querySelector('.processing-text') || procEl?.querySelector('span');
@@ -170,20 +213,13 @@ async function processFileWasm(toolId) {
     } catch (err) {
         console.error('[WASM] Processing failed:', err);
         showToast('Client processing failed, trying server...', 'info');
-
-    try {
-        await processFileServer(toolId);
-        // Update badge to reflect actual server execution
-        const _panel = document.getElementById('tool-' + toolId);
-        const _lb = _panel?.querySelector('.tool-location-badge');
-        if (_lb) {
-            _lb.className = 'tool-location-badge loc-server';
-            _lb.title = 'Ran on our server — browser processing unavailable';
-            _lb.innerHTML = '<i class="fas fa-server"></i> On our server';
+        window._wasmFailed = true;
+        try {
+            await processFileServer(toolId);
+            _applyWasmFallbackBadge(toolId, 'Browser WASM error: ' + (err?.message || 'unknown error'));
+            return;
         }
-        return;
-    }
-    catch (serverErr) { showToast(serverErr.message, 'error'); }
+        catch (serverErr) { showToast(serverErr.message, 'error'); }
     } finally {
         showProcessing(toolId, false);
     }
@@ -202,6 +238,34 @@ async function processFileWasmDirect(toolId, file) {
         return blob;
     } catch (wasmErr) {
         // WASM failed — fall back to the server exactly like the single-file path does
+        window._wasmFailed = true;
         return processFileServerDirect(toolId, file);
     }
 }
+
+// ─── switchTool hook — apply fallback badge immediately on tool open ─────────
+// wasm.js loads after ui.js, so switchTool is already defined. We wrap it so
+// that whenever a WASM tool is opened and WASM is known to be unavailable (either
+// because crossOriginIsolated is false or because it failed earlier this session),
+// the badge shows "On our server" with the warning pill before the user even
+// clicks the process button.
+(function () {
+    const _orig = window.switchTool;
+    if (typeof _orig !== 'function') return;
+
+    window.switchTool = function (toolId) {
+        _orig(toolId);
+
+        // Only decorate tools that have a WASM builder (not pure-server tools)
+        if (!(toolId in WASM_TOOLS)) return;
+
+        if (!crossOriginIsolated || window._wasmFailed) {
+            // Defer by one tick so switchTool's DOM mutations are fully applied
+            setTimeout(() => _applyWasmFallbackBadge(toolId,
+                !crossOriginIsolated
+                    ? 'Page is not cross-origin isolated \u2014 WASM requires COOP/COEP headers'
+                    : 'WASM failed earlier this session \u2014 using server fallback'
+            ), 0);
+        }
+    };
+}());

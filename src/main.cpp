@@ -210,6 +210,9 @@ int main() {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        // Required for SharedArrayBuffer / ffmpeg.wasm (crossOriginIsolated = true)
+        res.set_header("Cross-Origin-Opener-Policy", "same-origin");
+        res.set_header("Cross-Origin-Embedder-Policy", "credentialless");
 
         if (req.path.find("/api/tools/") == 0 && req.method == "POST") {
             // Extract tool id from path: /api/tools/<tool-id>
@@ -261,6 +264,8 @@ int main() {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        res.set_header("Cross-Origin-Opener-Policy", "same-origin");
+        res.set_header("Cross-Origin-Embedder-Policy", "credentialless");
         res.status = 204;
     });
 
