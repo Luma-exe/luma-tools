@@ -1625,6 +1625,12 @@ body {
     border-color: rgba(239,68,68,0.25);
 }
 .tool-model-badge.tmb-error:hover { background: rgba(239,68,68,0.18); }
+.tool-model-badge.tmb-checking {
+    background: rgba(148,163,184,0.1); color: var(--text-muted);
+    border-color: rgba(148,163,184,0.2); pointer-events: none;
+}
+.tool-model-badge.tmb-checking i { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .tmb-no-model {
     font-size: 0.72rem; color: var(--text-secondary); line-height: 1.5;
     padding: 6px 0;

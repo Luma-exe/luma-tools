@@ -32,6 +32,10 @@ static const vector<string> GROQ_MODEL_CHAIN = {
     "llama-3.1-8b-instant"
 };
 
+// ── Last-used AI model cache (updated on every successful AI call) ────────────
+static mutex g_model_cache_mutex;
+static string g_last_used_model;
+
 struct GroqResult {
     json   response;
     string model_used;
@@ -90,6 +94,7 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
             result.response   = rj;
             result.model_used = model;
             result.ok         = rj.contains("choices") && !rj["choices"].empty();
+            if (result.ok) { lock_guard<mutex> lk(g_model_cache_mutex); g_last_used_model = model; }
             // Extract token usage from response body
             if (rj.contains("usage") && rj["usage"].is_object())
                 result.tokens_used = rj["usage"].value("total_tokens", 0);
@@ -120,6 +125,7 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
                     result.response = rj;
                     result.model_used = "ollama:llama3.1:8b";
                     result.ok = true;
+                    { lock_guard<mutex> lk(g_model_cache_mutex); g_last_used_model = "ollama:llama3.1:8b"; }
                 }
             } catch (...) {}
         }
@@ -700,6 +706,15 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         }).detach();
 
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+    });
+
+    // ── GET /api/ai-status — return last-used AI model (for frontend badge) ───
+    svr.Get("/api/ai-status", [](const httplib::Request&, httplib::Response& res) {
+        string model;
+        { lock_guard<mutex> lk(g_model_cache_mutex); model = g_last_used_model; }
+        json j = model.empty() ? json{{"model", nullptr}} : json{{"model", model}};
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(j.dump(), "application/json");
     });
 
     // ── GET /api/tools/status/:id — check processing job ────────────────────

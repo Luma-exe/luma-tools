@@ -29,10 +29,20 @@ function switchTool(toolId) {
             if (h2) {
                 h2.appendChild(badge);
 
-                // AI model badge — show immediately for AI tools
-                const AI_TOOLS = ['ai-study-notes','ai-flashcards','ai-quiz','ai-paraphrase','mind-map','youtube-summary'];
-                if (AI_TOOLS.includes(toolId)) {
-                    showModelBadge(toolId, 'llama-3.3-70b-versatile');
+                // AI model badge — show cached model or spinner while probing
+                if (AI_BADGE_TOOLS.includes(toolId)) {
+                    if (_activeAIModel) {
+                        showModelBadge(toolId, _activeAIModel);
+                    } else {
+                        // Show checking spinner, then update when probe resolves
+                        const existingFav = h2.querySelector('.tool-fav-btn');
+                        const chk = document.createElement('span');
+                        chk.className = 'tool-model-badge tmb-checking';
+                        chk.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Checking';
+                        if (existingFav) h2.insertBefore(chk, existingFav);
+                        else h2.appendChild(chk);
+                        fetchAIStatus();
+                    }
                 }
 
                 // Fav button always last
@@ -296,6 +306,9 @@ document.addEventListener('DOMContentLoaded', () => {
         switchTool(hash);
     }
 
+    // Probe AI model status quietly in the background so the badge is ready
+    setTimeout(fetchAIStatus, 400);
+
     // Handle browser back/forward
     window.addEventListener('popstate', (e) => {
         const toolId = e.state?.tool || 'landing';
@@ -306,6 +319,35 @@ document.addEventListener('DOMContentLoaded', () => {
 // ═════════════════════════════════════════════════════════════════════════
 // AI MODEL BADGE
 // ═════════════════════════════════════════════════════════════════════════
+
+// Tools that use the AI model chain (shown in badge)
+const AI_BADGE_TOOLS = ['ai-study-notes','ai-flashcards','ai-quiz','ai-paraphrase','ai-key-terms','mind-map','youtube-summary'];
+
+// Cached active model — null until first probe or first tool response
+let _activeAIModel = null;
+let _aiStatusFetching = false;
+
+// Probe /api/ai-status to get the current model without running a real job
+function fetchAIStatus() {
+    if (_aiStatusFetching) return;
+    _aiStatusFetching = true;
+    fetch('/api/ai-status')
+        .then(r => r.json())
+        .then(data => {
+            _aiStatusFetching = false;
+            if (data.model) updateActiveAIModel(data.model);
+        })
+        .catch(() => { _aiStatusFetching = false; });
+}
+
+// Call after any AI response or after /api/ai-status resolves
+function updateActiveAIModel(modelId) {
+    _activeAIModel = modelId;
+    // Refresh badge on whichever AI tool panel is currently active
+    if (AI_BADGE_TOOLS.includes(state.currentTool)) {
+        showModelBadge(state.currentTool, modelId);
+    }
+}
 
 const AI_MODELS = {
     'llama-3.3-70b-versatile': {
@@ -340,6 +382,8 @@ function showModelBadge(toolId, modelId) {
         if (favBtn) h2.insertBefore(badge, favBtn);
         else h2.appendChild(badge);
     }
+    // Persist model across tool switches
+    if (modelId && modelId !== 'none') _activeAIModel = modelId;
     // Error state — all models unavailable
     if (!modelId || modelId === 'none') {
         badge.className = 'tool-model-badge tmb-error';
