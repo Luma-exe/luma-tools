@@ -9,8 +9,8 @@
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║                        DISCORD CONFIGURATION                            ║
 // ╠══════════════════════════════════════════════════════════════════════════╣
-// ║  WEBHOOK_URL  — paste your Discord webhook URL here.                    ║
-// ║                 Leave empty ("") to disable Discord logging entirely.   ║
+// ║  WEBHOOK_URL  — Your Discord webhook now is an environemental variable  ║
+// ║                                                                         ║
 // ║                                                                         ║
 // ║  MASK_FILENAMES — true  = filenames are obfuscated in logs (default)    ║
 // ║                   false = filenames appear as-is                        ║
