@@ -311,9 +311,9 @@ const AI_MODELS = {
         badge: 'L3.1 8B', short: 'Llama 3.1 8B', tier: 'Fallback 2', tpd: '500k/day',
         desc: 'Fast & lightweight. Highest daily allowance. Used when cloud quotas are low.'
     },
-    'ollama:llama3.2': {
-        badge: 'Local', short: 'Llama 3.2 (Local)', tier: 'Local Device', tpd: 'Unlimited',
-        desc: 'Runs locally on the server via Ollama. No API quota. Used only when all cloud models are exhausted.'
+    'ollama:llama3.1:8b': {
+        badge: 'Local', short: 'Llama 3.1 8B (Local)', tier: 'Local Device', tpd: 'Unlimited',
+        desc: 'Runs locally on the server via Ollama. Same model as Groq Fallback 2 but with no API quota. Used only when all cloud models are exhausted.'
     }
 };
 

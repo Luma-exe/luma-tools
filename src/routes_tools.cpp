@@ -72,7 +72,7 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
         string ollama_rf = proc + "/" + prefix + "_ollama_resp.json";
         // Build Ollama-compat payload (messages array stays the same)
         json ol_payload = payload;
-        ol_payload["model"] = "llama3.2";
+        ol_payload["model"] = "llama3.1:8b";
         string ol_pf = proc + "/" + prefix + "_ollama_pl.json";
         { ofstream f(ol_pf); f << ol_payload.dump(); }
         string ol_cmd = "curl -s -X POST http://localhost:11434/v1/chat/completions"
@@ -86,7 +86,7 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
                 auto rj = json::parse(ss.str());
                 if (rj.contains("choices") && !rj["choices"].empty()) {
                     result.response = rj;
-                    result.model_used = "ollama:llama3.2";
+                    result.model_used = "ollama:llama3.1:8b";
                     result.ok = true;
                 }
             } catch (...) {}
