@@ -55,7 +55,7 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
         int rc; exec_command(curl_cmd, rc);
         if (!fs::exists(rf) || fs::file_size(rf) == 0) continue;
         try {
-            ifstream f(rf); ostringstream ss; ss << f.rdbuf();
+            std::ifstream f(rf); std::ostringstream ss; ss << f.rdbuf();
             auto rj = json::parse(ss.str());
             bool rate_limited = rj.contains("error") && rj["error"].is_object() &&
                 (rj["error"].value("message","").find("Rate limit") != string::npos ||
