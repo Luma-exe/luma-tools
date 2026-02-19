@@ -349,34 +349,64 @@ body {
     font-size: 0.85rem; color: var(--text-secondary); max-width: 440px; margin: 0 auto;
 }
 
-.landing-features {
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+/* kept for any external refs but replaced visually by landing-categories */
+.landing-features { display: none; }
+
+/* ─── Landing Category Cards ─────────────────────────────────────────────── */
+.landing-category-label {
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--text-muted); text-align: center;
+    margin-bottom: -24px;
 }
-.landing-feature {
-    padding: 24px 20px;
+.landing-categories {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+}
+.landing-category-card {
+    padding: 18px 16px;
     background: var(--bg-card);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
+    transition: border-color var(--transition), transform var(--transition);
+}
+.landing-category-card:hover { transform: translateY(-2px); }
+.landing-category-card.cat-ai:hover  { border-color: rgba(124,92,255,0.45); }
+.landing-category-card.cat-media:hover { border-color: rgba(34,197,94,0.4); }
+.landing-category-card.cat-docs:hover  { border-color: rgba(251,191,36,0.4); }
+.landing-category-card.cat-dev:hover   { border-color: rgba(96,165,250,0.4); }
+.landing-category-header {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;
+}
+.landing-category-icon {
+    width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+}
+.cat-ai   .landing-category-icon { background: rgba(124,92,255,0.15); color: var(--accent-light); }
+.cat-media .landing-category-icon { background: rgba(34,197,94,0.12);  color: #4ade80; }
+.cat-docs  .landing-category-icon { background: rgba(251,191,36,0.12); color: #fbbf24; }
+.cat-dev   .landing-category-icon { background: rgba(96,165,250,0.12); color: #60a5fa; }
+.landing-category-title {
+    font-size: 0.9rem; font-weight: 700; line-height: 1.2;
+}
+.landing-category-desc {
+    font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; line-height: 1.4;
+}
+.landing-category-tools {
+    display: flex; flex-wrap: wrap; gap: 5px;
+}
+.landing-category-tool {
+    padding: 4px 10px; border-radius: 12px; cursor: pointer;
+    font-size: 0.7rem; font-weight: 500;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    display: inline-flex; align-items: center; gap: 4px;
     transition: all var(--transition);
 }
-.landing-feature:hover {
-    border-color: rgba(124, 92, 255, 0.3);
-    transform: translateY(-2px);
-}
-.landing-feature-icon {
-    width: 40px; height: 40px;
-    background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(124,92,255,0.05));
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; color: var(--accent);
-    margin-bottom: 12px;
-}
-.landing-feature h3 {
-    font-size: 0.95rem; font-weight: 700; margin-bottom: 6px;
-}
-.landing-feature p {
-    font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;
-}
+.landing-category-tool i { font-size: 0.65rem; }
+.cat-ai   .landing-category-tool:hover { background: rgba(124,92,255,0.1); border-color: var(--accent); color: var(--accent-light); }
+.cat-media .landing-category-tool:hover { background: rgba(34,197,94,0.08); border-color: #4ade80; color: #4ade80; }
+.cat-docs  .landing-category-tool:hover { background: rgba(251,191,36,0.08); border-color: #fbbf24; color: #fbbf24; }
+.cat-dev   .landing-category-tool:hover { background: rgba(96,165,250,0.08); border-color: #60a5fa; color: #60a5fa; }
+@media (max-width: 768px) { .landing-categories { grid-template-columns: 1fr; } }
 
 .landing-tools-overview {
     text-align: center;
