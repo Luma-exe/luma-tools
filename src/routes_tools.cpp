@@ -3008,7 +3008,7 @@ IMPORTANT RULES:
 
         // Try to fetch transcript using yt-dlp - try both manual and auto subs
         string transcript_cmd = escape_arg(g_ytdlp_path) + " --skip-download "
-                               "--write-subs --write-auto-subs --sub-langs \"en.*,en\" --convert-subs srt "
+                               "--write-subs --write-auto-subs --sub-langs en.*,en --convert-subs srt "
                                "-o " + escape_arg(base_path) + " "
                                "\"https://www.youtube.com/watch?v=" + video_id + "\" 2>&1";
         

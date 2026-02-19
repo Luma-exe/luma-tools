@@ -613,6 +613,7 @@ function beautifyCode() {
                 formatted = JSON.stringify(JSON.parse(input), null, 2);
                 break;
             case 'javascript':
+            case 'typescript':
                 formatted = beautifyJS(input);
                 break;
             case 'css':
@@ -621,8 +622,34 @@ function beautifyCode() {
             case 'html':
                 formatted = beautifyHTML(input);
                 break;
+            case 'xml':
+                formatted = beautifyXML(input);
+                break;
             case 'sql':
                 formatted = beautifySQL(input);
+                break;
+            case 'python':
+                formatted = beautifyPython(input);
+                break;
+            case 'java':
+            case 'csharp':
+            case 'cpp':
+            case 'go':
+            case 'rust':
+            case 'php':
+                formatted = beautifyCLike(input);
+                break;
+            case 'ruby':
+                formatted = beautifyRuby(input);
+                break;
+            case 'yaml':
+                formatted = beautifyYAML(input);
+                break;
+            case 'markdown':
+                formatted = beautifyMarkdown(input);
+                break;
+            case 'graphql':
+                formatted = beautifyGraphQL(input);
                 break;
             default:
                 formatted = input;
@@ -719,6 +746,217 @@ function beautifySQL(code) {
     });
     
     return result.replace(/^\n+/, '').replace(/\n{2,}/g, '\n').trim();
+}
+
+function beautifyXML(code) {
+    const lines = [];
+    let indent = 0;
+    
+    code.replace(/>(\s*)</g, '>\n<').split('\n').forEach(line => {
+        line = line.trim();
+        if (!line) return;
+        
+        const isClosing = /^<\//.test(line);
+        const isSelfClose = /\/>$/.test(line);
+        const isOpening = /^<[a-zA-Z?!]/.test(line) && !isClosing;
+        
+        if (isClosing) indent = Math.max(0, indent - 1);
+        lines.push('  '.repeat(indent) + line);
+        if (isOpening && !isSelfClose && !line.includes('</')) indent++;
+    });
+    
+    return lines.join('\n');
+}
+
+function beautifyPython(code) {
+    let result = '';
+    let indent = 0;
+    const lines = code.split('\n');
+    const increaseIndent = /:\s*$/;
+    const decreaseKeywords = ['return', 'break', 'continue', 'pass', 'raise'];
+    
+    lines.forEach((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            result += '\n';
+            return;
+        }
+        
+        // Check for dedent keywords
+        if (/^(elif|else|except|finally)\b/.test(trimmed)) {
+            indent = Math.max(0, indent - 1);
+        }
+        
+        result += '    '.repeat(indent) + trimmed + '\n';
+        
+        // Check if we should increase indent
+        if (increaseIndent.test(trimmed)) {
+            indent++;
+        }
+        
+        // Single-line decrease (return, break, etc. at end of block)
+        if (decreaseKeywords.some(kw => trimmed.startsWith(kw))) {
+            // Don't decrease indent here, let the next line handle it
+        }
+    });
+    
+    return result.trim();
+}
+
+function beautifyCLike(code) {
+    // Generic C-like beautifier for Java, C#, C++, Go, Rust, PHP
+    let result = '';
+    let indent = 0;
+    let inString = false;
+    let stringChar = '';
+    let prevChar = '';
+    
+    for (let i = 0; i < code.length; i++) {
+        const c = code[i];
+        const next = code[i + 1] || '';
+        
+        if (inString) {
+            result += c;
+            if (c === stringChar && prevChar !== '\\') inString = false;
+            prevChar = c;
+            continue;
+        }
+        
+        if (c === '"' || c === "'" || c === '`') {
+            inString = true;
+            stringChar = c;
+            result += c;
+            prevChar = c;
+            continue;
+        }
+        
+        if (c === '{') {
+            result = result.trimEnd() + ' {\n' + '    '.repeat(++indent);
+        } else if (c === '}') {
+            result = result.trimEnd() + '\n' + '    '.repeat(--indent) + '}';
+            if (next && next !== ';' && next !== ',' && next !== ')' && next !== '\n' && next !== ' ') {
+                result += '\n' + '    '.repeat(indent);
+            }
+        } else if (c === ';') {
+            result += ';\n' + '    '.repeat(indent);
+        } else if (c === '\n' || c === '\r') {
+            // Skip original newlines
+        } else {
+            result += c;
+        }
+        prevChar = c;
+    }
+    
+    return result.replace(/\n\s*\n\s*\n/g, '\n\n').replace(/{\s+}/g, '{}').trim();
+}
+
+function beautifyRuby(code) {
+    let result = '';
+    let indent = 0;
+    const lines = code.split('\n');
+    const increaseKeywords = /^(def|class|module|if|unless|case|while|until|for|begin|do)\b/;
+    const decreaseKeywords = /^(end|else|elsif|when|rescue|ensure)\b/;
+    
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            result += '\n';
+            return;
+        }
+        
+        if (decreaseKeywords.test(trimmed)) {
+            indent = Math.max(0, indent - 1);
+        }
+        
+        result += '  '.repeat(indent) + trimmed + '\n';
+        
+        if (increaseKeywords.test(trimmed) || /\bdo\s*(\|.*\|)?\s*$/.test(trimmed)) {
+            indent++;
+        }
+        
+        if (/^end\b/.test(trimmed)) {
+            // Already handled above
+        }
+    });
+    
+    return result.trim();
+}
+
+function beautifyYAML(code) {
+    const lines = code.split('\n');
+    let result = '';
+    
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            result += '\n';
+            return;
+        }
+        
+        // Preserve existing indentation for YAML
+        const leadingSpaces = line.match(/^(\s*)/)[1].length;
+        const properIndent = Math.floor(leadingSpaces / 2) * 2;
+        result += ' '.repeat(properIndent) + trimmed + '\n';
+    });
+    
+    return result.trim();
+}
+
+function beautifyMarkdown(code) {
+    let result = code
+        // Ensure headers have space after #
+        .replace(/^(#{1,6})([^\s#])/gm, '$1 $2')
+        // Ensure blank lines before headers
+        .replace(/([^\n])\n(#{1,6}\s)/g, '$1\n\n$2')
+        // Ensure blank lines before code blocks
+        .replace(/([^\n])\n```/g, '$1\n\n```')
+        // Ensure blank lines after code blocks
+        .replace(/```\n([^\n])/g, '```\n\n$1')
+        // Clean up excessive blank lines
+        .replace(/\n{3,}/g, '\n\n');
+    
+    return result.trim();
+}
+
+function beautifyGraphQL(code) {
+    let result = '';
+    let indent = 0;
+    let inString = false;
+    
+    for (let i = 0; i < code.length; i++) {
+        const c = code[i];
+        const next = code[i + 1] || '';
+        
+        if (c === '"') {
+            inString = !inString;
+            result += c;
+            continue;
+        }
+        
+        if (inString) {
+            result += c;
+            continue;
+        }
+        
+        if (c === '{') {
+            result = result.trimEnd() + ' {\n' + '  '.repeat(++indent);
+        } else if (c === '}') {
+            result = result.trimEnd() + '\n' + '  '.repeat(--indent) + '}';
+            if (next && next !== '\n') result += '\n' + '  '.repeat(indent);
+        } else if (c === '(') {
+            result += '(';
+        } else if (c === ')') {
+            result += ')';
+        } else if (c === '\n' || c === '\r') {
+            // Skip
+        } else if (c === ' ' && result.endsWith(' ')) {
+            // Skip extra spaces
+        } else {
+            result += c;
+        }
+    }
+    
+    return result.replace(/\n\s*\n/g, '\n').trim();
 }
 
 function copyCodeOutput() {
