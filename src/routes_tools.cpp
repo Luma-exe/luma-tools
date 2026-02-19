@@ -2980,6 +2980,12 @@ IMPORTANT RULES:
             return;
         }
 
+        if (g_ytdlp_path.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "yt-dlp is not available on this server."}}).dump(), "application/json");
+            return;
+        }
+
         json body;
         try { body = json::parse(req.body); } catch (...) {
             res.status = 400;
@@ -2998,49 +3004,77 @@ IMPORTANT RULES:
 
         string proc = get_processing_dir();
         string jid = generate_job_id();
+        string base_path = proc + "/" + jid;
 
-        // Fetch transcript using YouTube transcript API (via a public endpoint)
-        // Using youtube-transcript-api via a wrapper service
-        string transcript_file = proc + "/" + jid + "_transcript.json";
-        
-        // Try to fetch transcript using yt-dlp (if available)
-        string transcript_cmd = "yt-dlp --skip-download --write-auto-sub --sub-lang en --convert-subs srt "
-                               "-o " + escape_arg(proc + "/" + jid) + " "
+        // Try to fetch transcript using yt-dlp - try both manual and auto subs
+        string transcript_cmd = escape_arg(g_ytdlp_path) + " --skip-download "
+                               "--write-subs --write-auto-subs --sub-langs \"en.*,en\" --convert-subs srt "
+                               "-o " + escape_arg(base_path) + " "
                                "\"https://www.youtube.com/watch?v=" + video_id + "\" 2>&1";
         
+        cout << "[Luma Tools] YouTube transcript: " << transcript_cmd << endl;
         int code;
-        exec_command(transcript_cmd, code);
+        string cmd_output = exec_command(transcript_cmd, code);
+        cout << "[Luma Tools] yt-dlp output: " << cmd_output << endl;
         
-        string srt_path = proc + "/" + jid + ".en.srt";
         string transcript_text;
         
-        if (fs::exists(srt_path)) {
-            // Parse SRT to extract just the text
-            ifstream srt(srt_path);
-            string line;
-            bool reading_text = false;
-            while (getline(srt, line)) {
-                // Skip line numbers and timestamps
-                if (line.empty()) {
-                    reading_text = false;
-                    continue;
-                }
-                if (line.find("-->") != string::npos) {
-                    reading_text = true;
-                    continue;
-                }
-                if (reading_text && !line.empty() && line.find_first_not_of("0123456789") != 0) {
-                    transcript_text += line + " ";
-                } else if (reading_text) {
-                    transcript_text += line + " ";
+        // Look for any .srt file that was created (could be .en.srt, .en-orig.srt, etc.)
+        try {
+            for (const auto& entry : fs::directory_iterator(proc)) {
+                string filename = entry.path().filename().string();
+                if (filename.find(jid) != string::npos && filename.find(".srt") != string::npos) {
+                    cout << "[Luma Tools] Found subtitle file: " << filename << endl;
+                    
+                    // Parse SRT to extract just the text
+                    ifstream srt(entry.path());
+                    string line;
+                    bool reading_text = false;
+                    while (getline(srt, line)) {
+                        // Remove carriage returns
+                        if (!line.empty() && line.back() == '\r') line.pop_back();
+                        
+                        // Skip empty lines - reset state
+                        if (line.empty()) {
+                            reading_text = false;
+                            continue;
+                        }
+                        // Skip line numbers (pure digits)
+                        if (line.find_first_not_of("0123456789") == string::npos) {
+                            continue;
+                        }
+                        // Skip timestamps
+                        if (line.find("-->") != string::npos) {
+                            reading_text = true;
+                            continue;
+                        }
+                        // Collect text
+                        if (reading_text) {
+                            // Remove HTML tags like <font> etc
+                            string clean;
+                            bool in_tag = false;
+                            for (char c : line) {
+                                if (c == '<') in_tag = true;
+                                else if (c == '>') in_tag = false;
+                                else if (!in_tag) clean += c;
+                            }
+                            if (!clean.empty()) {
+                                transcript_text += clean + " ";
+                            }
+                        }
+                    }
+                    srt.close();
+                    try { fs::remove(entry.path()); } catch (...) {}
+                    break; // Use first found subtitle file
                 }
             }
-            try { fs::remove(srt_path); } catch (...) {}
-        }
+        } catch (...) {}
+        
+        cout << "[Luma Tools] Transcript length: " << transcript_text.size() << endl;
         
         if (transcript_text.size() < 100) {
             res.status = 400;
-            res.set_content(json({{"error", "Could not fetch video transcript. The video may not have captions enabled."}}).dump(), "application/json");
+            res.set_content(json({{"error", "Could not fetch video transcript. The video may not have captions enabled, or captions are not available in English."}}).dump(), "application/json");
             return;
         }
 

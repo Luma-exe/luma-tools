@@ -46,36 +46,115 @@ function renderMindMap(data, container) {
     container.innerHTML = `
         <div class="mindmap-container">
             <div class="mindmap-toolbar">
+                <button class="btn-secondary" onclick="mindmapZoom(1.2)"><i class="fas fa-search-plus"></i> Zoom In</button>
+                <button class="btn-secondary" onclick="mindmapZoom(0.8)"><i class="fas fa-search-minus"></i> Zoom Out</button>
+                <button class="btn-secondary" onclick="mindmapReset()"><i class="fas fa-compress-arrows-alt"></i> Reset</button>
                 <button class="btn-secondary" onclick="downloadMindMapSVG()"><i class="fas fa-download"></i> Download SVG</button>
                 <button class="btn-secondary" onclick="copyMindMapText()"><i class="fas fa-copy"></i> Copy as Text</button>
             </div>
+            <div class="mindmap-hint"><i class="fas fa-info-circle"></i> Drag to pan, scroll to zoom</div>
             <div class="mindmap-canvas" id="mindmap-canvas"></div>
             <div class="mindmap-text-output hidden" id="mindmap-text-output"></div>
         </div>
     `;
     
     const canvas = document.getElementById('mindmap-canvas');
-    const width = canvas.clientWidth || 800;
-    const height = 500;
+    const width = 1200;
+    const height = 800;
     
     // Build tree structure
     const tree = buildMindMapTree(nodes, central);
     
-    // Create SVG
+    // Create SVG with viewBox for pan/zoom
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', width);
-    svg.setAttribute('height', height);
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '500');
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.setAttribute('id', 'mindmap-svg');
     svg.style.background = 'rgba(15,23,42,0.5)';
+    svg.style.cursor = 'grab';
     
-    // Draw mind map
-    drawMindMapNode(svg, tree, width / 2, height / 2, 0, Math.PI * 2, 0, 150);
+    // Draw mind map centered
+    drawMindMapNode(svg, tree, width / 2, height / 2, 0, Math.PI * 2, 0, 180);
     
     canvas.appendChild(svg);
+    
+    // Setup pan/zoom
+    initMindMapPanZoom(svg, width, height);
     
     // Store text version for copy
     const textOutput = document.getElementById('mindmap-text-output');
     textOutput.textContent = generateMindMapText(tree, 0);
+}
+
+// Mind map pan/zoom state
+let mmViewBox = { x: 0, y: 0, w: 1200, h: 800 };
+let mmIsPanning = false;
+let mmStartPoint = { x: 0, y: 0 };
+
+function initMindMapPanZoom(svg, width, height) {
+    mmViewBox = { x: 0, y: 0, w: width, h: height };
+    
+    svg.addEventListener('mousedown', e => {
+        mmIsPanning = true;
+        mmStartPoint = { x: e.clientX, y: e.clientY };
+        svg.style.cursor = 'grabbing';
+    });
+    
+    svg.addEventListener('mousemove', e => {
+        if (!mmIsPanning) return;
+        const dx = (e.clientX - mmStartPoint.x) * (mmViewBox.w / svg.clientWidth);
+        const dy = (e.clientY - mmStartPoint.y) * (mmViewBox.h / svg.clientHeight);
+        mmViewBox.x -= dx;
+        mmViewBox.y -= dy;
+        mmStartPoint = { x: e.clientX, y: e.clientY };
+        svg.setAttribute('viewBox', `${mmViewBox.x} ${mmViewBox.y} ${mmViewBox.w} ${mmViewBox.h}`);
+    });
+    
+    svg.addEventListener('mouseup', () => {
+        mmIsPanning = false;
+        svg.style.cursor = 'grab';
+    });
+    
+    svg.addEventListener('mouseleave', () => {
+        mmIsPanning = false;
+        svg.style.cursor = 'grab';
+    });
+    
+    svg.addEventListener('wheel', e => {
+        e.preventDefault();
+        const scale = e.deltaY > 0 ? 1.1 : 0.9;
+        const rect = svg.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width;
+        const my = (e.clientY - rect.top) / rect.height;
+        
+        const newW = mmViewBox.w * scale;
+        const newH = mmViewBox.h * scale;
+        mmViewBox.x += (mmViewBox.w - newW) * mx;
+        mmViewBox.y += (mmViewBox.h - newH) * my;
+        mmViewBox.w = newW;
+        mmViewBox.h = newH;
+        svg.setAttribute('viewBox', `${mmViewBox.x} ${mmViewBox.y} ${mmViewBox.w} ${mmViewBox.h}`);
+    }, { passive: false });
+}
+
+function mindmapZoom(factor) {
+    const svg = document.getElementById('mindmap-svg');
+    if (!svg) return;
+    const newW = mmViewBox.w / factor;
+    const newH = mmViewBox.h / factor;
+    mmViewBox.x += (mmViewBox.w - newW) / 2;
+    mmViewBox.y += (mmViewBox.h - newH) / 2;
+    mmViewBox.w = newW;
+    mmViewBox.h = newH;
+    svg.setAttribute('viewBox', `${mmViewBox.x} ${mmViewBox.y} ${mmViewBox.w} ${mmViewBox.h}`);
+}
+
+function mindmapReset() {
+    const svg = document.getElementById('mindmap-svg');
+    if (!svg) return;
+    mmViewBox = { x: 0, y: 0, w: 1200, h: 800 };
+    svg.setAttribute('viewBox', `0 0 1200 800`);
 }
 
 function buildMindMapTree(nodes, central) {

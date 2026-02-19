@@ -3354,6 +3354,30 @@ body {
     color: var(--text-muted);
 }
 
+.input-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 100px;
+    transition: border-color 0.2s ease;
+}
+
+.input-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.input-group textarea::placeholder {
+    color: var(--text-muted);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════════
    BUTTON ICON (small icon-only button)
    ═══════════════════════════════════════════════════════════════════════════════ */
@@ -3412,13 +3436,22 @@ body {
 .mindmap-toolbar {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mindmap-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .mindmap-canvas {
     background: rgba(15, 23, 42, 0.5);
     border-radius: 12px;
     border: 1px solid var(--border);
-    min-height: 400px;
+    min-height: 500px;
     overflow: hidden;
 }
 
@@ -3863,6 +3896,30 @@ body {
     font-size: 0.9rem;
 }
 
+.resume-section textarea {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s ease;
+}
+
+.resume-section textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.resume-section textarea::placeholder {
+    color: var(--text-muted);
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -3968,8 +4025,22 @@ body {
 }
 
 .invoice-item-row input {
-    padding: 8px 10px !important;
+    padding: 8px 10px;
     font-size: 0.9rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    transition: border-color 0.2s ease;
+}
+
+.invoice-item-row input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.invoice-item-row input::placeholder {
+    color: var(--text-muted);
 }
 
 .invoice-item-row .item-amount {
