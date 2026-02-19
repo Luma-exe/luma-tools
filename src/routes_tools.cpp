@@ -719,6 +719,8 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     svr.Get("/api/ai-status", [](const httplib::Request&, httplib::Response& res) {
         string model;
         { lock_guard<mutex> lk(g_model_cache_mutex); model = g_last_used_model; }
+        // Fall back to the primary model so the badge is never stuck on "Checking"
+        if (model.empty() && !GROQ_MODEL_CHAIN.empty()) model = GROQ_MODEL_CHAIN[0];
         json j = model.empty() ? json{{"model", nullptr}} : json{{"model", model}};
         res.set_header("Cache-Control", "no-store");
         res.set_content(j.dump(), "application/json");

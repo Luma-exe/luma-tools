@@ -361,9 +361,14 @@ function fetchAIStatus() {
         .then(r => r.json())
         .then(data => {
             _aiStatusFetching = false;
-            if (data.model) updateActiveAIModel(data.model);
+            // Use returned model, or fall back to primary so badge is never stuck
+            updateActiveAIModel(data.model || 'llama-3.3-70b-versatile');
         })
-        .catch(() => { _aiStatusFetching = false; });
+        .catch(() => {
+            _aiStatusFetching = false;
+            // Server unreachable — resolve with primary model so badge doesn't stay on "Checking"
+            updateActiveAIModel('llama-3.3-70b-versatile');
+        });
 }
 
 // Call after any AI response or after /api/ai-status resolves
