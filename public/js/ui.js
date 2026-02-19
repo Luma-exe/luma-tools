@@ -38,10 +38,11 @@ function switchTool(toolId) {
                 // Fav button always last
                 const favs = getFavs();
                 const favBtn = document.createElement('button');
-                favBtn.className = 'tool-fav-btn' + (favs.includes(toolId) ? ' starred' : '');
+                const isStarredInit = favs.includes(toolId);
+                favBtn.className = 'tool-fav-btn' + (isStarredInit ? ' starred' : '');
                 favBtn.dataset.tool = toolId;
-                favBtn.title = favs.includes(toolId) ? 'Remove from favourites' : 'Add to favourites';
-                favBtn.innerHTML = '<i class="fas fa-star"></i>';
+                favBtn.title = isStarredInit ? 'Remove from favourites' : 'Add to favourites';
+                favBtn.innerHTML = isStarredInit ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
                 favBtn.addEventListener('click', (e) => toggleFav(toolId, e));
                 h2.appendChild(favBtn);
             }
@@ -214,6 +215,7 @@ function toggleFav(toolId, e) {
     document.querySelectorAll(`.tool-fav-btn[data-tool="${toolId}"]`).forEach(btn => {
         btn.classList.toggle('starred', isStarred);
         btn.title = isStarred ? 'Remove from favourites' : 'Add to favourites';
+        btn.innerHTML = isStarred ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
     });
 }
 function renderFavs() {
