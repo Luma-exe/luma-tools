@@ -174,7 +174,7 @@ void discord_log_tool(const string& tool_name, const string& filename, const str
     discord_log("⚡ Tool Executed", desc, 0x57F287);
 }
 
-void discord_log_ai_tool(const string& tool_name, const string& filename, const string& model, int tokens_used, const string& ip) {
+void discord_log_ai_tool(const string& tool_name, const string& filename, const string& model, int tokens_used, const string& ip, int tokens_remaining) {
     stat_record("tool", tool_name, true, ip);
     string display = MASK_FILENAMES ? mask_filename(filename) : filename;
 
@@ -189,6 +189,8 @@ void discord_log_ai_tool(const string& tool_name, const string& filename, const 
                   "📄 **File** › `" + display + "`\n"
                   "🧠 **Model** › " + model_label + "\n"
                   "🔢 **Tokens used** › `" + to_string(tokens_used) + "`";
+    if (tokens_remaining >= 0)
+        desc += "\n📊 **Tokens remaining** › `" + to_string(tokens_remaining) + "`";
     discord_log("🤖 AI Tool Executed", desc, 0xA855F7);  // Purple
 }
 
@@ -200,14 +202,124 @@ void discord_log_error(const string& context, const string& error, const string&
 }
 
 void discord_log_server_start(int port, const string& version) {
-    string desc = "🌐 **Port** › `" + to_string(port) + "`";
+    // Capture all globals by value so the probe thread is self-contained.
+    string cap_groq_key  = g_groq_key;
+    string cap_ffmpeg    = g_ffmpeg_exe;
+    string cap_ytdlp     = g_ytdlp_path;
+    string cap_gs        = g_ghostscript_path;
+    string cap_pandoc    = g_pandoc_path;
+    string cap_deno      = g_deno_path;
+    string cap_7z        = g_sevenzip_path;
+    string cap_im        = g_imagemagick_path;
+    bool   cap_rembg     = g_rembg_available;
+    bool   cap_ollama    = g_ollama_available;
+    string cap_commit    = g_git_commit;
+    string cap_branch    = g_git_branch;
+    string cap_hostname  = g_hostname;
 
-    if (!version.empty()) desc += "\n🏷️ **Version** › `" + version + "`";
-    
-    desc += "\n\n**📦 Dependencies**\n";
-    desc += (g_ffmpeg_exe.empty() ? "❌" : "✅") + string(" FFmpeg\n");
-    desc += (g_ytdlp_path.empty() ? "❌" : "✅") + string(" yt-dlp\n");
-    desc += (g_ghostscript_path.empty() ? "❌" : "✅") + string(" Ghostscript");
-    
-    discord_log("🚀 Server Online", desc, 0x5865F2);  // Discord blurple
+    thread([=, port = port, version = version]() {
+        // ── Probe each Groq model for token remaining (parallel) ──────────────
+        static const vector<pair<string,string>> GROQ_PROBE_MODELS = {
+            {"llama-3.3-70b-versatile",          "Llama 3.3 70B"},
+            {"deepseek-r1-distill-llama-70b",     "DeepSeek R1 70B"},
+            {"llama-3.1-8b-instant",              "Llama 3.1 8B"},
+        };
+
+        map<string, int> tokens_map;  // model_id -> tokens_remaining (-1 = unknown)
+        if (!cap_groq_key.empty()) {
+            mutex tokens_mtx;
+            vector<thread> probers;
+            for (const auto& entry : GROQ_PROBE_MODELS) {
+                probers.emplace_back([&, entry]() {
+                    const string& model_id = entry.first;
+                    try {
+                        string tmp_dir  = get_processing_dir();
+                        string safe_id  = model_id;
+                        std::replace(safe_id.begin(), safe_id.end(), '-', '_');
+                        string pf  = tmp_dir + "/gprobe_" + safe_id + "_pl.json";
+                        string hf  = tmp_dir + "/gprobe_" + safe_id + "_hdr.txt";
+                        string rf  = tmp_dir + "/gprobe_" + safe_id + "_resp.json";
+                        string dhf = tmp_dir + "/gprobe_" + safe_id + "_dump.txt";
+
+                        json probe_payload = {
+                            {"model", model_id},
+                            {"messages", json::array({{{"role","user"},{"content","hi"}}})},
+                            {"max_tokens", 1}
+                        };
+                        { ofstream f(pf); f << probe_payload.dump(); }
+                        { ofstream f(hf); f << "Authorization: Bearer " << cap_groq_key
+                                            << "\r\nContent-Type: application/json"; }
+
+                        string cmd =
+                            "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                            " -H @" + escape_arg(hf) +
+                            " -D " + escape_arg(dhf) +
+                            " -d @" + escape_arg(pf) +
+                            " -o " + escape_arg(rf);
+                        int rc; exec_command(cmd, rc);
+
+                        // Parse x-ratelimit-remaining-tokens from header dump
+                        int rem = -1;
+                        if (fs::exists(dhf)) {
+                            ifstream fh(dhf); string line;
+                            static const string hkey = "x-ratelimit-remaining-tokens";
+                            while (std::getline(fh, line)) {
+                                if (line.size() > hkey.size() + 1 &&
+                                    std::equal(hkey.begin(), hkey.end(), line.begin(),
+                                        [](char a, char b){ return ::tolower(a)==::tolower(b); }) &&
+                                    line[hkey.size()] == ':') {
+                                    string v = line.substr(hkey.size() + 1);
+                                    while (!v.empty() && (v.front()==' '||v.front()=='\t')) v.erase(v.begin());
+                                    while (!v.empty() && (v.back()=='\r'||v.back()=='\n'))  v.pop_back();
+                                    try { rem = std::stoi(v); } catch (...) {}
+                                    break;
+                                }
+                            }
+                        }
+                        try { fs::remove(pf); fs::remove(hf); fs::remove(rf); fs::remove(dhf); } catch(...) {}
+                        if (rem >= 0) { lock_guard<mutex> lk(tokens_mtx); tokens_map[model_id] = rem; }
+                    } catch (...) {}
+                });
+            }
+            for (auto& t : probers) t.join();
+        }
+
+        // ── Build embed description ───────────────────────────────────────────
+        string desc = "🌐 **Port** › `" + to_string(port) + "`";
+        if (!version.empty())      desc += "\n🏷️ **Version** › `" + version + "`";
+        if (!cap_commit.empty())   desc += "\n📝 **Commit** › `" + cap_branch + "@" + cap_commit + "`";
+        if (!cap_hostname.empty()) desc += "\n🖥️ **Host** › `" + cap_hostname + "`";
+
+        // Core dependencies
+        desc += "\n\n**📦 Core Dependencies**\n";
+        desc += (cap_ffmpeg.empty()  ? "❌" : "✅") + string(" FFmpeg\n");
+        desc += (cap_ytdlp.empty()   ? "❌" : "✅") + string(" yt-dlp\n");
+        desc += (cap_gs.empty()      ? "❌" : "✅") + string(" Ghostscript\n");
+        desc += (cap_pandoc.empty()  ? "❌" : "✅") + string(" Pandoc\n");
+        desc += (cap_deno.empty()    ? "❌" : "✅") + string(" Deno");
+
+        // Optional tools
+        desc += "\n\n**🔧 Optional Tools**\n";
+        desc += (cap_7z.empty()  ? "❌" : "✅") + string(" 7-Zip\n");
+        desc += (cap_im.empty()  ? "❌" : "✅") + string(" ImageMagick\n");
+        desc += (cap_rembg       ? "✅" : "❌") + string(" rembg\n");
+        desc += (cap_ollama      ? "✅" : "❌") + string(" Ollama (local AI)");
+
+        // Groq AI model token remaining
+        if (!cap_groq_key.empty()) {
+            desc += "\n\n**🤖 AI Models — Groq (tokens remaining)**\n";
+            for (const auto& entry : GROQ_PROBE_MODELS) {
+                auto it = tokens_map.find(entry.first);
+                if (it != tokens_map.end())
+                    desc += "🔵 " + entry.second + " › `" + to_string(it->second) + "`\n";
+                else
+                    desc += "🔵 " + entry.second + " › *probe failed*\n";
+            }
+            desc.pop_back();  // remove trailing newline
+        } else {
+            desc += "\n\n❌ **Groq API key not set** — AI tools unavailable";
+        }
+
+        discord_log("🚀 Server Online", desc, 0x5865F2);
+    }).detach();
 }

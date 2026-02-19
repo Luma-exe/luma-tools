@@ -65,6 +65,10 @@ extern string g_groq_key;          // Groq API key (from GROQ_API_KEY env var)
 extern string g_git_commit;        // Short git commit hash (set at startup)
 extern string g_git_branch;        // Git branch name (set at startup)
 extern string g_hostname;           // Machine hostname (set at startup)
+extern string g_sevenzip_path;     // Full path to 7z/7za (empty = not found)
+extern string g_imagemagick_path;  // Full path to magick or convert (empty = not found)
+extern bool   g_rembg_available;   // true if `rembg` is callable
+extern bool   g_ollama_available;  // true if Ollama responded at localhost:11434
 
 // ─── Safe JSON accessors (handles null values) ──────────────────────────────
 

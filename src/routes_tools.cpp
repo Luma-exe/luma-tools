@@ -33,8 +33,9 @@ static const vector<string> GROQ_MODEL_CHAIN = {
 };
 
 // ── Last-used AI model cache (updated on every successful AI call) ────────────
-static mutex g_model_cache_mutex;
+static mutex  g_model_cache_mutex;
 static string g_last_used_model;
+static map<string, int> g_groq_tokens_cache;  // model_id → last known tokens_remaining
 
 struct GroqResult {
     json   response;
@@ -100,7 +101,13 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
                 result.tokens_used = rj["usage"].value("total_tokens", 0);
             // Extract remaining tokens from rate-limit response header
             string rem = read_header("x-ratelimit-remaining-tokens");
-            if (!rem.empty()) { try { result.tokens_remaining = std::stoi(rem); } catch (...) {} }
+            if (!rem.empty()) {
+                try { result.tokens_remaining = std::stoi(rem); } catch (...) {}
+            }
+            if (result.tokens_remaining >= 0) {
+                lock_guard<mutex> lk(g_model_cache_mutex);
+                g_groq_tokens_cache[model] = result.tokens_remaining;
+            }
             break;
         } catch (...) {}
     }
@@ -2335,7 +2342,7 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
 
             update_job(jid, {{"status","completed"},{"progress",100},{"filename","study_notes" + ext},{"model_used", gr.model_used}}, out_path);
             stat_record_ai_call("AI Study Notes", gr.model_used, gr.tokens_used, ip);
-            discord_log_ai_tool("AI Study Notes", input_desc, gr.model_used, gr.tokens_used, ip);
+            discord_log_ai_tool("AI Study Notes", input_desc, gr.model_used, gr.tokens_used, ip, gr.tokens_remaining);
             if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
             try { fs::remove(txt_path); } catch (...) {}
           } catch (const std::exception& e) {
@@ -2438,7 +2445,7 @@ IMPORTANT RULES:
 
         string improved_notes = gr.response["choices"][0]["message"]["content"].get<string>();
         stat_record_ai_call("AI Improve Notes", gr.model_used, gr.tokens_used, req.remote_addr);
-        discord_log_ai_tool("AI Improve Notes", "Notes improvement", gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Improve Notes", "Notes improvement", gr.model_used, gr.tokens_used, req.remote_addr, gr.tokens_remaining);
         res.set_content(json({{"improved_notes", improved_notes}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
@@ -2549,7 +2556,7 @@ IMPORTANT RULES:
 
         string label = input_desc + " (" + (max_mode ? "max" : to_string(count)) + " cards → " + to_string(flashcards.size()) + " generated)";
         stat_record_ai_call("AI Flashcards", gr.model_used, gr.tokens_used, req.remote_addr);
-        discord_log_ai_tool("AI Flashcards", label, gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Flashcards", label, gr.model_used, gr.tokens_used, req.remote_addr, gr.tokens_remaining);
         res.set_content(json({{"flashcards", flashcards}, {"model_used", gr.model_used}, {"count", flashcards.size()}}).dump(), "application/json");
     });
 
@@ -2650,7 +2657,7 @@ IMPORTANT RULES:
         }
 
         stat_record_ai_call("AI Quiz", gr.model_used, gr.tokens_used, req.remote_addr);
-        discord_log_ai_tool("AI Quiz", input_desc, gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Quiz", input_desc, gr.model_used, gr.tokens_used, req.remote_addr, gr.tokens_remaining);
         res.set_content(json({{"questions", questions}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
@@ -2712,7 +2719,7 @@ IMPORTANT RULES:
 
         string result = gr.response["choices"][0]["message"]["content"].get<string>();
         stat_record_ai_call("AI Paraphrase", gr.model_used, gr.tokens_used, req.remote_addr);
-        discord_log_ai_tool("AI Paraphrase", tone, gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Paraphrase", tone, gr.model_used, gr.tokens_used, req.remote_addr, gr.tokens_remaining);
         res.set_content(json({{"result", result}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
@@ -2974,7 +2981,7 @@ IMPORTANT RULES:
 
         result["model_used"] = gr.model_used;
         stat_record_ai_call("AI Mind Map", gr.model_used, gr.tokens_used, req.remote_addr);
-        discord_log_ai_tool("AI Mind Map", "Text input", gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Mind Map", "Text input", gr.model_used, gr.tokens_used, req.remote_addr, gr.tokens_remaining);
         res.set_content(result.dump(), "application/json");
     });
 
@@ -3138,7 +3145,7 @@ IMPORTANT RULES:
 
         result["model_used"] = gr.model_used;
         stat_record_ai_call("YouTube Summary", gr.model_used, gr.tokens_used, req.remote_addr);
-        discord_log_ai_tool("YouTube Summary", video_id, gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("YouTube Summary", video_id, gr.model_used, gr.tokens_used, req.remote_addr, gr.tokens_remaining);
         res.set_content(result.dump(), "application/json");
     });
 

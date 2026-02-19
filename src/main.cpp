@@ -162,6 +162,45 @@ int main() {
         }
     }
 
+    // ── Find optional tools: 7-Zip, ImageMagick, rembg, Ollama ──────────────
+    {
+        // 7-Zip
+        g_sevenzip_path = find_executable("7z", {"C:\\Program Files\\7-Zip"});
+        if (g_sevenzip_path.empty())
+            g_sevenzip_path = find_executable("7za");
+        if (!g_sevenzip_path.empty())
+            cout << "[Luma Tools] 7-Zip found: " << g_sevenzip_path << endl;
+        else
+            cout << "[Luma Tools] 7-Zip not found (optional)" << endl;
+
+        // ImageMagick (try 'magick' first, then 'convert')
+        g_imagemagick_path = find_executable("magick");
+        if (g_imagemagick_path.empty())
+            g_imagemagick_path = find_executable("convert");
+        if (!g_imagemagick_path.empty())
+            cout << "[Luma Tools] ImageMagick found: " << g_imagemagick_path << endl;
+        else
+            cout << "[Luma Tools] ImageMagick not found (optional)" << endl;
+
+        // rembg — probe by running 'rembg --help' (exit 0 = present)
+        {
+            int rc;
+            exec_command("rembg --help", rc);
+            g_rembg_available = (rc == 0);
+            cout << "[Luma Tools] rembg: " << (g_rembg_available ? "available" : "not found (optional)") << endl;
+        }
+
+        // Ollama — probe by querying the local REST endpoint
+        {
+            int rc;
+            string resp = exec_command(
+                "curl -s --max-time 3 http://localhost:11434/api/tags", rc);
+            // Ollama returns JSON with a "models" key on success
+            g_ollama_available = (rc == 0 && resp.find("\"models\"") != string::npos);
+            cout << "[Luma Tools] Ollama: " << (g_ollama_available ? "available" : "not found (optional)") << endl;
+        }
+    }
+
     // ── Add ffmpeg & deno directories to process PATH ────────────────────────
     {
         string current_path;

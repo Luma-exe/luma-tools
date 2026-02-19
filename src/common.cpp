@@ -16,6 +16,10 @@ string g_groq_key;
 string g_git_commit = "unknown";
 string g_git_branch = "unknown";
 string g_hostname;
+string g_sevenzip_path;
+string g_imagemagick_path;
+bool   g_rembg_available    = false;
+bool   g_ollama_available   = false;
 
 // ─── Internal state (file-local) ────────────────────────────────────────────
 
