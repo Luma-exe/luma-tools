@@ -357,6 +357,8 @@ function exportFlashcardsJSON() {
 let quizData = [];
 let quizAnswers = {};
 let quizSubmitted = false;
+let quizOrder = [];        // question rendering order (may be shuffled)
+let quizOptionOrders = {}; // option rendering order per question (may be shuffled)
 
 function processQuiz() {
     const toolId = 'ai-quiz';
@@ -403,6 +405,8 @@ function processQuiz() {
                 quizData = data.questions;
                 quizAnswers = {};
                 quizSubmitted = false;
+                quizOrder = quizData.map((_, i) => i);
+                quizOptionOrders = {};
                 renderQuizUI();
                 if (data.model_used) showModelBadge(toolId, data.model_used);
             }
@@ -417,9 +421,61 @@ function renderQuizUI() {
     const container = document.querySelector('.quiz-result[data-tool="ai-quiz"]');
     if (!container || !quizData.length) return;
 
+    // Ensure order arrays are initialised
+    if (!quizOrder.length) quizOrder = quizData.map((_, i) => i);
+
     let html = '<div class="quiz-container">';
-    
-    if (quizSubmitted) {
+
+    quizOrder.forEach((origIdx, displayIdx) => {
+        const q = quizData[origIdx];
+        const selected = quizAnswers[origIdx];
+        const isCorrect = quizSubmitted && selected === q.correct;
+
+        html += `<div class="quiz-question ${quizSubmitted ? (isCorrect ? 'correct' : 'incorrect') : ''}">
+            <div class="quiz-question-header">
+                <span class="quiz-question-num">Q${displayIdx + 1}</span>
+                <span class="quiz-question-text">${escapeHtml(q.question)}</span>
+            </div>
+            <div class="quiz-options">`;
+
+        const optOrder = quizOptionOrders[origIdx] || q.options.map((_, i) => i);
+        optOrder.forEach((origOptIdx, pos) => {
+            const opt = q.options[origOptIdx];
+            const letter = String.fromCharCode(65 + pos);
+            const isSelected = selected === origOptIdx;
+            const isAnswer = q.correct === origOptIdx;
+            let optClass = 'quiz-option';
+            if (quizSubmitted) {
+                if (isAnswer) optClass += ' correct-answer';
+                else if (isSelected) optClass += ' wrong-answer';
+            } else if (isSelected) {
+                optClass += ' selected';
+            }
+
+            html += `<button class="${optClass}" onclick="selectQuizAnswer(${origIdx}, ${origOptIdx})" ${quizSubmitted ? 'disabled' : ''}>
+                <span class="quiz-option-letter">${letter}</span>
+                <span class="quiz-option-text">${escapeHtml(opt)}</span>
+                ${quizSubmitted && isAnswer ? '<i class="fas fa-check"></i>' : ''}
+                ${quizSubmitted && isSelected && !isAnswer ? '<i class="fas fa-times"></i>' : ''}
+            </button>`;
+        });
+
+        html += '</div>';
+
+        if (quizSubmitted && q.explanation) {
+            html += `<div class="quiz-explanation"><i class="fas fa-lightbulb"></i> ${escapeHtml(q.explanation)}</div>`;
+        }
+
+        html += '</div>';
+    });
+
+    if (!quizSubmitted) {
+        html += `
+            <div class="quiz-actions">
+                <button class="btn-secondary quiz-shuffle" onclick="shuffleQuiz()"><i class="fas fa-random"></i> Shuffle</button>
+                <button class="process-btn quiz-submit" onclick="submitQuiz()"><i class="fas fa-check-circle"></i> Submit Quiz</button>
+            </div>`;
+    } else {
         const correct = quizData.filter((q, i) => quizAnswers[i] === q.correct).length;
         const percentage = Math.round((correct / quizData.length) * 100);
         const grade = percentage >= 90 ? 'A' : percentage >= 80 ? 'B' : percentage >= 70 ? 'C' : percentage >= 60 ? 'D' : 'F';
@@ -431,54 +487,7 @@ function renderQuizUI() {
                 </div>
                 <div class="quiz-score-text">${correct} of ${quizData.length} correct</div>
             </div>
-        `;
-    }
-
-    quizData.forEach((q, idx) => {
-        const selected = quizAnswers[idx];
-        const isCorrect = quizSubmitted && selected === q.correct;
-        const showCorrect = quizSubmitted && selected !== q.correct;
-        
-        html += `<div class="quiz-question ${quizSubmitted ? (isCorrect ? 'correct' : 'incorrect') : ''}">
-            <div class="quiz-question-header">
-                <span class="quiz-question-num">Q${idx + 1}</span>
-                <span class="quiz-question-text">${escapeHtml(q.question)}</span>
-            </div>
-            <div class="quiz-options">`;
-        
-        q.options.forEach((opt, optIdx) => {
-            const letter = String.fromCharCode(65 + optIdx);
-            const isSelected = selected === optIdx;
-            const isAnswer = q.correct === optIdx;
-            let optClass = 'quiz-option';
-            if (quizSubmitted) {
-                if (isAnswer) optClass += ' correct-answer';
-                else if (isSelected) optClass += ' wrong-answer';
-            } else if (isSelected) {
-                optClass += ' selected';
-            }
-            
-            html += `<button class="${optClass}" onclick="selectQuizAnswer(${idx}, ${optIdx})" ${quizSubmitted ? 'disabled' : ''}>
-                <span class="quiz-option-letter">${letter}</span>
-                <span class="quiz-option-text">${escapeHtml(opt)}</span>
-                ${quizSubmitted && isAnswer ? '<i class="fas fa-check"></i>' : ''}
-                ${quizSubmitted && isSelected && !isAnswer ? '<i class="fas fa-times"></i>' : ''}
-            </button>`;
-        });
-        
-        html += '</div>';
-        
-        if (quizSubmitted && q.explanation) {
-            html += `<div class="quiz-explanation"><i class="fas fa-lightbulb"></i> ${escapeHtml(q.explanation)}</div>`;
-        }
-        
-        html += '</div>';
-    });
-
-    if (!quizSubmitted) {
-        html += `<button class="process-btn quiz-submit" onclick="submitQuiz()"><i class="fas fa-check-circle"></i> Submit Quiz</button>`;
-    } else {
-        html += `<button class="btn-secondary quiz-retry" onclick="retryQuiz()"><i class="fas fa-redo"></i> Try Again</button>`;
+            <button class="btn-secondary quiz-retry" onclick="retryQuiz()"><i class="fas fa-redo"></i> Try Again</button>`;
     }
 
     html += '</div>';
@@ -503,6 +512,25 @@ function submitQuiz() {
     const correct = quizData.filter((q, i) => quizAnswers[i] === q.correct).length;
     const percentage = Math.round((correct / quizData.length) * 100);
     showToast(`Quiz complete! You scored ${percentage}%`, percentage >= 70 ? 'success' : 'warning');
+}
+
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function shuffleQuiz() {
+    if (quizSubmitted) return;
+    quizOrder = shuffleArray(quizData.map((_, i) => i));
+    quizOptionOrders = {};
+    quizData.forEach((q, i) => {
+        quizOptionOrders[i] = shuffleArray(q.options.map((_, j) => j));
+    });
+    quizAnswers = {};
+    renderQuizUI();
 }
 
 function retryQuiz() {

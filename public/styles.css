@@ -3270,7 +3270,13 @@ body {
 
 .quiz-option.selected {
     border-color: var(--accent);
-    background: rgba(124, 92, 255, 0.15);
+    background: rgba(124, 92, 255, 0.22);
+    box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.4);
+}
+
+.quiz-option.selected .quiz-option-letter {
+    background: var(--accent);
+    color: white;
 }
 
 .quiz-option.correct-answer {
@@ -3326,10 +3332,19 @@ body {
     margin-right: 8px;
 }
 
-.quiz-submit,
+.quiz-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.quiz-submit {
+    flex: 1;
+}
+
 .quiz-retry {
     width: 100%;
-    margin-top: 16px;
+    margin-top: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
