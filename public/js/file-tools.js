@@ -41,7 +41,23 @@ function handleFileSelect(toolId, file) {
     if (preview) {
         preview.classList.remove('hidden');
         preview.querySelector('.file-name').textContent = file.name;
-        preview.querySelector('.file-size').textContent = formatBytes(file.size);
+        const sizeEl = preview.querySelector('.file-size');
+        sizeEl.textContent = formatBytes(file.size);
+
+        // Async: append pixel dimensions for images and videos
+        if (file.type.startsWith('image/')) {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => { URL.revokeObjectURL(url); sizeEl.textContent = `${formatBytes(file.size)} · ${img.naturalWidth} × ${img.naturalHeight}px`; };
+            img.onerror = () => URL.revokeObjectURL(url);
+            img.src = url;
+        } else if (file.type.startsWith('video/')) {
+            const url = URL.createObjectURL(file);
+            const vid = document.createElement('video');
+            vid.onloadedmetadata = () => { URL.revokeObjectURL(url); sizeEl.textContent = `${formatBytes(file.size)} · ${vid.videoWidth} × ${vid.videoHeight}px`; };
+            vid.onerror = () => URL.revokeObjectURL(url);
+            vid.src = url;
+        }
     }
 
     const zone = document.getElementById('uz-' + toolId);
