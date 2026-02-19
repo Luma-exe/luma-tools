@@ -78,6 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
 let flashcardsData = [];
 let currentCardIndex = 0;
 let cardFlipped = false;
+let cardConfidence = {};   // realIndex -> 'known' | 'unsure' | 'unknown'
+let activeTagFilter = null; // null = show all, string = filter to tag
+let filteredIndices = [];  // indices into flashcardsData currently visible
+let restudyMode = false;   // when true, skip 'known' cards
 
 function processFlashcards() {
     const toolId = 'ai-flashcards';
@@ -123,6 +127,10 @@ function processFlashcards() {
                 flashcardsData = data.flashcards;
                 currentCardIndex = 0;
                 cardFlipped = false;
+                cardConfidence = {};
+                activeTagFilter = null;
+                filteredIndices = [];
+                restudyMode = false;
                 renderFlashcardsUI();
                 if (data.model_used) showModelBadge(toolId, data.model_used);
             }
@@ -133,44 +141,143 @@ function processFlashcards() {
         });
 }
 
+function buildFilteredIndices() {
+    filteredIndices = flashcardsData
+        .map((card, i) => {
+            if (restudyMode && cardConfidence[i] === 'known') return null;
+            if (activeTagFilter && card.tag !== activeTagFilter) return null;
+            return i;
+        })
+        .filter(i => i !== null);
+    // fallback: if filter yields nothing, show everything
+    if (filteredIndices.length === 0) {
+        filteredIndices = flashcardsData.map((_, i) => i);
+    }
+}
+
 function renderFlashcardsUI() {
+    buildFilteredIndices();
     const container = document.querySelector('.flashcards-result[data-tool="ai-flashcards"]');
     if (!container || !flashcardsData.length) return;
+    if (currentCardIndex >= filteredIndices.length) currentCardIndex = 0;
 
-    const card = flashcardsData[currentCardIndex];
+    const realIdx = filteredIndices[currentCardIndex];
+    const card = flashcardsData[realIdx];
+    const conf = cardConfidence[realIdx];
+
+    // Confidence summary stats
+    const knownCount   = Object.values(cardConfidence).filter(v => v === 'known').length;
+    const unsureCount  = Object.values(cardConfidence).filter(v => v === 'unsure').length;
+    const unknownCount = Object.values(cardConfidence).filter(v => v === 'unknown').length;
+    const ratedCount   = knownCount + unsureCount + unknownCount;
+    const hasWeak      = unknownCount + unsureCount > 0;
+
+    // Unique tags
+    const allTags = [...new Set(flashcardsData.map(c => c.tag).filter(Boolean))];
+    const showFilter = allTags.length > 1;
+
+    const filterHtml = showFilter ? `
+        <div class="flashcard-filter">
+            <button class="filter-pill ${!activeTagFilter ? 'active' : ''}" onclick="setFlashcardTagFilter(null)">All (${flashcardsData.length})</button>
+            ${allTags.map(tag => {
+                const cnt = flashcardsData.filter(c => c.tag === tag).length;
+                return `<button class="filter-pill ${activeTagFilter === tag ? 'active' : ''}" onclick="setFlashcardTagFilter(${JSON.stringify(tag)})">${escapeHtml(tag)} (${cnt})</button>`;
+            }).join('')}
+        </div>` : '';
+
+    const statsHtml = ratedCount > 0 ? `
+        <div class="flashcard-stats">
+            <span class="stat-known">✅ ${knownCount} Known</span>
+            <span class="stat-unsure">😐 ${unsureCount} Unsure</span>
+            <span class="stat-unknown">❌ ${unknownCount} Don&#39;t know</span>
+        </div>` : '';
+
+    const confClass = conf === 'known' ? 'conf-known' : conf === 'unsure' ? 'conf-unsure' : conf === 'unknown' ? 'conf-unknown' : '';
+    const restudyBtn = hasWeak && !restudyMode
+        ? `<button class="btn-secondary" onclick="enterRestudyMode()"><i class="fas fa-redo"></i> Re-study weak (${unknownCount + unsureCount})</button>`
+        : restudyMode
+            ? `<button class="btn-secondary" onclick="exitRestudyMode()"><i class="fas fa-th"></i> All Cards</button>`
+            : '';
+
     container.innerHTML = `
         <div class="flashcard-viewer">
+            ${filterHtml}
             <div class="flashcard-progress">
-                <span>Card ${currentCardIndex + 1} of ${flashcardsData.length}</span>
+                <span>Card ${currentCardIndex + 1} of ${filteredIndices.length}${restudyMode ? ' — Re-study mode' : ''}</span>
                 <div class="flashcard-progress-bar">
-                    <div class="flashcard-progress-fill" style="width:${((currentCardIndex + 1) / flashcardsData.length) * 100}%"></div>
+                    <div class="flashcard-progress-fill" style="width:${((currentCardIndex + 1) / filteredIndices.length) * 100}%"></div>
                 </div>
             </div>
-            <div class="flashcard ${cardFlipped ? 'flipped' : ''}" onclick="flipCard()">
+            ${statsHtml}
+            <div class="flashcard ${cardFlipped ? 'flipped' : ''} ${confClass}" onclick="flipCard()">
                 <div class="flashcard-inner">
                     <div class="flashcard-front">
+                        ${card.tag ? `<div class="flashcard-tag">${escapeHtml(card.tag)}</div>` : ''}
                         <div class="flashcard-label">Question</div>
                         <div class="flashcard-content">${escapeHtml(card.question)}</div>
                     </div>
                     <div class="flashcard-back">
+                        ${card.tag ? `<div class="flashcard-tag">${escapeHtml(card.tag)}</div>` : ''}
                         <div class="flashcard-label">Answer</div>
                         <div class="flashcard-content">${escapeHtml(card.answer)}</div>
                     </div>
                 </div>
             </div>
-            <div class="flashcard-hint">Click card to flip</div>
+            <div class="flashcard-hint">Click card to flip &bull; Rate your confidence below:</div>
+            <div class="flashcard-confidence">
+                <button class="conf-btn ${conf === 'known'   ? 'conf-known'   : ''}" onclick="rateCard('known'  )">&#x2705; Know it</button>
+                <button class="conf-btn ${conf === 'unsure'  ? 'conf-unsure'  : ''}" onclick="rateCard('unsure' )">&#x1F610; Unsure</button>
+                <button class="conf-btn ${conf === 'unknown' ? 'conf-unknown' : ''}" onclick="rateCard('unknown')">&#x274C; Don&#39;t know</button>
+            </div>
             <div class="flashcard-nav">
-                <button class="btn-secondary" onclick="prevCard()" ${currentCardIndex === 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Previous</button>
+                <button class="btn-secondary" onclick="prevCard()" ${currentCardIndex === 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Prev</button>
                 <button class="btn-secondary" onclick="shuffleCards()"><i class="fas fa-random"></i> Shuffle</button>
-                <button class="btn-secondary" onclick="nextCard()" ${currentCardIndex === flashcardsData.length - 1 ? 'disabled' : ''}>Next <i class="fas fa-chevron-right"></i></button>
+                ${restudyBtn}
+                <button class="btn-secondary" onclick="nextCard()" ${currentCardIndex === filteredIndices.length - 1 ? 'disabled' : ''}>Next <i class="fas fa-chevron-right"></i></button>
             </div>
             <div class="flashcard-export">
-                <button class="btn-secondary" onclick="exportFlashcardsAnki()"><i class="fas fa-download"></i> Export for Anki</button>
-                <button class="btn-secondary" onclick="exportFlashcardsJSON()"><i class="fas fa-file-export"></i> Export JSON</button>
+                <button class="btn-secondary" onclick="exportFlashcardsAnki()"><i class="fas fa-download"></i> Anki</button>
+                <button class="btn-secondary" onclick="exportFlashcardsQuizlet()"><i class="fas fa-graduation-cap"></i> Quizlet</button>
+                <button class="btn-secondary" onclick="exportFlashcardsJSON()"><i class="fas fa-file-export"></i> JSON</button>
             </div>
         </div>
     `;
     container.classList.remove('hidden');
+}
+
+function rateCard(confidence) {
+    const realIdx = filteredIndices[currentCardIndex];
+    cardConfidence[realIdx] = confidence;
+    // Auto-advance to next unrated or next card
+    if (currentCardIndex < filteredIndices.length - 1) {
+        currentCardIndex++;
+        cardFlipped = false;
+    }
+    renderFlashcardsUI();
+}
+
+function setFlashcardTagFilter(tag) {
+    activeTagFilter = tag;
+    currentCardIndex = 0;
+    cardFlipped = false;
+    renderFlashcardsUI();
+}
+
+function enterRestudyMode() {
+    restudyMode = true;
+    currentCardIndex = 0;
+    cardFlipped = false;
+    const weakCount = Object.values(cardConfidence).filter(v => v !== 'known').length
+        + (flashcardsData.length - Object.keys(cardConfidence).length);
+    renderFlashcardsUI();
+    showToast(`Re-studying ${filteredIndices.length} weak / unrated cards`, 'info');
+}
+
+function exitRestudyMode() {
+    restudyMode = false;
+    currentCardIndex = 0;
+    cardFlipped = false;
+    renderFlashcardsUI();
 }
 
 function flipCard() {
@@ -179,7 +286,7 @@ function flipCard() {
 }
 
 function nextCard() {
-    if (currentCardIndex < flashcardsData.length - 1) {
+    if (currentCardIndex < filteredIndices.length - 1) {
         currentCardIndex++;
         cardFlipped = false;
         renderFlashcardsUI();
@@ -215,6 +322,15 @@ function exportFlashcardsAnki() {
     });
     downloadText(content, 'flashcards_anki.txt', 'text/plain');
     showToast('Anki deck exported', 'success');
+}
+
+function exportFlashcardsQuizlet() {
+    // Quizlet CSV: Term,Definition (RFC 4180 quoting)
+    const escape = s => '"' + s.replace(/"/g, '""').replace(/\n/g, ' ') + '"';
+    let rows = ['Term,Definition'];
+    flashcardsData.forEach(card => rows.push(`${escape(card.question)},${escape(card.answer)}`));
+    downloadText(rows.join('\n'), 'flashcards_quizlet.csv', 'text/csv');
+    showToast('Quizlet CSV exported — import via Quizlet → Create → Import', 'success');
 }
 
 function exportFlashcardsJSON() {

@@ -2963,7 +2963,78 @@ body {
     gap: 12px;
     padding-top: 16px;
     border-top: 1px solid var(--border);
+    flex-wrap: wrap;
 }
+
+/* Confidence rating buttons */
+.flashcard-confidence {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 4px 0 14px;
+    flex-wrap: wrap;
+}
+
+.conf-btn {
+    padding: 7px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: all 0.2s;
+}
+.conf-btn:hover { transform: translateY(-1px); filter: brightness(1.15); }
+.conf-btn.conf-known  { border-color: #00e68a; background: rgba(0,230,138,0.15); color: #00e68a; }
+.conf-btn.conf-unsure { border-color: #ffa040; background: rgba(255,160,64,0.15); color: #ffa040; }
+.conf-btn.conf-unknown{ border-color: #ff4d6a; background: rgba(255,77,106,0.15); color: #ff4d6a; }
+
+/* Flashcard topic tag */
+.flashcard-tag {
+    display: inline-block;
+    padding: 3px 11px;
+    border-radius: 20px;
+    background: rgba(124,92,255,0.18);
+    border: 1px solid rgba(124,92,255,0.4);
+    font-size: 0.72rem;
+    color: var(--accent-light);
+    letter-spacing: 0.3px;
+    margin-bottom: 10px;
+}
+
+/* Topic filter bar */
+.flashcard-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 14px;
+}
+.filter-pill {
+    padding: 4px 13px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.filter-pill:hover { border-color: var(--accent); color: var(--text-primary); }
+.filter-pill.active { border-color: var(--accent); background: rgba(124,92,255,0.15); color: var(--accent-light); }
+
+/* Confidence summary stats */
+.flashcard-stats {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 14px;
+    font-size: 0.82rem;
+    flex-wrap: wrap;
+}
+.stat-known   { color: #00e68a; }
+.stat-unsure  { color: #ffa040; }
+.stat-unknown { color: #ff4d6a; }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    AI PRACTICE QUIZ

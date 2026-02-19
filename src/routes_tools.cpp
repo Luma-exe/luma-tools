@@ -2482,18 +2482,20 @@ IMPORTANT RULES:
             system_prompt = "You are an expert educator creating flashcards. "
                 "Generate the MAXIMUM number of flashcards possible from the provided content — cover every concept, term, definition, fact, and relationship present. "
                 "Do not skip anything that could be tested. "
-                "Output ONLY a valid JSON array with objects containing 'question' and 'answer' fields. "
+                "Output ONLY a valid JSON array with objects containing 'question', 'answer', and 'tag' fields. "
+                "The 'tag' field must be a short topic name (2-4 words) that categorises the card — use consistent topic names across related cards. "
                 "Questions should be clear and specific. Answers should be concise but complete.";
             user_prompt = "Generate as many flashcards as possible from this content — cover every testable concept, term, and fact:\n\n" + text +
-                "\n\nOutput ONLY JSON array: [{\"question\": \"...\", \"answer\": \"...\"}]";
+                "\n\nOutput ONLY JSON array: [{\"question\": \"...\", \"answer\": \"...\", \"tag\": \"Topic Name\"}]";
             max_tokens = 8192;
         } else {
             system_prompt = "You are an expert educator creating flashcards. Generate exactly " + to_string(count) + " flashcards from the provided content. "
                 "Each flashcard should test a key concept, term, or fact. "
-                "Output ONLY valid JSON array with objects containing 'question' and 'answer' fields. "
+                "Output ONLY a valid JSON array with objects containing 'question', 'answer', and 'tag' fields. "
+                "The 'tag' field must be a short topic name (2-4 words) that categorises the card — use consistent topic names across related cards. "
                 "Questions should be clear and specific. Answers should be concise but complete.";
             user_prompt = "Create " + to_string(count) + " flashcards from this content:\n\n" + text +
-                "\n\nOutput as JSON array: [{\"question\": \"...\", \"answer\": \"...\"}]";
+                "\n\nOutput as JSON array: [{\"question\": \"...\", \"answer\": \"...\", \"tag\": \"Topic Name\"}]";
             max_tokens = 4096;
         }
 
@@ -3123,5 +3125,91 @@ IMPORTANT RULES:
         stat_record_ai_call("YouTube Summary", gr.model_used, gr.tokens_used, req.remote_addr);
         discord_log_ai_tool("YouTube Summary", video_id, gr.model_used, gr.tokens_used, req.remote_addr);
         res.set_content(result.dump(), "application/json");
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // ARCHIVE EXTRACTOR
+    // Supported: ZIP, 7Z, RAR, RAR5, TAR, GZ, BZ2, XZ, TGZ, TBZ2, TXZ, LZMA, Z,
+    //            CAB, ISO, LZH, ARJ, CHM, MSI, WIM, DMG, CPIO, DEB, RPM,
+    //            APK, JAR, WAR, EAR, WHL, EGG, NUPKG, CRX, XPI, CBZ, CBR, APPX
+    // ══════════════════════════════════════════════════════════════════════════════
+    svr.Post("/api/tools/archive-extract", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+
+        // Locate 7-Zip
+        string sevenzip = find_executable("7z", {
+            "C:\\Program Files\\7-Zip\\7z.exe",
+            "C:\\Program Files (x86)\\7-Zip\\7z.exe",
+            "/usr/bin/7z",
+            "/usr/local/bin/7z"
+        });
+        if (sevenzip.empty()) {
+            sevenzip = find_executable("7za", {"/usr/bin/7za", "/usr/local/bin/7za"});
+        }
+        if (sevenzip.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "7-Zip is not installed on this server. Install 7-Zip to enable archive extraction."}}).dump(), "application/json");
+            return;
+        }
+
+        auto file = req.get_file_value("file");
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+        string input_path = save_upload(file, jid);
+        string extract_dir = proc + "/" + jid + "_extracted";
+        string output_zip  = proc + "/" + jid + "_extracted.zip";
+
+        try { fs::create_directories(extract_dir); } catch (...) {}
+
+        // Step 1: extract into extract_dir
+        string extract_cmd = escape_arg(sevenzip) + " x " + escape_arg(input_path)
+            + " -o" + escape_arg(extract_dir) + " -y";
+        cout << "[Luma Tools] Archive extract: " << extract_cmd << endl;
+        int rc; exec_command(extract_cmd, rc);
+
+        // Verify something was extracted
+        bool has_files = false;
+        uintmax_t file_count = 0;
+        try {
+            for (auto& e : fs::recursive_directory_iterator(extract_dir)) {
+                if (fs::is_regular_file(e)) { has_files = true; ++file_count; }
+            }
+        } catch (...) {}
+
+        if (!has_files) {
+            try { fs::remove(input_path); fs::remove_all(extract_dir); } catch (...) {}
+            res.status = 500;
+            res.set_content(json({{"error", "Extraction failed \u2014 archive may be corrupt, password-protected, or unsupported."}}).dump(), "application/json");
+            return;
+        }
+
+        // Step 2: re-zip the extracted contents with paths relative to extract_dir
+#ifdef _WIN32
+        string zip_cmd = "cd /d " + escape_arg(extract_dir) + " && "
+            + escape_arg(sevenzip) + " a -tzip " + escape_arg(output_zip) + " . -r";
+#else
+        string zip_cmd = "cd " + escape_arg(extract_dir) + " && "
+            + escape_arg(sevenzip) + " a -tzip " + escape_arg(output_zip) + " . -r";
+#endif
+        cout << "[Luma Tools] Archive rezip: " << zip_cmd << endl;
+        exec_command(zip_cmd, rc);
+
+        if (fs::exists(output_zip) && fs::file_size(output_zip) > 0) {
+            discord_log_tool("Archive Extract",
+                file.filename + " (" + to_string(file_count) + " files extracted)",
+                req.remote_addr);
+            string out_name = fs::path(file.filename).stem().string() + "_extracted.zip";
+            send_file_response(res, output_zip, out_name);
+        } else {
+            discord_log_error("Archive Extract", "Re-zip failed for: " + mask_filename(file.filename));
+            res.status = 500;
+            res.set_content(json({{"error", "Extraction succeeded but packaging output failed."}}).dump(), "application/json");
+        }
+
+        try { fs::remove(input_path); fs::remove_all(extract_dir); fs::remove(output_zip); } catch (...) {}
     });
 }
