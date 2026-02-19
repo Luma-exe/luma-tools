@@ -127,7 +127,7 @@ int main() {
     }
 
     // ── Find deno ───────────────────────────────────────────────────────────
-    g_deno_path = find_executable("deno");
+    g_deno_path = find_deno();
 
     if (!g_deno_path.empty()) {
         cout << "[Luma Tools] deno found: " << g_deno_path << endl;
@@ -182,11 +182,51 @@ int main() {
         else
             cout << "[Luma Tools] ImageMagick not found (optional)" << endl;
 
-        // rembg — probe by running 'rembg --help' (exit 0 = present)
+        // rembg — probe 'rembg --help'; if that fails, try explicit Python Scripts paths
         {
             int rc;
             exec_command("rembg --help", rc);
             g_rembg_available = (rc == 0);
+            if (!g_rembg_available) {
+                // Build list of candidate rembg.exe paths from all Python installs
+                vector<string> rembg_candidates;
+                // C:\Program Files\Python*\Scripts\rembg.exe
+                const char* pff = std::getenv("ProgramFiles");
+                string pf_str = pff ? pff : "C:\\Program Files";
+                try {
+                    for (const auto& e : fs::directory_iterator(pf_str)) {
+                        if (!e.is_directory()) continue;
+                        string n = e.path().filename().string();
+                        if (n.rfind("Python", 0) == 0)
+                            rembg_candidates.push_back(e.path().string() + "\\Scripts\\rembg.exe");
+                    }
+                } catch (...) {}
+                // C:\Users\*\AppData\Local\Programs\Python\Python*\Scripts\rembg.exe
+                try {
+                    for (const auto& user : fs::directory_iterator("C:\\Users")) {
+                        if (!user.is_directory()) continue;
+                        string pybase = user.path().string() + "\\AppData\\Local\\Programs\\Python";
+                        if (!fs::exists(pybase)) continue;
+                        for (const auto& ver : fs::directory_iterator(pybase)) {
+                            if (!ver.is_directory()) continue;
+                            rembg_candidates.push_back(ver.path().string() + "\\Scripts\\rembg.exe");
+                        }
+                    }
+                } catch (...) {}
+                for (const auto& cand : rembg_candidates) {
+                    if (fs::exists(cand)) {
+                        // Add its Scripts dir to PATH so future calls work bare
+                        string scripts_dir = fs::path(cand).parent_path().string();
+                        const char* cur = std::getenv("PATH");
+                        string new_path = scripts_dir + ";" + (cur ? cur : "");
+                        _putenv_s("PATH", new_path.c_str());
+                        int rc2;
+                        exec_command("rembg --help", rc2);
+                        g_rembg_available = (rc2 == 0);
+                        if (g_rembg_available) break;
+                    }
+                }
+            }
             cout << "[Luma Tools] rembg: " << (g_rembg_available ? "available" : "not found (optional)") << endl;
         }
 

@@ -99,6 +99,7 @@ string find_executable(const string& name, const vector<string>& extra_paths = {
 string find_ytdlp();
 string find_ghostscript();
 string find_pandoc();
+string find_deno();
 string build_ytdlp_cmd();
 
 // ─── Download manager ───────────────────────────────────────────────────────

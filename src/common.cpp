@@ -315,12 +315,42 @@ string find_pandoc() {
         candidate = string(pf86) + "\\Pandoc\\pandoc.exe";
         if (fs::exists(candidate)) return candidate;
     }
-    // Local appdata
+    // Current process LOCALAPPDATA
     const char* appdata = std::getenv("LOCALAPPDATA");
     if (appdata) {
         candidate = string(appdata) + "\\Pandoc\\pandoc.exe";
         if (fs::exists(candidate)) return candidate;
     }
+    // Scan all user profiles under C:\Users\*
+    try {
+        for (const auto& entry : fs::directory_iterator("C:\\Users")) {
+            if (!entry.is_directory()) continue;
+            candidate = entry.path().string() + "\\AppData\\Local\\Pandoc\\pandoc.exe";
+            if (fs::exists(candidate)) return candidate;
+        }
+    } catch (...) {}
+#endif
+    return "";
+}
+
+string find_deno() {
+    auto d = find_executable("deno");
+    if (!d.empty()) return d;
+#ifdef _WIN32
+    // Current process USERPROFILE
+    const char* up = std::getenv("USERPROFILE");
+    if (up) {
+        string candidate = string(up) + "\\.deno\\bin\\deno.exe";
+        if (fs::exists(candidate)) return candidate;
+    }
+    // Scan all user profiles under C:\Users\*
+    try {
+        for (const auto& entry : fs::directory_iterator("C:\\Users")) {
+            if (!entry.is_directory()) continue;
+            string candidate = entry.path().string() + "\\.deno\\bin\\deno.exe";
+            if (fs::exists(candidate)) return candidate;
+        }
+    } catch (...) {}
 #endif
     return "";
 }
