@@ -166,6 +166,16 @@ void stat_init_db() {
             max_text_chars INTEGER NOT NULL DEFAULT 0,
             note           TEXT    NOT NULL DEFAULT ''
         );
+        CREATE TABLE IF NOT EXISTS ai_calls (
+            id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts     INTEGER NOT NULL,
+            tool   TEXT    NOT NULL,
+            model  TEXT    NOT NULL,
+            tokens INTEGER NOT NULL DEFAULT 0,
+            vh     TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_ai_ts    ON ai_calls(ts);
+        CREATE INDEX IF NOT EXISTS idx_ai_model ON ai_calls(model);
     )";
     char* errmsg = nullptr;
     if (sqlite3_exec(g_db, schema, nullptr, nullptr, &errmsg) != SQLITE_OK) {
@@ -204,6 +214,100 @@ void stat_record(const string& kind, const string& name, bool ok, const string& 
 
 void stat_record_event(const string& name) {
     stat_record("event", name, true, "");
+}
+
+void stat_record_ai_call(const string& tool, const string& model, int tokens_used, const string& ip) {
+    if (!g_db) return;
+    try {
+        string vh = hash_ip(ip);
+        lock_guard<mutex> lk(g_stats_mutex);
+        sqlite3_stmt* stmt = nullptr;
+        const char* sql = "INSERT INTO ai_calls (ts, tool, model, tokens, vh) VALUES (?,?,?,?,?)";
+        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int64(stmt, 1, now_unix());
+            sqlite3_bind_text(stmt,  2, tool.c_str(),  -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt,  3, model.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(stmt,   4, tokens_used);
+            if (!vh.empty())
+                sqlite3_bind_text(stmt, 5, vh.c_str(), -1, SQLITE_TRANSIENT);
+            else
+                sqlite3_bind_null(stmt, 5);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+    } catch (...) {}
+}
+
+AIStats stat_query_ai(int64_t from_unix, int64_t to_unix) {
+    AIStats result;
+    if (!g_db) return result;
+
+    lock_guard<mutex> lk(g_stats_mutex);
+
+    // Total calls + tokens
+    {
+        const char* sql = "SELECT COUNT(*), COALESCE(SUM(tokens),0) FROM ai_calls WHERE ts >= ? AND ts <= ?";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int64(stmt, 1, from_unix);
+            sqlite3_bind_int64(stmt, 2, to_unix);
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                result.total_calls  = sqlite3_column_int(stmt, 0);
+                result.total_tokens = sqlite3_column_int(stmt, 1);
+            }
+            sqlite3_finalize(stmt);
+        }
+    }
+
+    // Per-model aggregates
+    {
+        const char* sql =
+            "SELECT model, COUNT(*), COALESCE(SUM(tokens),0) FROM ai_calls "
+            "WHERE ts >= ? AND ts <= ? GROUP BY model ORDER BY COUNT(*) DESC";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int64(stmt, 1, from_unix);
+            sqlite3_bind_int64(stmt, 2, to_unix);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                AIModelBucket b;
+                auto m = sqlite3_column_text(stmt, 0);
+                b.model  = m ? reinterpret_cast<const char*>(m) : "";
+                b.calls  = sqlite3_column_int(stmt, 1);
+                b.tokens = sqlite3_column_int(stmt, 2);
+                result.by_model.push_back(b);
+            }
+            sqlite3_finalize(stmt);
+        }
+    }
+
+    // Per-tool aggregates (calls, tokens, most recent model)
+    {
+        const char* sql =
+            "SELECT tool, COUNT(*), COALESCE(SUM(tokens),0), "
+            "(SELECT model FROM ai_calls a2 WHERE a2.tool=a1.tool AND a2.ts>=? AND a2.ts<=? ORDER BY a2.ts DESC LIMIT 1) "
+            "FROM ai_calls a1 WHERE a1.ts >= ? AND a1.ts <= ? "
+            "GROUP BY tool ORDER BY COUNT(*) DESC";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int64(stmt, 1, from_unix);
+            sqlite3_bind_int64(stmt, 2, to_unix);
+            sqlite3_bind_int64(stmt, 3, from_unix);
+            sqlite3_bind_int64(stmt, 4, to_unix);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                AIToolBucket b;
+                auto t = sqlite3_column_text(stmt, 0);
+                auto m = sqlite3_column_text(stmt, 3);
+                b.tool       = t ? reinterpret_cast<const char*>(t) : "";
+                b.calls      = sqlite3_column_int(stmt, 1);
+                b.tokens     = sqlite3_column_int(stmt, 2);
+                b.last_model = m ? reinterpret_cast<const char*>(m) : "";
+                result.by_tool.push_back(b);
+            }
+            sqlite3_finalize(stmt);
+        }
+    }
+
+    return result;
 }
 
 // === Query ===================================================================
@@ -363,6 +467,7 @@ void stat_send_daily_digest() {
     auto yesterday = stat_query(prev_start, day_start - 1, "");
     int  uniq      = stat_unique_visitors(day_start, day_end);
     auto events    = stat_events(day_start, day_end);
+    auto ai        = stat_query_ai(day_start, day_end);
 
     string desc;
     int delta = today.total - yesterday.total;
@@ -389,6 +494,21 @@ void stat_send_daily_digest() {
         desc += "\n**Events:**\n";
         for (auto& [name, cnt] : events)
             desc += "`" + name + "`  " + to_string(cnt) + "\n";
+    }
+
+    if (ai.total_calls > 0) {
+        desc += "\n**🤖 AI Usage:**\n";
+        desc += "**Calls:** " + to_string(ai.total_calls) + "  |  ";
+        desc += "**Tokens:** " + to_string(ai.total_tokens) + "\n";
+        for (auto& b : ai.by_model) {
+            // Shorten model names for readability
+            string m = b.model;
+            if (m == "llama-3.3-70b-versatile")        m = "Llama 3.3 70B";
+            else if (m == "deepseek-r1-distill-llama-70b") m = "DeepSeek R1 70B";
+            else if (m == "llama-3.1-8b-instant")       m = "Llama 3.1 8B";
+            else if (m.rfind("ollama:", 0) == 0)         m = "Local (" + m.substr(7) + ")";
+            desc += "`" + m + "` — " + to_string(b.calls) + " calls, " + to_string(b.tokens) + " tokens\n";
+        }
     }
 
     auto week = stat_query(stat_days_ago(7), day_end, "");

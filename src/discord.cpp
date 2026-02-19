@@ -164,12 +164,32 @@ void discord_log_download(const string& title, const string& platform, const str
     discord_log("📥 Media Download", desc, 0x5865F2);  // Discord blurple
 }
 
-void discord_log_tool(const string& tool_name, const string& filename, const string& ip) {
+void discord_log_tool(const string& tool_name, const string& filename, const string& ip, const string& location) {
+    stat_record("tool", tool_name, true, ip);
+    string display  = MASK_FILENAMES ? mask_filename(filename) : filename;
+    string loc_icon = (location == "browser") ? "🔒 **In Browser**" : "🖥️ **On Server**";
+    string desc = "🛠️ **Tool** › `" + tool_name + "`\n"
+                  "📄 **File** › `" + display + "`\n"
+                  "📍 **Location** › " + loc_icon;
+    discord_log("⚡ Tool Executed", desc, 0x57F287);
+}
+
+void discord_log_ai_tool(const string& tool_name, const string& filename, const string& model, int tokens_used, const string& ip) {
     stat_record("tool", tool_name, true, ip);
     string display = MASK_FILENAMES ? mask_filename(filename) : filename;
-    string desc = "🛠️ **Tool** › `" + tool_name + "`\n"
-                  "📄 **File** › `" + display + "`";
-    discord_log("⚡ Tool Executed", desc, 0x57F287);  // Discord green
+
+    // Friendly model label
+    string model_label = model;
+    if (model == "llama-3.3-70b-versatile")           model_label = "Llama 3.3 70B (Primary)";
+    else if (model == "deepseek-r1-distill-llama-70b") model_label = "DeepSeek R1 70B (Fallback 1)";
+    else if (model == "llama-3.1-8b-instant")          model_label = "Llama 3.1 8B (Fallback 2)";
+    else if (model.rfind("ollama:", 0) == 0)            model_label = "Local: " + model.substr(7) + " (Fallback 3)";
+
+    string desc = "🤖 **Tool** › `" + tool_name + "`\n"
+                  "📄 **File** › `" + display + "`\n"
+                  "🧠 **Model** › " + model_label + "\n"
+                  "🔢 **Tokens used** › `" + to_string(tokens_used) + "`";
+    discord_log("🤖 AI Tool Executed", desc, 0xA855F7);  // Purple
 }
 
 void discord_log_error(const string& context, const string& error, const string& ip) {

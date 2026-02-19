@@ -21,6 +21,7 @@ void stat_init_db();
 
 void stat_record(const string& kind, const string& name, bool ok = true, const string& ip = "");
 void stat_record_event(const string& name);
+void stat_record_ai_call(const string& tool, const string& model, int tokens_used, const string& ip = "");
 
 // --- Query types -------------------------------------------------------------
 
@@ -36,10 +37,31 @@ struct DayBucket {
     int    count = 0;
 };
 
+struct AIModelBucket {
+    string model;
+    int    calls  = 0;
+    int    tokens = 0;
+};
+
+struct AIToolBucket {
+    string tool;
+    string last_model;
+    int    calls  = 0;
+    int    tokens = 0;
+};
+
+struct AIStats {
+    int  total_calls  = 0;
+    int  total_tokens = 0;
+    vector<AIModelBucket>  by_model;   // per-model aggregates
+    vector<AIToolBucket>   by_tool;    // per-tool aggregates (calls, tokens, last model)
+};
+
 StatSummary stat_query(int64_t from_unix, int64_t to_unix, const string& kind = "");
 vector<DayBucket> stat_timeseries(int64_t from_unix, int64_t to_unix, const string& kind = "");
 int stat_unique_visitors(int64_t from_unix, int64_t to_unix);
 vector<pair<string,int>> stat_events(int64_t from_unix, int64_t to_unix);
+AIStats stat_query_ai(int64_t from_unix, int64_t to_unix);
 
 // --- Time helpers ------------------------------------------------------------
 

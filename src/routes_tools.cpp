@@ -33,25 +33,51 @@ static const vector<string> GROQ_MODEL_CHAIN = {
 };
 
 struct GroqResult {
-    json response;
+    json   response;
     string model_used;
-    bool ok = false;
+    int    tokens_used      = 0;
+    int    tokens_remaining = -1;   // from rate-limit header; -1 = unknown
+    bool   ok               = false;
 };
 
 static GroqResult call_groq(json payload, const string& proc, const string& prefix) {
-    string pf = proc + "/" + prefix + "_pl.json";
-    string hf = proc + "/" + prefix + "_hdr.txt";
-    string rf = proc + "/" + prefix + "_resp.json";
+    string pf  = proc + "/" + prefix + "_pl.json";
+    string hf  = proc + "/" + prefix + "_hdr.txt";
+    string rf  = proc + "/" + prefix + "_resp.json";
+    string dhf = proc + "/" + prefix + "_dump.txt";   // response header dump
     { ofstream f(hf); f << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
     string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
                       " -H @" + escape_arg(hf) +
+                      " -D " + escape_arg(dhf) +
                       " -d @" + escape_arg(pf) +
                       " -o " + escape_arg(rf);
+
+    // Helper: read a header value from the curl -D dump file
+    auto read_header = [&](const string& key) -> string {
+        if (!fs::exists(dhf)) return "";
+        try {
+            std::ifstream fh(dhf); string line;
+            while (std::getline(fh, line)) {
+                if (line.size() > key.size() + 1 &&
+                    std::equal(key.begin(), key.end(), line.begin(),
+                        [](char a, char b){ return ::tolower(a) == ::tolower(b); }) &&
+                    line[key.size()] == ':') {
+                    string v = line.substr(key.size() + 1);
+                    while (!v.empty() && (v.front() == ' ' || v.front() == '\t')) v.erase(v.begin());
+                    while (!v.empty() && (v.back() == '\r' || v.back() == '\n')) v.pop_back();
+                    return v;
+                }
+            }
+        } catch (...) {}
+        return "";
+    };
+
     GroqResult result;
     for (const auto& model : GROQ_MODEL_CHAIN) {
         payload["model"] = model;
         { ofstream f(pf); f << payload.dump(); }
-        try { if (fs::exists(rf)) fs::remove(rf); } catch (...) {}
+        try { if (fs::exists(rf))  fs::remove(rf);  } catch (...) {}
+        try { if (fs::exists(dhf)) fs::remove(dhf); } catch (...) {}
         int rc; exec_command(curl_cmd, rc);
         if (!fs::exists(rf) || fs::file_size(rf) == 0) continue;
         try {
@@ -61,9 +87,15 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
                 (rj["error"].value("message","").find("Rate limit") != string::npos ||
                  rj["error"].value("message","").find("rate limit") != string::npos);
             if (rate_limited) continue;
-            result.response = rj;
+            result.response   = rj;
             result.model_used = model;
-            result.ok = rj.contains("choices") && !rj["choices"].empty();
+            result.ok         = rj.contains("choices") && !rj["choices"].empty();
+            // Extract token usage from response body
+            if (rj.contains("usage") && rj["usage"].is_object())
+                result.tokens_used = rj["usage"].value("total_tokens", 0);
+            // Extract remaining tokens from rate-limit response header
+            string rem = read_header("x-ratelimit-remaining-tokens");
+            if (!rem.empty()) { try { result.tokens_remaining = std::stoi(rem); } catch (...) {} }
             break;
         } catch (...) {}
     }
@@ -93,8 +125,52 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
         }
         try { fs::remove(ol_pf); fs::remove(ollama_rf); } catch (...) {}
     }
-    try { fs::remove(pf); fs::remove(hf); fs::remove(rf); } catch (...) {}
+    try { fs::remove(pf); fs::remove(hf); fs::remove(rf); fs::remove(dhf); } catch (...) {}
     return result;
+}
+
+// -----------------------------------------------------------------------------
+// extract_text_from_upload  — shared helper used by Flashcards, Quiz, etc.
+// Saves the multipart file to proc/jid_input<ext>, extracts text via the
+// appropriate method, then cleans up temp files.  Returns empty string on fail.
+// -----------------------------------------------------------------------------
+static string extract_text_from_upload(
+    const httplib::MultipartFormData& file,
+    const string& proc, const string& jid)
+{
+    fs::path fp(file.filename);
+    string file_ext = fp.extension().string();
+    std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
+
+    string input_path = proc + "/" + jid + "_input" + file_ext;
+    { ofstream f(input_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
+
+    string text;
+    string txt_path = proc + "/" + jid + "_text.txt";
+
+    if (file_ext == ".txt" || file_ext == ".md" || file_ext == ".rtf") {
+        ifstream f(input_path, std::ios::binary);
+        std::ostringstream ss; ss << f.rdbuf();
+        text = ss.str();
+    } else if (file_ext == ".pdf" && !g_ghostscript_path.empty()) {
+        string cmd = escape_arg(g_ghostscript_path) + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite -sOutputFile="
+                   + escape_arg(txt_path) + " " + escape_arg(input_path);
+        int code; exec_command(cmd, code);
+        if (fs::exists(txt_path)) {
+            ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+            text = ss.str();
+        }
+    } else if (file_ext == ".docx") {
+        string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
+        int code; exec_command(cmd, code);
+        if (fs::exists(txt_path)) {
+            ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+            text = ss.str();
+        }
+    }
+
+    try { fs::remove(input_path); fs::remove(txt_path); } catch (...) {}
+    return text;
 }
 
 void register_tool_routes(httplib::Server& svr, string dl_dir) {
@@ -1863,16 +1939,18 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         string input_path;
         string file_ext;
         
+        string ip = req.remote_addr;
+        string input_desc;
         if (has_text) {
             // Pasted text mode
             input_text = req.get_file_value("text").content;
             filename = "pasted_text";
-            discord_log_tool("AI Study Notes", "Pasted Text (" + format + ")", req.remote_addr);
+            input_desc = "Pasted Text (" + format + ")";
         } else {
             // File upload mode
             auto file = req.get_file_value("file");
             filename = file.filename;
-            discord_log_tool("AI Study Notes", filename + " (" + format + ")", req.remote_addr);
+            input_desc = filename + " (" + format + ")";
             
             // Detect file extension
             fs::path fp(filename);
@@ -1885,7 +1963,7 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
 
         update_job(jid, {{"status", "processing"}, {"progress", 10}, {"stage", has_text ? "Processing pasted text..." : "Extracting text from file..."}});
 
-        thread([jid, input_text, input_path, file_ext, format, proc, has_text, filename]() {
+        thread([jid, input_text, input_path, file_ext, format, proc, has_text, filename, ip, input_desc]() {
           string txt_path = proc + "/" + jid + "_text.txt";
           try {
             string text;
@@ -2078,6 +2156,8 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             { ofstream f(out_path); f << notes; }
 
             update_job(jid, {{"status","completed"},{"progress",100},{"filename","study_notes" + ext},{"model_used", gr.model_used}}, out_path);
+            stat_record_ai_call("AI Study Notes", gr.model_used, gr.tokens_used, ip);
+            discord_log_ai_tool("AI Study Notes", input_desc, gr.model_used, gr.tokens_used, ip);
             if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
             try { fs::remove(txt_path); } catch (...) {}
           } catch (const std::exception& e) {
@@ -2179,6 +2259,8 @@ IMPORTANT RULES:
         }
 
         string improved_notes = gr.response["choices"][0]["message"]["content"].get<string>();
+        stat_record_ai_call("AI Improve Notes", gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Improve Notes", "Notes improvement", gr.model_used, gr.tokens_used, req.remote_addr);
         res.set_content(json({{"improved_notes", improved_notes}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
@@ -2211,45 +2293,14 @@ IMPORTANT RULES:
         string proc = get_processing_dir();
         string jid = generate_job_id();
 
+        string input_desc;
         if (has_text) {
             text = req.get_file_value("text").content;
-            discord_log_tool("AI Flashcards", "Pasted Text", req.remote_addr);
+            input_desc = "Pasted Text";
         } else {
             auto file = req.get_file_value("file");
-            discord_log_tool("AI Flashcards", file.filename, req.remote_addr);
-            
-            fs::path fp(file.filename);
-            string file_ext = fp.extension().string();
-            std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
-            
-            string input_path = proc + "/" + jid + "_input" + file_ext;
-            { ofstream f(input_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
-            
-            // Extract text based on file type
-            string txt_path = proc + "/" + jid + "_text.txt";
-            
-            if (file_ext == ".txt" || file_ext == ".md" || file_ext == ".rtf") {
-                ifstream f(input_path, std::ios::binary);
-                std::ostringstream ss; ss << f.rdbuf();
-                text = ss.str();
-            } else if (file_ext == ".pdf" && !g_ghostscript_path.empty()) {
-                string cmd = escape_arg(g_ghostscript_path) + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite -sOutputFile=" 
-                           + escape_arg(txt_path) + " " + escape_arg(input_path);
-                int code; exec_command(cmd, code);
-                if (fs::exists(txt_path)) {
-                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-                    text = ss.str();
-                }
-            } else if (file_ext == ".docx") {
-                string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
-                int code; exec_command(cmd, code);
-                if (fs::exists(txt_path)) {
-                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-                    text = ss.str();
-                }
-            }
-            
-            try { fs::remove(input_path); fs::remove(txt_path); } catch (...) {}
+            input_desc = file.filename;
+            text = extract_text_from_upload(file, proc, jid + "_fc");
         }
 
         if (text.size() < 50) {
@@ -2300,6 +2351,8 @@ IMPORTANT RULES:
             return;
         }
 
+        stat_record_ai_call("AI Flashcards", gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Flashcards", input_desc, gr.model_used, gr.tokens_used, req.remote_addr);
         res.set_content(json({{"flashcards", flashcards}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
@@ -2336,44 +2389,14 @@ IMPORTANT RULES:
         string proc = get_processing_dir();
         string jid = generate_job_id();
 
+        string input_desc;
         if (has_text) {
             text = req.get_file_value("text").content;
-            discord_log_tool("AI Quiz", "Pasted Text (" + difficulty + ")", req.remote_addr);
+            input_desc = "Pasted Text (" + difficulty + ")";
         } else {
             auto file = req.get_file_value("file");
-            discord_log_tool("AI Quiz", file.filename + " (" + difficulty + ")", req.remote_addr);
-            
-            fs::path fp(file.filename);
-            string file_ext = fp.extension().string();
-            std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
-            
-            string input_path = proc + "/" + jid + "_input" + file_ext;
-            { ofstream f(input_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
-            
-            string txt_path = proc + "/" + jid + "_text.txt";
-            
-            if (file_ext == ".txt" || file_ext == ".md" || file_ext == ".rtf") {
-                ifstream f(input_path, std::ios::binary);
-                std::ostringstream ss; ss << f.rdbuf();
-                text = ss.str();
-            } else if (file_ext == ".pdf" && !g_ghostscript_path.empty()) {
-                string cmd = escape_arg(g_ghostscript_path) + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite -sOutputFile=" 
-                           + escape_arg(txt_path) + " " + escape_arg(input_path);
-                int code; exec_command(cmd, code);
-                if (fs::exists(txt_path)) {
-                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-                    text = ss.str();
-                }
-            } else if (file_ext == ".docx") {
-                string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
-                int code; exec_command(cmd, code);
-                if (fs::exists(txt_path)) {
-                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-                    text = ss.str();
-                }
-            }
-            
-            try { fs::remove(input_path); fs::remove(txt_path); } catch (...) {}
+            input_desc = file.filename + " (" + difficulty + ")";
+            text = extract_text_from_upload(file, proc, jid + "_qz");
         }
 
         if (text.size() < 50) {
@@ -2429,6 +2452,8 @@ IMPORTANT RULES:
             return;
         }
 
+        stat_record_ai_call("AI Quiz", gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Quiz", input_desc, gr.model_used, gr.tokens_used, req.remote_addr);
         res.set_content(json({{"questions", questions}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
@@ -2450,8 +2475,6 @@ IMPORTANT RULES:
 
         string text = req.get_file_value("text").content;
         string tone = req.has_file("tone") ? req.get_file_value("tone").content : "formal";
-
-        discord_log_tool("AI Paraphrase", tone, req.remote_addr);
 
         if (text.size() < 20) {
             res.status = 400;
@@ -2491,6 +2514,8 @@ IMPORTANT RULES:
         }
 
         string result = gr.response["choices"][0]["message"]["content"].get<string>();
+        stat_record_ai_call("AI Paraphrase", gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Paraphrase", tone, gr.model_used, gr.tokens_used, req.remote_addr);
         res.set_content(json({{"result", result}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
@@ -2705,8 +2730,6 @@ IMPORTANT RULES:
         }
         if (text.size() > 12000) text = text.substr(0, 12000);
 
-        discord_log_tool("AI Mind Map", "Text input", req.remote_addr);
-
         string proc = get_processing_dir();
         string jid = generate_job_id();
 
@@ -2753,6 +2776,8 @@ IMPORTANT RULES:
         }
 
         result["model_used"] = gr.model_used;
+        stat_record_ai_call("AI Mind Map", gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("AI Mind Map", "Text input", gr.model_used, gr.tokens_used, req.remote_addr);
         res.set_content(result.dump(), "application/json");
     });
 
@@ -2785,8 +2810,6 @@ IMPORTANT RULES:
             res.set_content(json({{"error", "Invalid video ID"}}).dump(), "application/json");
             return;
         }
-
-        discord_log_tool("YouTube Summary", video_id, req.remote_addr);
 
         string proc = get_processing_dir();
         string jid = generate_job_id();
@@ -2917,6 +2940,8 @@ IMPORTANT RULES:
         }
 
         result["model_used"] = gr.model_used;
+        stat_record_ai_call("YouTube Summary", gr.model_used, gr.tokens_used, req.remote_addr);
+        discord_log_ai_tool("YouTube Summary", video_id, gr.model_used, gr.tokens_used, req.remote_addr);
         res.set_content(result.dump(), "application/json");
     });
 }

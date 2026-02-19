@@ -204,6 +204,11 @@ tr:last-child td{border-bottom:none}
   background:rgba(124,92,255,.2);color:#a88aff;vertical-align:middle;margin-left:4px}
 .badge-browser{font-size:.65rem;padding:1px 5px;border-radius:4px;
   background:rgba(96,165,250,.15);color:#60a5fa;vertical-align:middle;margin-left:4px}
+.card.purple .val{color:#a855f7}
+.ai-tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.72rem;font-weight:600}
+.ai-tag.p{background:rgba(124,92,255,.2);color:#a88aff}
+.ai-tag.f{background:rgba(251,191,36,.15);color:#fbbf24}
+.ai-tag.l{background:rgba(52,211,153,.15);color:#34d399}
 </style>
 </head>
 <body>
@@ -228,6 +233,8 @@ tr:last-child td{border-bottom:none}
     <div class="card blue">  <div class="val" id="cDownloads">-</div><div class="lbl">Downloads</div></div>
     <div class="card">       <div class="val" id="cVisitors">-</div> <div class="lbl">Unique Visitors</div></div>
     <div class="card red">   <div class="val" id="cErrors">-</div>   <div class="lbl">Errors</div></div>
+    <div class="card purple"><div class="val" id="cAiCalls">-</div>  <div class="lbl">AI Calls</div></div>
+    <div class="card">       <div class="val" id="cAiTokens" style="font-size:1.4rem">-</div><div class="lbl">AI Tokens</div></div>
   </div>
 
   <div class="charts-grid">
@@ -242,6 +249,14 @@ tr:last-child td{border-bottom:none}
     <div class="chart-box">
       <h2>Top Download Platforms</h2>
       <canvas id="barChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <h2>AI Model Distribution</h2>
+      <canvas id="aiModelChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <h2>AI Tokens per Model</h2>
+      <canvas id="aiTokenChart"></canvas>
     </div>
   </div>
 
@@ -258,6 +273,14 @@ tr:last-child td{border-bottom:none}
     <table>
       <thead><tr><th>Event</th><th>Count</th></tr></thead>
       <tbody id="eventsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="section" id="aiSection" style="display:none">
+    <h2>&#x1F916; AI Usage by Tool</h2>
+    <table>
+      <thead><tr><th>Tool</th><th>Last Model</th><th>Calls</th><th>Tokens Used</th></tr></thead>
+      <tbody id="aiByToolBody"><tr><td colspan="4" class="loading">No AI data for this range.</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -285,14 +308,15 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
-<script>
+)HTML"
+R"HTML(<script>
 Chart.defaults.color = '#666';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
 const PURPLE = '#7c5cff';
 const PURPLE_ALPHA = 'rgba(124,92,255,0.18)';
 const PALETTE = ['#7c5cff','#34d399','#60a5fa','#f87171','#fbbf24','#a78bfa','#6ee7b7','#93c5fd'];
 
-let lineChart, donutChart, barChart;
+let lineChart, donutChart, barChart, aiModelChart, aiTokenChart;
 
 function initCharts() {
   lineChart = new Chart(document.getElementById('lineChart').getContext('2d'), {
@@ -324,6 +348,25 @@ function initCharts() {
         y: { grid: { display: false } }
       }}
   });
+
+  const AI_PALETTE = ['#a855f7','#7c5cff','#34d399','#60a5fa','#f87171','#fbbf24'];
+  aiModelChart = new Chart(document.getElementById('aiModelChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: AI_PALETTE, borderWidth: 2, borderColor: '#09090f' }]},
+    options: { responsive: true, cutout: '65%',
+      plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 14 } } }}
+  });
+
+  aiTokenChart = new Chart(document.getElementById('aiTokenChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Tokens', data: [], backgroundColor: AI_PALETTE, borderRadius: 6 }]},
+    options: { responsive: true, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { precision: 0 } },
+        y: { grid: { display: false } }
+      }}
+  });
 }
 
 let currentRange = 'today';
@@ -337,16 +380,66 @@ function showToast(msg) {
 
 async function load() {
   try {
-    const [allData, toolsData, dlData, tsData, visitData, evData] = await Promise.all([
+    const AI_MODEL_NAMES = {
+      'llama-3.3-70b-versatile': 'Llama 3.3 70B',
+      'deepseek-r1-distill-llama-70b': 'DeepSeek R1 70B',
+      'llama-3.1-8b-instant': 'Llama 3.1 8B',
+      'ollama:llama3.1:8b': 'Local (Ollama)'
+    };
+
+    const MODEL_TAG_CLASS = {
+      'llama-3.3-70b-versatile': 'p',
+      'deepseek-r1-distill-llama-70b': 'f',
+      'llama-3.1-8b-instant': 'f',
+      'ollama:llama3.1:8b': 'l'
+    };
+
+    const [allData, toolsData, dlData, tsData, visitData, evData, aiData] = await Promise.all([
       fetch(`/api/stats?range=${currentRange}`).then(r => r.json()),
       fetch(`/api/stats?range=${currentRange}&kind=tool`).then(r => r.json()),
       fetch(`/api/stats?range=${currentRange}&kind=download`).then(r => r.json()),
       fetch(`/api/stats/timeseries?range=${currentRange}`).then(r => r.json()),
       fetch(`/api/stats/visitors?range=${currentRange}`).then(r => r.json()),
       fetch(`/api/stats/events?range=${currentRange}`).then(r => r.json()),
+      fetch(`/api/stats/ai?range=${currentRange}`).then(r => r.json()),
     ]);
 
     document.getElementById('cTotal').textContent     = allData.total     ?? '-';
+    document.getElementById('cAiCalls').textContent   = aiData.total_calls  ?? '-';
+    document.getElementById('cAiTokens').textContent  = (aiData.total_tokens ?? 0).toLocaleString();
+
+    // AI Model Distribution charts
+    const aiModels = aiData.by_model || [];
+    aiModelChart.data.labels   = aiModels.map(m => AI_MODEL_NAMES[m.model] || m.model);
+    aiModelChart.data.datasets[0].data = aiModels.map(m => m.calls);
+    aiModelChart.update();
+
+    aiTokenChart.data.labels   = aiModels.map(m => AI_MODEL_NAMES[m.model] || m.model);
+    aiTokenChart.data.datasets[0].data = aiModels.map(m => m.tokens);
+    aiTokenChart.update();
+
+    // AI by Tool table
+    const aiSection  = document.getElementById('aiSection');
+    const aiToolBody = document.getElementById('aiByToolBody');
+    const aiByTool   = aiData.by_tool || [];
+    if (aiByTool.length === 0) {
+      aiSection.style.display = '';
+      aiToolBody.innerHTML = '<tr><td colspan="4" class="loading">No AI data for this range.</td></tr>';
+    } else {
+      aiSection.style.display = '';
+      aiToolBody.innerHTML = '';
+      aiByTool.forEach(t => {
+        const cls   = MODEL_TAG_CLASS[t.last_model] || 'p';
+        const label = AI_MODEL_NAMES[t.last_model] || t.last_model;
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td><code style="font-size:.82rem">' + t.tool + '</code></td>' +
+          '<td><span class="ai-tag ' + cls + '">' + label + '</span></td>' +
+          '<td>' + t.calls + '</td>' +
+          '<td>' + (t.tokens || 0).toLocaleString() + '</td>';
+        aiToolBody.appendChild(tr);
+      });
+    }
     document.getElementById('cTools').textContent     = toolsData.total   ?? '-';
     document.getElementById('cDownloads').textContent = dlData.total      ?? '-';
     document.getElementById('cVisitors').textContent  = visitData.unique  ?? '-';
@@ -686,6 +779,22 @@ void register_stats_routes(httplib::Server& svr) {
         if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
         thread([]() { stat_send_daily_digest(); }).detach();
         res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // GET /api/stats/ai
+    svr.Get("/api/stats/ai", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        string range = req.has_param("range") ? req.get_param_value("range") : "today";
+        auto [from_unix, to_unix] = parse_range(range);
+        auto ai = stat_query_ai(from_unix, to_unix);
+        json by_model = json::array();
+        for (auto& b : ai.by_model)
+            by_model.push_back({{"model",b.model},{"calls",b.calls},{"tokens",b.tokens}});
+        json by_tool = json::array();
+        for (auto& b : ai.by_tool)
+            by_tool.push_back({{"tool",b.tool},{"last_model",b.last_model},{"calls",b.calls},{"tokens",b.tokens}});
+        json resp = {{"total_calls",ai.total_calls},{"total_tokens",ai.total_tokens},{"by_model",by_model},{"by_tool",by_tool}};
+        res.set_content(resp.dump(), "application/json");
     });
 
     // GET /api/admin/tools  — list all tool configs
