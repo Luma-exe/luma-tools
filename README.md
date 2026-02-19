@@ -2,7 +2,7 @@
 # Luma Tools — All-in-One Browser Toolkit
 
 A powerful, modern toolkit with a C++17 backend and a clean glassmorphism UI.  
-Download from 10+ platforms and process files with 40+ built-in tools — most running entirely in your browser.
+Download from 10+ platforms and process files with 50+ built-in tools — most running entirely in your browser.
 
 ![C++](https://img.shields.io/badge/Backend-C%2B%2B17-blue?logo=cplusplus)
 ![yt-dlp](https://img.shields.io/badge/Engine-yt--dlp-red)
