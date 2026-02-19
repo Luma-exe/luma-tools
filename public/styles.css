@@ -2311,6 +2311,9 @@ body {
 .ncp-quick-stats {
     display: flex;
     justify-content: center;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
     gap: 12px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--border);
