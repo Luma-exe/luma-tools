@@ -305,6 +305,9 @@ async function processYouTubeSummary() {
 }
 
 function renderYouTubeSummary(data, container, videoId) {
+    const summaryText = (data.title ? data.title + '\n\n' : '') +
+        (data.summary || '') +
+        (data.keyPoints?.length ? '\n\nKey Points:\n' + data.keyPoints.map(p => '- ' + p).join('\n') : '');
     container.innerHTML = `
         <div class="youtube-summary-container">
             <div class="youtube-thumbnail">
@@ -321,9 +324,17 @@ function renderYouTubeSummary(data, container, videoId) {
             </div>
             <div class="youtube-summary-actions">
                 <button class="btn-secondary" onclick="copyYouTubeSummary()"><i class="fas fa-copy"></i> Copy Summary</button>
+                <div class="yt-ai-actions">
+                    <span class="yt-ai-label"><i class="fas fa-magic"></i> Use summary for:</span>
+                    <button class="yt-ai-btn" onclick="sendYouTubeToAI('ai-study-notes')"><i class="fas fa-brain"></i> Study Notes</button>
+                    <button class="yt-ai-btn" onclick="sendYouTubeToAI('ai-flashcards')"><i class="fas fa-clone"></i> Flashcards</button>
+                    <button class="yt-ai-btn" onclick="sendYouTubeToAI('ai-quiz')"><i class="fas fa-question-circle"></i> Practice Quiz</button>
+                </div>
             </div>
         </div>
     `;
+    // Store text on container for sendYouTubeToAI to read
+    container.dataset.summaryText = summaryText;
 }
 
 function copyYouTubeSummary() {
@@ -332,6 +343,38 @@ function copyYouTubeSummary() {
         navigator.clipboard.writeText(text);
         showToast('Summary copied!', 'success');
     }
+}
+
+function sendYouTubeToAI(toolId) {
+    const container = document.querySelector('.youtube-result[data-tool="youtube-summary"]');
+    const text = container?.dataset.summaryText || document.querySelector('.youtube-summary-text')?.innerText || '';
+    if (!text.trim()) { showToast('No summary available to send.', 'error'); return; }
+
+    switchTool(toolId);
+    if (toolId === 'ai-study-notes') {
+        // Activate paste mode
+        const modeGrid = document.querySelector('.preset-grid[data-tool="study-notes-input-mode"]');
+        modeGrid?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        modeGrid?.querySelector('[data-val="paste"]')?.classList.add('active');
+        toggleStudyNotesInput('paste');
+        const ta = document.getElementById('study-notes-text-input');
+        if (ta) { ta.value = text; ta.dispatchEvent(new Event('input')); }
+    } else if (toolId === 'ai-flashcards') {
+        const modeGrid = document.querySelector('.preset-grid[data-tool="flashcards-input-mode"]');
+        modeGrid?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        modeGrid?.querySelector('[data-val="paste"]')?.classList.add('active');
+        toggleFlashcardsInput('paste');
+        const ta = document.getElementById('flashcards-text-input');
+        if (ta) { ta.value = text; ta.dispatchEvent(new Event('input')); }
+    } else if (toolId === 'ai-quiz') {
+        const modeGrid = document.querySelector('.preset-grid[data-tool="quiz-input-mode"]');
+        modeGrid?.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        modeGrid?.querySelector('[data-val="paste"]')?.classList.add('active');
+        toggleQuizInput('paste');
+        const ta = document.getElementById('quiz-text-input');
+        if (ta) { ta.value = text; ta.dispatchEvent(new Event('input')); }
+    }
+    showToast('Summary loaded — adjust settings and generate!', 'success');
 }
 
 // ══════════════════════════════════════════════════════════════════════════

@@ -1136,14 +1136,11 @@ function renderHistoryDrawer() {
 function toggleStudyNotesInput(mode) {
     const uploadMode = document.getElementById('study-notes-upload-mode');
     const pasteMode = document.getElementById('study-notes-paste-mode');
-    
-    if (mode === 'paste') {
-        uploadMode.classList.add('hidden');
-        pasteMode.classList.remove('hidden');
-    } else {
-        uploadMode.classList.remove('hidden');
-        pasteMode.classList.add('hidden');
-    }
+    const youtubeMode = document.getElementById('study-notes-youtube-mode');
+
+    uploadMode?.classList.toggle('hidden', mode !== 'upload');
+    pasteMode?.classList.toggle('hidden', mode !== 'paste');
+    youtubeMode?.classList.toggle('hidden', mode !== 'youtube');
     // Clear results when switching modes
     hideResult('ai-study-notes');
 }
@@ -1152,7 +1149,50 @@ function processStudyNotes() {
     const toolId = 'ai-study-notes';
     const inputMode = document.querySelector('.preset-grid[data-tool="study-notes-input-mode"] .preset-btn.active')?.dataset.val || 'upload';
     const format = document.querySelector('.preset-grid[data-tool="study-notes-format"] .preset-btn.active')?.dataset.val || 'markdown';
-    
+
+    if (inputMode === 'youtube') {
+        const urlInput = document.getElementById('study-notes-youtube-url');
+        const url = urlInput?.value?.trim() || '';
+        const videoIdMatch = url.match(/(?:v=|\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+        if (!videoIdMatch) {
+            showToast('Please enter a valid YouTube URL.', 'error');
+            return;
+        }
+        const videoId = videoIdMatch[1];
+        showProcessing(toolId, true);
+        // First fetch the transcript/summary via the YouTube endpoint
+        fetch('/api/youtube-summary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ videoId })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) throw new Error(data.error);
+            const text = (data.title ? data.title + '\n\n' : '') +
+                (data.summary || '') +
+                (data.keyPoints?.length ? '\n\nKey Points:\n' + data.keyPoints.map(p => '- ' + p).join('\n') : '');
+            const formData = new FormData();
+            formData.append('text', text);
+            formData.append('format', format);
+            return fetch('/api/tools/ai-study-notes', { method: 'POST', body: formData });
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                showToast(data.error, 'error');
+                showProcessing(toolId, false);
+                return;
+            }
+            if (data.job_id) pollJob(toolId, data.job_id);
+        })
+        .catch(err => {
+            showToast(err.message || 'Request failed', 'error');
+            showProcessing(toolId, false);
+        });
+        return;
+    }
+
     if (inputMode === 'paste') {
         // Handle pasted text
         const textInput = document.getElementById('study-notes-text-input');

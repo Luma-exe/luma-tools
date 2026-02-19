@@ -109,12 +109,6 @@
                 </div>
                 <div class="nav-category">
                     <div class="nav-category-title">IMAGE</div>
-                    <a class="nav-item" data-tool="screenshot-annotate" data-location="browser" onclick="switchTool('screenshot-annotate')">
-                        <i class="fas fa-pencil-alt"></i><span>Screenshot Annotator</span>
-                    </a>
-                    <a class="nav-item" data-tool="color-palette" data-location="browser" onclick="switchTool('color-palette')">
-                        <i class="fas fa-eye-dropper"></i><span>Color Palette</span>
-                    </a>
                     <a class="nav-item" data-tool="image-compress" data-location="browser" onclick="switchTool('image-compress')">
                         <i class="fas fa-compress-alt"></i><span>Compress</span>
                     </a>
@@ -141,6 +135,12 @@
                     </a>
                     <a class="nav-item" data-tool="redact" data-location="browser" onclick="switchTool('redact')">
                         <i class="fas fa-user-secret"></i><span>Privacy Redaction</span>
+                    </a>
+                    <a class="nav-item" data-tool="screenshot-annotate" data-location="browser" onclick="switchTool('screenshot-annotate')">
+                        <i class="fas fa-pencil-alt"></i><span>Screenshot Annotator</span>
+                    </a>
+                    <a class="nav-item" data-tool="color-palette" data-location="browser" onclick="switchTool('color-palette')">
+                        <i class="fas fa-eye-dropper"></i><span>Color Palette</span>
                     </a>
                 </div>
                 <div class="nav-category">
@@ -1852,9 +1852,10 @@
                     <!-- Input mode toggle -->
                     <div class="tool-options" style="margin-bottom:12px">
                         <label class="option-label">Input method</label>
-                        <div class="preset-grid" data-tool="study-notes-input-mode" style="grid-template-columns:repeat(2,1fr)">
+                        <div class="preset-grid" data-tool="study-notes-input-mode" style="grid-template-columns:repeat(3,1fr)">
                             <button class="preset-btn active" data-val="upload" onclick="selectPreset(this); toggleStudyNotesInput('upload')"><i class="fas fa-file-upload"></i><span>Upload File</span><small>PDF, Word, TXT</small></button>
                             <button class="preset-btn" data-val="paste" onclick="selectPreset(this); toggleStudyNotesInput('paste')"><i class="fas fa-paste"></i><span>Paste Text</span><small>Copy &amp; paste</small></button>
+                            <button class="preset-btn" data-val="youtube" onclick="selectPreset(this); toggleStudyNotesInput('youtube')"><i class="fab fa-youtube"></i><span>YouTube URL</span><small>Video lecture</small></button>
                         </div>
                     </div>
                     <!-- Upload mode -->
@@ -1874,6 +1875,14 @@
                             <textarea id="study-notes-text-input" placeholder="Paste your lecture notes, slides content, or any study material here...&#10;&#10;The AI will analyze this text and generate comprehensive study notes." rows="10"></textarea>
                             <div class="paste-char-count"><span id="paste-char-count">0</span> characters</div>
                         </div>
+                    </div>
+                    <!-- YouTube URL mode -->
+                    <div id="study-notes-youtube-mode" class="hidden">
+                        <div class="input-group">
+                            <label for="study-notes-youtube-url">YouTube Video URL</label>
+                            <input type="url" id="study-notes-youtube-url" placeholder="https://www.youtube.com/watch?v=...">
+                        </div>
+                        <p class="input-hint"><i class="fas fa-info-circle"></i> The video transcript will be fetched and used to generate study notes.</p>
                     </div>
                     <div class="tool-options">
                         <label class="option-label">Output format</label>
@@ -2181,8 +2190,8 @@
             <!-- ── YouTube Summary ──────────────────────────────────────── -->
             <div class="tool-panel" id="tool-youtube-summary">
                 <div class="tool-header">
-                    <h2><i class="fab fa-youtube"></i> YouTube Lecture Summary</h2>
-                    <p>Paste a YouTube video URL to get an AI-generated summary of the lecture.</p>
+                    <h2><i class="fab fa-youtube"></i> YouTube Summary</h2>
+                    <p>Paste a YouTube video URL to get an AI-generated summary of the video.</p>
                 </div>
                 <div class="tool-body">
                     <div class="input-group" style="margin-bottom:16px">

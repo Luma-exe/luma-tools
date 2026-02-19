@@ -3519,7 +3519,58 @@ body {
 
 .youtube-summary-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.yt-ai-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-left: 4px;
+}
+
+.yt-ai-label {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.45);
+    white-space: nowrap;
+}
+
+.yt-ai-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    background: rgba(124,92,255,0.15);
+    border: 1px solid rgba(124,92,255,0.35);
+    border-radius: 20px;
+    color: rgba(200,180,255,0.9);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.yt-ai-btn:hover {
+    background: rgba(124,92,255,0.3);
+    border-color: rgba(124,92,255,0.65);
+    color: #fff;
+}
+
+.input-hint {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.35);
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.input-hint i {
+    color: rgba(124,92,255,0.6);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
