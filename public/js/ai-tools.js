@@ -183,7 +183,7 @@ function renderFlashcardsUI() {
                 <button class="filter-pill ${!activeTagFilter ? 'active' : ''}" onclick="setFlashcardTagFilter(null)">All <span class="pill-count">${flashcardsData.length}</span></button>
                 ${allTags.map(tag => {
                     const cnt = flashcardsData.filter(c => c.tag === tag).length;
-                    return `<button class="filter-pill ${activeTagFilter === tag ? 'active' : ''}" onclick="setFlashcardTagFilter(${JSON.stringify(tag)})">${escapeHtml(tag)} <span class="pill-count">${cnt}</span></button>`;
+                    return `<button class="filter-pill ${activeTagFilter === tag ? 'active' : ''}" data-tag="${escapeHtml(tag)}" onclick="setFlashcardTagFilter(this.dataset.tag)">${escapeHtml(tag)} <span class="pill-count">${cnt}</span></button>`;
                 }).join('')}
             </div>
         </div>` : '';
@@ -227,21 +227,22 @@ function renderFlashcardsUI() {
                     </div>
                 </div>
             </div>
-            <div class="flashcard-hint"><i class="fas fa-hand-pointer"></i> Click card to flip</div>
             <div class="flashcard-nav">
                 <button class="btn-secondary" onclick="prevCard()" ${currentCardIndex === 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Prev</button>
                 <button class="btn-secondary" onclick="shuffleCards()"><i class="fas fa-random"></i> Shuffle</button>
                 ${restudyBtn}
                 <button class="btn-secondary" onclick="nextCard()" ${currentCardIndex === filteredIndices.length - 1 ? 'disabled' : ''}>Next <i class="fas fa-chevron-right"></i></button>
             </div>
+            ${cardFlipped ? `
             <div class="fc-section fc-confidence-section">
                 <div class="fc-section-label"><i class="fas fa-brain"></i> How well did you know this? <span class="fc-label-sub">— auto-advances to next card</span></div>
                 <div class="flashcard-confidence">
-                    <button class="conf-btn conf-known-btn  ${conf === 'known'   ? 'active' : ''}" onclick="rateCard('known'  )"><span class="conf-icon">✅</span><span class="conf-label">Got it</span></button>
-                    <button class="conf-btn conf-unsure-btn ${conf === 'unsure'  ? 'active' : ''}" onclick="rateCard('unsure' )"><span class="conf-icon">😐</span><span class="conf-label">Almost</span></button>
+                    <button class="conf-btn conf-known-btn ${conf === 'known' ? 'active' : ''}" onclick="rateCard('known')"><span class="conf-icon">✅</span><span class="conf-label">Got it</span></button>
+                    <button class="conf-btn conf-unsure-btn ${conf === 'unsure' ? 'active' : ''}" onclick="rateCard('unsure')"><span class="conf-icon">😐</span><span class="conf-label">Almost</span></button>
                     <button class="conf-btn conf-unknown-btn ${conf === 'unknown' ? 'active' : ''}" onclick="rateCard('unknown')"><span class="conf-icon">❌</span><span class="conf-label">Missed it</span></button>
                 </div>
-            </div>
+            </div>` : `
+            <div class="flashcard-hint"><i class="fas fa-hand-pointer"></i> Click the card to reveal the answer — then rate yourself</div>`}
             <div class="fc-section flashcard-export">
                 <div class="fc-section-label"><i class="fas fa-file-export"></i> Export deck <span class="fc-label-sub">— import into your flashcard app</span></div>
                 <div class="fc-export-row">

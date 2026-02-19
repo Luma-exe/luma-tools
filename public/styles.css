@@ -2991,20 +2991,31 @@ body {
     gap: 6px;
 }
 .filter-pill {
-    padding: 4px 11px;
+    padding: 5px 12px;
     border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: var(--text-primary);
     font-size: 0.78rem;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.18s;
     display: flex;
     align-items: center;
     gap: 5px;
+    font-weight: 400;
 }
-.filter-pill:hover { border-color: var(--accent); color: var(--text-primary); }
-.filter-pill.active { border-color: var(--accent); background: rgba(124,92,255,0.15); color: var(--accent-light); font-weight: 500; }
+.filter-pill:hover {
+    border-color: var(--accent);
+    background: rgba(124,92,255,0.12);
+    color: var(--accent-light);
+}
+.filter-pill.active {
+    border-color: var(--accent);
+    background: rgba(124,92,255,0.2);
+    color: var(--accent-light);
+    font-weight: 600;
+    box-shadow: 0 0 8px rgba(124,92,255,0.2);
+}
 .pill-count {
     display: inline-flex;
     align-items: center;
@@ -3013,12 +3024,12 @@ body {
     height: 16px;
     padding: 0 4px;
     border-radius: 10px;
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.1);
     font-size: 0.65rem;
     color: inherit;
-    opacity: 0.8;
+    opacity: 0.85;
 }
-.filter-pill.active .pill-count { background: rgba(124,92,255,0.25); }
+.filter-pill.active .pill-count { background: rgba(124,92,255,0.3); }
 
 /* ── Confidence stats bar ─────────────────────────────────────────────────── */
 .flashcard-stats {
@@ -3041,44 +3052,62 @@ body {
 
 /* ── Confidence rating section ────────────────────────────────────────────── */
 .fc-confidence-section {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
     padding: 14px 16px 16px;
 }
 .flashcard-confidence {
-    display: flex;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 10px;
-    flex-wrap: wrap;
 }
 .conf-btn {
-    flex: 1;
-    min-width: 90px;
-    max-width: 140px;
-    padding: 10px 8px;
-    border-radius: 10px;
-    border: 1.5px solid var(--border);
-    background: var(--bg-card, var(--bg-primary));
-    color: var(--text-secondary);
+    padding: 14px 8px 12px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-muted);
     cursor: pointer;
-    font-size: 0.82rem;
-    transition: all 0.18s;
+    transition: all 0.18s ease;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: 7px;
+    position: relative;
+    overflow: hidden;
 }
-.conf-btn:hover { transform: translateY(-2px); border-color: var(--text-secondary); color: var(--text-primary); }
-.conf-icon { font-size: 1.3rem; line-height: 1; }
-.conf-label { font-size: 0.78rem; font-weight: 500; }
-.conf-btn.conf-known-btn.active  { border-color: #00e68a; background: rgba(0,230,138,0.12); color: #00e68a; }
-.conf-btn.conf-unsure-btn.active { border-color: #ffa040; background: rgba(255,160,64,0.12); color: #ffa040; }
-.conf-btn.conf-unknown-btn.active{ border-color: #ff4d6a; background: rgba(255,77,106,0.12); color: #ff4d6a; }
-/* Card border colour reflects current card rating */
-.flashcard.conf-known  { box-shadow: 0 0 0 2px rgba(0,230,138,0.45); }
-.flashcard.conf-unsure { box-shadow: 0 0 0 2px rgba(255,160,64,0.45); }
-.flashcard.conf-unknown{ box-shadow: 0 0 0 2px rgba(255,77,106,0.45); }
+.conf-btn::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 0 0 10px 10px;
+    opacity: 0.6;
+    transition: opacity 0.18s;
+}
+.conf-known-btn::after  { background: #00e68a; }
+.conf-unsure-btn::after { background: #ffa040; }
+.conf-unknown-btn::after{ background: #ff4d6a; }
+.conf-btn:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.07);
+    color: var(--text-primary);
+}
+.conf-btn:hover::after { opacity: 1; }
+.conf-icon { font-size: 1.5rem; line-height: 1; }
+.conf-label { font-size: 0.77rem; font-weight: 500; letter-spacing: 0.2px; }
+.conf-btn.conf-known-btn.active  { border-color: #00e68a; background: rgba(0,230,138,0.13); color: #00e68a; box-shadow: 0 4px 18px rgba(0,230,138,0.2); }
+.conf-btn.conf-unsure-btn.active { border-color: #ffa040; background: rgba(255,160,64,0.13); color: #ffa040; box-shadow: 0 4px 18px rgba(255,160,64,0.2); }
+.conf-btn.conf-unknown-btn.active{ border-color: #ff4d6a; background: rgba(255,77,106,0.13); color: #ff4d6a; box-shadow: 0 4px 18px rgba(255,77,106,0.2); }
+.conf-btn.conf-known-btn.active::after  { opacity: 1; }
+.conf-btn.conf-unsure-btn.active::after { opacity: 1; }
+.conf-btn.conf-unknown-btn.active::after{ opacity: 1; }
+/* Card border glow reflects current card's confidence rating */
+.flashcard.conf-known  { box-shadow: 0 0 0 2px rgba(0,230,138,0.4), 0 8px 32px rgba(0,230,138,0.08); }
+.flashcard.conf-unsure { box-shadow: 0 0 0 2px rgba(255,160,64,0.4), 0 8px 32px rgba(255,160,64,0.08); }
+.flashcard.conf-unknown{ box-shadow: 0 0 0 2px rgba(255,77,106,0.4), 0 8px 32px rgba(255,77,106,0.08); }
 
 /* ── Export row ──────────────────────────────────────────────────────────── */
 .fc-export-row {
