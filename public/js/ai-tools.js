@@ -115,6 +115,7 @@ function processFlashcards() {
             showProcessing(toolId, false);
             if (data.error) {
                 showToast(data.error, 'error');
+                showModelBadge(toolId, 'none');
                 return;
             }
             if (data.flashcards && Array.isArray(data.flashcards)) {
@@ -267,6 +268,7 @@ function processQuiz() {
             showProcessing(toolId, false);
             if (data.error) {
                 showToast(data.error, 'error');
+                showModelBadge(toolId, 'none');
                 return;
             }
             if (data.questions && Array.isArray(data.questions)) {
@@ -498,6 +500,7 @@ function processParaphrase() {
             showProcessing(toolId, false);
             if (data.error) {
                 showToast(data.error, 'error');
+                showModelBadge(toolId, 'none');
                 return;
             }
             if (data.result) {

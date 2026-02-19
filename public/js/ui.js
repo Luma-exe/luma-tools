@@ -318,8 +318,6 @@ const AI_MODELS = {
 };
 
 function showModelBadge(toolId, modelId) {
-    const model = AI_MODELS[modelId];
-    if (!model) return;
     const panel = document.getElementById('tool-' + toolId);
     if (!panel) return;
     const h2 = panel.querySelector('.tool-header h2');
@@ -330,6 +328,15 @@ function showModelBadge(toolId, modelId) {
         badge.className = 'tool-model-badge';
         h2.appendChild(badge);
     }
+    // Error state — all models unavailable
+    if (!modelId || modelId === 'none') {
+        badge.className = 'tool-model-badge tmb-error';
+        badge.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No AI<div class="tmb-tooltip"><div class="tmb-header">AI Unavailable</div><div class="tmb-no-model">All AI models are currently rate-limited or unreachable. This includes the 3 Groq cloud models and the local Ollama fallback. Please try again later.</div></div>`;
+        return;
+    }
+    const model = AI_MODELS[modelId];
+    if (!model) return;
+    badge.className = 'tool-model-badge';
     const allModels = Object.entries(AI_MODELS).map(([id, m]) => `
         <div class="tmb-model ${id === modelId ? 'active' : ''} ${id.startsWith('ollama:') ? 'tmb-local' : ''}">
             <div class="tmb-model-row">

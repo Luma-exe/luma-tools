@@ -407,6 +407,8 @@ function pollJobStatus(toolId, jobId) {
             es.close(); delete state.jobPolls[toolId];
             showProcessing(toolId, false);
             showToast(data.error || 'Processing failed', 'error');
+            const AI_TOOL_IDS = ['ai-study-notes', 'ai-flashcards', 'ai-quiz', 'ai-paraphrase', 'mind-map', 'youtube-summary'];
+            if (AI_TOOL_IDS.includes(toolId)) showModelBadge(toolId, 'none');
         } else {
             const pct = data.progress || 0;
             if (progressBar) progressBar.style.width = pct + '%';

@@ -349,8 +349,34 @@ body {
     font-size: 0.85rem; color: var(--text-secondary); max-width: 440px; margin: 0 auto;
 }
 
-/* kept for any external refs but replaced visually by landing-categories */
-.landing-features { display: none; }
+.landing-features {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+}
+.landing-feature {
+    padding: 24px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+}
+.landing-feature:hover {
+    border-color: rgba(124, 92, 255, 0.3);
+    transform: translateY(-2px);
+}
+.landing-feature-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(124,92,255,0.05));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; color: var(--accent);
+    margin-bottom: 12px;
+}
+.landing-feature h3 {
+    font-size: 0.95rem; font-weight: 700; margin-bottom: 6px;
+}
+.landing-feature p {
+    font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;
+}
 
 /* ─── Landing Category Cards ─────────────────────────────────────────────── */
 .landing-category-label {
@@ -1577,6 +1603,15 @@ body {
     font-size: 0.66rem; color: #fbbf24;
     padding-top: 7px; margin-top: 4px;
     border-top: 1px solid var(--glass-border);
+}
+.tool-model-badge.tmb-error {
+    background: rgba(239,68,68,0.1); color: #f87171;
+    border-color: rgba(239,68,68,0.25);
+}
+.tool-model-badge.tmb-error:hover { background: rgba(239,68,68,0.18); }
+.tmb-no-model {
+    font-size: 0.72rem; color: var(--text-secondary); line-height: 1.5;
+    padding: 6px 0;
 }
 
 /* ─── Waveform Visualization ─────────────────────────────────────────────── */

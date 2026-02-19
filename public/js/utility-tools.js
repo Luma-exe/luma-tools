@@ -34,6 +34,7 @@ async function processMindMap() {
         resultEl.classList.remove('hidden');
     } catch (err) {
         showToast(err.message, 'error');
+        showModelBadge('mind-map', 'none');
     } finally {
         statusEl.classList.add('hidden');
     }
@@ -301,6 +302,7 @@ async function processYouTubeSummary() {
         resultEl.classList.remove('hidden');
     } catch (err) {
         showToast(err.message, 'error');
+        showModelBadge('youtube-summary', 'none');
     } finally {
         statusEl.classList.add('hidden');
     }
