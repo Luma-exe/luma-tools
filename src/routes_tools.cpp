@@ -323,8 +323,71 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
-        string out_ext = "." + format;
+        string out_ext = "." + (format == "jpg" ? "jpg" : format);
         string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
+
+        // ── SVG rasterisation ──────────────────────────────────────────────
+        // ffmpeg cannot decode SVG without librsvg. Rasterise to PNG first
+        // using whichever tool is available, then let ffmpeg do the rest.
+        string in_ext = fs::path(file.filename).extension().string();
+        std::transform(in_ext.begin(), in_ext.end(), in_ext.begin(), ::tolower);
+
+        string ffmpeg_input = input_path; // may be overridden to rasterised PNG
+
+        if (in_ext == ".svg") {
+            string png_path = get_processing_dir() + "/" + jid + "_raster.png";
+            bool rasterised = false;
+            int rc = 1;
+
+            // Priority 1: rsvg-convert  (librsvg — highest fidelity for SVG)
+            string rsvg = find_executable("rsvg-convert", {});
+            if (!rsvg.empty()) {
+                string cmd = escape_arg(rsvg) + " -f png -o " + escape_arg(png_path) + " " + escape_arg(input_path);
+                cout << "[Luma Tools] SVG rasterise (rsvg-convert): " << cmd << endl;
+                exec_command(cmd, rc);
+                if (fs::exists(png_path) && fs::file_size(png_path) > 0) rasterised = true;
+            }
+
+            // Priority 2: inkscape (headless)
+            if (!rasterised) {
+                string ink = find_executable("inkscape", {"/usr/bin/inkscape", "/usr/local/bin/inkscape"});
+                if (!ink.empty()) {
+                    string cmd = escape_arg(ink) + " --export-type=png --export-filename=" + escape_arg(png_path) + " " + escape_arg(input_path);
+                    cout << "[Luma Tools] SVG rasterise (inkscape): " << cmd << endl;
+                    exec_command(cmd, rc);
+                    if (fs::exists(png_path) && fs::file_size(png_path) > 0) rasterised = true;
+                }
+            }
+
+            // Priority 3: ImageMagick convert
+            if (!rasterised) {
+                string magick = find_executable("convert", {"/usr/bin/convert", "/usr/local/bin/convert"});
+                if (!magick.empty()) {
+                    string cmd = escape_arg(magick) + " " + escape_arg(input_path) + " " + escape_arg(png_path);
+                    cout << "[Luma Tools] SVG rasterise (ImageMagick convert): " << cmd << endl;
+                    exec_command(cmd, rc);
+                    if (fs::exists(png_path) && fs::file_size(png_path) > 0) rasterised = true;
+                }
+            }
+
+            if (!rasterised) {
+                try { fs::remove(input_path); } catch (...) {}
+                res.status = 500;
+                res.set_content(json({{"error", "SVG rasterisation failed — rsvg-convert, inkscape or ImageMagick must be installed on the server."}}).dump(), "application/json");
+                return;
+            }
+
+            ffmpeg_input = png_path; // hand the rasterised PNG to ffmpeg below
+
+            // If the requested output is PNG and we already have the raster, serve it directly
+            if (format == "png") {
+                string out_name = fs::path(file.filename).stem().string() + ".png";
+                send_file_response(res, png_path, out_name);
+                try { fs::remove(input_path); fs::remove(png_path); } catch (...) {}
+                return;
+            }
+        }
+        // ── End SVG rasterisation ──────────────────────────────────────────
 
         // Build codec flags per format
         string codec_flags;
@@ -333,7 +396,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             codec_flags = "-c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 6 -pix_fmt yuv420p";
         }
 
-        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path);
+        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(ffmpeg_input);
         if (!codec_flags.empty()) cmd += " " + codec_flags;
         cmd += " " + escape_arg(output_path);
         cout << "[Luma Tools] Image convert: " << cmd << endl;
@@ -349,7 +412,13 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "Image conversion failed"}}).dump(), "application/json");
         }
 
-        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+        // Clean up — also remove the rasterised PNG if SVG path was taken
+        string raster_path = get_processing_dir() + "/" + jid + "_raster.png";
+        try {
+            fs::remove(input_path);
+            fs::remove(output_path);
+            if (fs::exists(raster_path)) fs::remove(raster_path);
+        } catch (...) {}
     });
 
     // ── POST /api/tools/audio-convert ───────────────────────────────────────

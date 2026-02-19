@@ -219,7 +219,6 @@ int main() {
             string tool_id = req.path.substr(11); // after "/api/tools/"
             auto slash = tool_id.find('/');
             if (slash != string::npos) tool_id = tool_id.substr(0, slash);
-
             // Check tool enabled/config
             ToolConfig cfg = get_tool_config(tool_id);
             if (!cfg.enabled) {
