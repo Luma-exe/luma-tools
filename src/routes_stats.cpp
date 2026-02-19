@@ -431,7 +431,6 @@ const ALL_TOOLS = [
   {id:'ai-study-notes',     loc:'server'},
   {id:'ai-flashcards',      loc:'server'},
   {id:'ai-quiz',            loc:'server'},
-  {id:'ai-key-terms',       loc:'server'},
   {id:'ai-paraphrase',      loc:'server'},
   {id:'citation-gen',       loc:'server'},
   {id:'mind-map',           loc:'server'},

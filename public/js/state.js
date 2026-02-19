@@ -77,7 +77,6 @@ const FILE_TOOL_MAP = {
         { id: 'ai-study-notes',  label: 'Study Notes',  icon: 'fas fa-brain' },
         { id: 'ai-flashcards',   label: 'Flashcards',   icon: 'fas fa-clone' },
         { id: 'ai-quiz',         label: 'Quiz Me',      icon: 'fas fa-question-circle' },
-        { id: 'ai-key-terms',    label: 'Key Terms',    icon: 'fas fa-key' },
     ],
     'markdown': [
         { id: 'markdown-to-pdf',  label: 'To PDF',    icon: 'fab fa-markdown' },

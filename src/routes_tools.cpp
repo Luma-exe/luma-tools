@@ -541,6 +541,23 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             " -d @" + escape_arg(payload_file) +
             " -o " + escape_arg(resp_file);
         int code; exec_command(curl_cmd, code);
+        // Fallback: retry with alternative models if rate-limited
+        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
+          for (const auto& _fb : _fbs) {
+            bool _rl = false;
+            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
+                      auto _rj = json::parse(_ss.str());
+                      if (_rj.contains("error") && _rj["error"].is_object())
+                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
+                } catch (...) {}
+            }
+            if (!_rl) break;
+            payload["model"] = _fb;
+            { ofstream _pf(payload_file); _pf << payload.dump(); }
+            int _frc; exec_command(curl_cmd, _frc);
+          }
+        }
 
         json result;
         bool ok = false;
@@ -2012,6 +2029,23 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
                 " -d @" + escape_arg(payload_file) +
                 " -o " + escape_arg(resp_file);
             int code; exec_command(curl_cmd, code);
+            // Fallback: retry with alternative models if rate-limited
+            { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
+              for (const auto& _fb : _fbs) {
+                bool _rl = false;
+                if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                    try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
+                          auto _rj = json::parse(_ss.str());
+                          if (_rj.contains("error") && _rj["error"].is_object())
+                              _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
+                    } catch (...) {}
+                }
+                if (!_rl) break;
+                payload["model"] = _fb;
+                { ofstream _pf(payload_file); _pf << payload.dump(); }
+                int _frc; exec_command(curl_cmd, _frc);
+              }
+            }
 
             string notes;
             bool ai_ok = false;
@@ -2152,6 +2186,23 @@ IMPORTANT RULES:
                           " -o " + escape_arg(resp_file);
 
         int rc; exec_command(curl_cmd, rc);
+        // Fallback: retry with alternative models if rate-limited
+        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
+          for (const auto& _fb : _fbs) {
+            bool _rl = false;
+            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
+                      auto _rj = json::parse(_ss.str());
+                      if (_rj.contains("error") && _rj["error"].is_object())
+                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
+                } catch (...) {}
+            }
+            if (!_rl) break;
+            payload["model"] = _fb;
+            { ofstream _pf(payload_file); _pf << payload.dump(); }
+            int _frc; exec_command(curl_cmd, _frc);
+          }
+        }
         
         string improved_notes;
         bool success = false;
@@ -2295,6 +2346,23 @@ IMPORTANT RULES:
                           " -o " + escape_arg(resp_file);
 
         int rc; exec_command(curl_cmd, rc);
+        // Fallback: retry with alternative models if rate-limited
+        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
+          for (const auto& _fb : _fbs) {
+            bool _rl = false;
+            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
+                      auto _rj = json::parse(_ss.str());
+                      if (_rj.contains("error") && _rj["error"].is_object())
+                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
+                } catch (...) {}
+            }
+            if (!_rl) break;
+            payload["model"] = _fb;
+            { ofstream _pf(payload_file); _pf << payload.dump(); }
+            int _frc; exec_command(curl_cmd, _frc);
+          }
+        }
         
         json flashcards = json::array();
         bool success = false;
@@ -2444,6 +2512,23 @@ IMPORTANT RULES:
                           " -o " + escape_arg(resp_file);
 
         int rc; exec_command(curl_cmd, rc);
+        // Fallback: retry with alternative models if rate-limited
+        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
+          for (const auto& _fb : _fbs) {
+            bool _rl = false;
+            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
+                      auto _rj = json::parse(_ss.str());
+                      if (_rj.contains("error") && _rj["error"].is_object())
+                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
+                } catch (...) {}
+            }
+            if (!_rl) break;
+            payload["model"] = _fb;
+            { ofstream _pf(payload_file); _pf << payload.dump(); }
+            int _frc; exec_command(curl_cmd, _frc);
+          }
+        }
         
         json questions = json::array();
         bool success = false;
@@ -2478,141 +2563,16 @@ IMPORTANT RULES:
     });
 
     // ══════════════════════════════════════════════════════════════════════════════
-    // AI KEY TERMS EXTRACTOR
+    // AI PARAPHRASER
     // ══════════════════════════════════════════════════════════════════════════════
-    svr.Post("/api/tools/ai-key-terms", [](const httplib::Request& req, httplib::Response& res) {
+    svr.Post("/api/tools/ai-paraphrase", [](const httplib::Request& req, httplib::Response& res) {
         if (g_groq_key.empty()) {
             res.status = 503;
             res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
             return;
         }
 
-        bool has_text = req.has_file("text") && !req.get_file_value("text").content.empty();
-        bool has_file = req.has_file("file") && !req.get_file_value("file").content.empty();
-
-        if (!has_text && !has_file) {
-            res.status = 400;
-            res.set_content(json({{"error", "No content provided"}}).dump(), "application/json");
-            return;
-        }
-
-        string text;
-        string proc = get_processing_dir();
-        string jid = generate_job_id();
-
-        if (has_text) {
-            text = req.get_file_value("text").content;
-            discord_log_tool("AI Key Terms", "Pasted Text", req.remote_addr);
-        } else {
-            auto file = req.get_file_value("file");
-            discord_log_tool("AI Key Terms", file.filename, req.remote_addr);
-            
-            fs::path fp(file.filename);
-            string file_ext = fp.extension().string();
-            std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
-            
-            string input_path = proc + "/" + jid + "_input" + file_ext;
-            { ofstream f(input_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
-            
-            string txt_path = proc + "/" + jid + "_text.txt";
-            
-            if (file_ext == ".txt" || file_ext == ".md" || file_ext == ".rtf") {
-                ifstream f(input_path, std::ios::binary);
-                std::ostringstream ss; ss << f.rdbuf();
-                text = ss.str();
-            } else if (file_ext == ".pdf" && !g_ghostscript_path.empty()) {
-                string cmd = escape_arg(g_ghostscript_path) + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite -sOutputFile=" 
-                           + escape_arg(txt_path) + " " + escape_arg(input_path);
-                int code; exec_command(cmd, code);
-                if (fs::exists(txt_path)) {
-                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-                    text = ss.str();
-                }
-            } else if (file_ext == ".docx") {
-                string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
-                int code; exec_command(cmd, code);
-                if (fs::exists(txt_path)) {
-                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-                    text = ss.str();
-                }
-            }
-            
-            try { fs::remove(input_path); fs::remove(txt_path); } catch (...) {}
-        }
-
-        if (text.size() < 50) {
-            res.status = 400;
-            res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
-            return;
-        }
-        if (text.size() > 12000) text = text.substr(0, 12000);
-
-        string system_prompt = "You are an expert educator extracting key terminology. Identify the most important terms, concepts, and vocabulary from the content. "
-            "For each term, provide a clear definition and optionally an example of usage. "
-            "Output ONLY valid JSON array with objects containing: 'term', 'definition', and optionally 'example'.";
-
-        string user_prompt = "Extract key terms and definitions from this content:\n\n" + text +
-            "\n\nOutput as JSON: [{\"term\": \"...\", \"definition\": \"...\", \"example\": \"...\"}]";
-
-        json payload = {
-            {"model", "llama-3.3-70b-versatile"},
-            {"messages", {
-                {{"role", "system"}, {"content", system_prompt}},
-                {{"role", "user"}, {"content", user_prompt}}
-            }},
-            {"temperature", 0.4},
-            {"max_tokens", 4096}
-        };
-
-        string payload_file = proc + "/" + jid + "_payload.json";
-        string resp_file = proc + "/" + jid + "_resp.json";
-        string hdr_file = proc + "/" + jid + "_hdr.txt";
-        { ofstream f(payload_file); f << payload.dump(); }
-        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
-
-        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-                          " -H @" + escape_arg(hdr_file) +
-                          " -d @" + escape_arg(payload_file) +
-                          " -o " + escape_arg(resp_file);
-
-        int rc; exec_command(curl_cmd, rc);
-        
-        json terms = json::array();
-        bool success = false;
-        
-        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-            try {
-                ifstream f(resp_file);
-                std::ostringstream ss; ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-                
-                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
-                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
-                    size_t start = content.find('[');
-                    size_t end = content.rfind(']');
-                    if (start != string::npos && end != string::npos) {
-                        terms = json::parse(content.substr(start, end - start + 1));
-                        success = true;
-                    }
-                }
-            } catch (...) {}
-        }
-
-        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
-
-        if (!success) {
-            res.status = 500;
-            res.set_content(json({{"error", "Failed to extract key terms"}}).dump(), "application/json");
-            return;
-        }
-
-        res.set_content(json({{"terms", terms}}).dump(), "application/json");
-    });
-
-    // ══════════════════════════════════════════════════════════════════════════════
-    // AI PARAPHRASER
-    // ══════════════════════════════════════════════════════════════════════════════
-    svr.Post("/api/tools/ai-paraphrase", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("text") || req.get_file_value("text").content.empty()) { [](const httplib::Request& req, httplib::Response& res) {
         if (g_groq_key.empty()) {
             res.status = 503;
             res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
@@ -2671,6 +2631,23 @@ IMPORTANT RULES:
                           " -o " + escape_arg(resp_file);
 
         int rc; exec_command(curl_cmd, rc);
+        // Fallback: retry with alternative models if rate-limited
+        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
+          for (const auto& _fb : _fbs) {
+            bool _rl = false;
+            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
+                      auto _rj = json::parse(_ss.str());
+                      if (_rj.contains("error") && _rj["error"].is_object())
+                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
+                } catch (...) {}
+            }
+            if (!_rl) break;
+            payload["model"] = _fb;
+            { ofstream _pf(payload_file); _pf << payload.dump(); }
+            int _frc; exec_command(curl_cmd, _frc);
+          }
+        }
         
         string result;
         bool success = false;
@@ -2946,6 +2923,23 @@ IMPORTANT RULES:
                           " -o " + escape_arg(resp_file);
 
         int rc; exec_command(curl_cmd, rc);
+        // Fallback: retry with alternative models if rate-limited
+        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
+          for (const auto& _fb : _fbs) {
+            bool _rl = false;
+            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
+                      auto _rj = json::parse(_ss.str());
+                      if (_rj.contains("error") && _rj["error"].is_object())
+                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
+                } catch (...) {}
+            }
+            if (!_rl) break;
+            payload["model"] = _fb;
+            { ofstream _pf(payload_file); _pf << payload.dump(); }
+            int _frc; exec_command(curl_cmd, _frc);
+          }
+        }
 
         json result;
         bool success = false;
@@ -3122,6 +3116,23 @@ IMPORTANT RULES:
 
         int rc;
         exec_command(curl_cmd, rc);
+        // Fallback: retry with alternative models if rate-limited
+        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
+          for (const auto& _fb : _fbs) {
+            bool _rl = false;
+            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
+                      auto _rj = json::parse(_ss.str());
+                      if (_rj.contains("error") && _rj["error"].is_object())
+                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
+                } catch (...) {}
+            }
+            if (!_rl) break;
+            payload["model"] = _fb;
+            { ofstream _pf(payload_file); _pf << payload.dump(); }
+            int _frc; exec_command(curl_cmd, _frc);
+          }
+        }
 
         json result;
         bool success = false;

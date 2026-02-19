@@ -85,9 +85,6 @@
                     <a class="nav-item" data-tool="ai-quiz" data-location="server" onclick="switchTool('ai-quiz')">
                         <i class="fas fa-question-circle"></i><span>Practice Quiz</span>
                     </a>
-                    <a class="nav-item" data-tool="ai-key-terms" data-location="server" onclick="switchTool('ai-key-terms')">
-                        <i class="fas fa-key"></i><span>Key Terms</span>
-                    </a>
                     <a class="nav-item" data-tool="ai-paraphrase" data-location="server" onclick="switchTool('ai-paraphrase')">
                         <i class="fas fa-sync-alt"></i><span>Paraphraser</span>
                     </a>
@@ -378,7 +375,6 @@
                             <span class="landing-chip" onclick="switchTool('ai-study-notes')"><i class="fas fa-brain"></i> AI Study Notes</span>
                             <span class="landing-chip" onclick="switchTool('ai-flashcards')"><i class="fas fa-clone"></i> Flashcards</span>
                             <span class="landing-chip" onclick="switchTool('ai-quiz')"><i class="fas fa-question-circle"></i> Practice Quiz</span>
-                            <span class="landing-chip" onclick="switchTool('ai-key-terms')"><i class="fas fa-key"></i> Key Terms</span>
                             <span class="landing-chip" onclick="switchTool('ai-paraphrase')"><i class="fas fa-sync-alt"></i> Paraphraser</span>
                             <span class="landing-chip" onclick="switchTool('mind-map')"><i class="fas fa-project-diagram"></i> Mind Map</span>
                             <span class="landing-chip" onclick="switchTool('youtube-summary')"><i class="fab fa-youtube"></i> YouTube Summary</span>
@@ -2007,44 +2003,6 @@
                 </div>
             </div>
 
-            <!-- ── AI Key Terms Extractor ──────────────────────────────────────── -->
-            <div class="tool-panel" id="tool-ai-key-terms">
-                <div class="tool-header">
-                    <h2><i class="fas fa-key"></i> AI Key Terms Extractor</h2>
-                    <p>Extract vocabulary and key terms with AI-generated definitions from your content.</p>
-                </div>
-                <div class="tool-body">
-                    <div class="tool-options" style="margin-bottom:12px">
-                        <label class="option-label">Input method</label>
-                        <div class="preset-grid" data-tool="keyterms-input-mode" style="grid-template-columns:repeat(2,1fr)">
-                            <button class="preset-btn active" data-val="upload" onclick="selectPreset(this); toggleKeyTermsInput('upload')"><i class="fas fa-file-upload"></i><span>Upload File</span><small>PDF, Word, TXT</small></button>
-                            <button class="preset-btn" data-val="paste" onclick="selectPreset(this); toggleKeyTermsInput('paste')"><i class="fas fa-paste"></i><span>Paste Text</span><small>Copy &amp; paste</small></button>
-                        </div>
-                    </div>
-                    <div id="keyterms-upload-mode">
-                        <div class="upload-zone" id="uz-ai-key-terms" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md" data-max="20971520">
-                            <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop your file here</p><span>or click to browse</span><small>PDF, Word, Text, or Markdown &mdash; Max 20 MB</small></div>
-                            <input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md">
-                        </div>
-                        <div class="file-preview hidden" data-tool="ai-key-terms">
-                            <div class="file-info"><i class="fas fa-file-alt"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
-                            <button class="file-remove" onclick="removeFile('ai-key-terms')"><i class="fas fa-times"></i></button>
-                        </div>
-                    </div>
-                    <div id="keyterms-paste-mode" class="hidden">
-                        <div class="study-notes-paste-area">
-                            <textarea id="keyterms-text-input" placeholder="Paste your study notes or content to extract key terms and definitions..." rows="8"></textarea>
-                            <div class="paste-char-count"><span id="keyterms-char-count">0</span> characters</div>
-                        </div>
-                    </div>
-                    <button class="process-btn" onclick="processKeyTerms()"><i class="fas fa-key"></i> Extract Key Terms</button>
-                    <div class="processing-status hidden" data-tool="ai-key-terms">
-                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
-                        <span>Extracting key terms...</span>
-                    </div>
-                    <div class="keyterms-result hidden" data-tool="ai-key-terms"></div>
-                </div>
-            </div>
 
             <!-- ── AI Paraphraser ──────────────────────────────────────── -->
             <div class="tool-panel" id="tool-ai-paraphrase">
