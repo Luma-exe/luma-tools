@@ -227,6 +227,7 @@ function renderFlashcardsUI() {
                     </div>
                 </div>
             </div>
+            ${cardFlipped ? '' : `<div class="flashcard-hint"><i class="fas fa-hand-pointer"></i> Click the card to reveal the answer — then rate yourself</div>`}
             <div class="flashcard-nav">
                 <button class="btn-secondary" onclick="prevCard()" ${currentCardIndex === 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Prev</button>
                 <button class="btn-secondary" onclick="shuffleCards()"><i class="fas fa-random"></i> Shuffle</button>
@@ -241,8 +242,7 @@ function renderFlashcardsUI() {
                     <button class="conf-btn conf-unsure-btn ${conf === 'unsure' ? 'active' : ''}" onclick="rateCard('unsure')"><span class="conf-icon">😐</span><span class="conf-label">Almost</span></button>
                     <button class="conf-btn conf-unknown-btn ${conf === 'unknown' ? 'active' : ''}" onclick="rateCard('unknown')"><span class="conf-icon">❌</span><span class="conf-label">Missed it</span></button>
                 </div>
-            </div>` : `
-            <div class="flashcard-hint"><i class="fas fa-hand-pointer"></i> Click the card to reveal the answer — then rate yourself</div>`}
+            </div>` : ``}
             <div class="fc-section flashcard-export">
                 <div class="fc-section-label"><i class="fas fa-file-export"></i> Export deck <span class="fc-label-sub">— import into your flashcard app</span></div>
                 <div class="fc-export-row">
