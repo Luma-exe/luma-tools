@@ -17,9 +17,17 @@ const WasmProcessor = {
             try {
                 showToast('Loading processing engine...', 'info');
                 const { FFmpeg } = FFmpegWASM;
+                const { toBlobURL } = FFmpegUtil;
                 this.ffmpeg = new FFmpeg();
+                // Must use toBlobURL for both core JS + WASM — when ffmpeg creates its
+                // internal worker from a blob URL, relative paths inside the core script
+                // would resolve to the page origin (not the CDN), causing the .wasm fetch
+                // to 404. toBlobURL pre-fetches each file and re-hosts it as a blob so the
+                // paths stay consistent.
+                const BASE = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
                 await this.ffmpeg.load({
-                    coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+                    coreURL: await toBlobURL(`${BASE}/ffmpeg-core.js`,   'text/javascript'),
+                    wasmURL: await toBlobURL(`${BASE}/ffmpeg-core.wasm`, 'application/wasm'),
                 });
                 this.loaded = true;
                 showToast('Processing engine ready!', 'success');
@@ -160,6 +168,7 @@ async function processFileWasm(toolId) {
         const outName = file.name.replace(/\.[^.]+$/, '') + '_LumaTools.' + ext;
         showResult(toolId, blob, outName);
     } catch (err) {
+        console.error('[WASM] Processing failed:', err);
         showToast('Client processing failed, trying server...', 'info');
 
     try {
