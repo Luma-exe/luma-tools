@@ -88,11 +88,20 @@
                     <a class="nav-item" data-tool="citation-gen" data-location="server" onclick="switchTool('citation-gen')">
                         <i class="fas fa-quote-left"></i><span>Citation Gen</span>
                     </a>
+                    <a class="nav-item" data-tool="mind-map" data-location="server" onclick="switchTool('mind-map')">
+                        <i class="fas fa-project-diagram"></i><span>Mind Map</span>
+                    </a>
+                    <a class="nav-item" data-tool="youtube-summary" data-location="server" onclick="switchTool('youtube-summary')">
+                        <i class="fab fa-youtube"></i><span>YouTube Summary</span>
+                    </a>
                 </div>
                 <div class="nav-category">
                     <div class="nav-category-title">ANNOTATE</div>
                     <a class="nav-item" data-tool="screenshot-annotate" data-location="browser" onclick="switchTool('screenshot-annotate')">
                         <i class="fas fa-pencil-alt"></i><span>Screenshot Annotator</span>
+                    </a>
+                    <a class="nav-item" data-tool="color-palette" data-location="browser" onclick="switchTool('color-palette')">
+                        <i class="fas fa-eye-dropper"></i><span>Color Palette</span>
                     </a>
                 </div>
                 <div class="nav-category">
@@ -229,6 +238,30 @@
                     <a class="nav-item" data-tool="csv-json" data-location="server" onclick="switchTool('csv-json')">
                         <i class="fas fa-table"></i><span>CSV ↔ JSON</span>
                     </a>
+                    <a class="nav-item" data-tool="unix-date" data-location="browser" onclick="switchTool('unix-date')">
+                        <i class="fas fa-clock"></i><span>Unix ↔ Date</span>
+                    </a>
+                    <a class="nav-item" data-tool="regex-tester" data-location="browser" onclick="switchTool('regex-tester')">
+                        <i class="fas fa-asterisk"></i><span>Regex Tester</span>
+                    </a>
+                    <a class="nav-item" data-tool="code-beautify" data-location="browser" onclick="switchTool('code-beautify')">
+                        <i class="fas fa-indent"></i><span>Code Beautify</span>
+                    </a>
+                    <a class="nav-item" data-tool="uuid-gen" data-location="browser" onclick="switchTool('uuid-gen')">
+                        <i class="fas fa-id-badge"></i><span>UUID Generator</span>
+                    </a>
+                    <a class="nav-item" data-tool="url-encode" data-location="browser" onclick="switchTool('url-encode')">
+                        <i class="fas fa-link"></i><span>URL Encode</span>
+                    </a>
+                </div>
+                <div class="nav-category">
+                    <div class="nav-category-title">BUSINESS</div>
+                    <a class="nav-item" data-tool="resume-builder" data-location="browser" onclick="switchTool('resume-builder')">
+                        <i class="fas fa-file-alt"></i><span>Resume Builder</span>
+                    </a>
+                    <a class="nav-item" data-tool="invoice-gen" data-location="browser" onclick="switchTool('invoice-gen')">
+                        <i class="fas fa-file-invoice-dollar"></i><span>Invoice Generator</span>
+                    </a>
                 </div>
             </nav>
 
@@ -313,15 +346,18 @@
                     </div>
 
                     <div class="landing-tools-overview">
-                        <h2>40+ Tools, Zero Ads</h2>
+                        <h2>50+ Tools, Zero Ads</h2>
                         <div class="landing-tool-chips">
                             <span class="landing-chip" onclick="switchTool('ai-study-notes')"><i class="fas fa-brain"></i> AI Study Notes</span>
                             <span class="landing-chip" onclick="switchTool('ai-flashcards')"><i class="fas fa-clone"></i> Flashcards</span>
                             <span class="landing-chip" onclick="switchTool('ai-quiz')"><i class="fas fa-question-circle"></i> Practice Quiz</span>
                             <span class="landing-chip" onclick="switchTool('ai-key-terms')"><i class="fas fa-key"></i> Key Terms</span>
                             <span class="landing-chip" onclick="switchTool('ai-paraphrase')"><i class="fas fa-sync-alt"></i> Paraphraser</span>
+                            <span class="landing-chip" onclick="switchTool('mind-map')"><i class="fas fa-project-diagram"></i> Mind Map</span>
+                            <span class="landing-chip" onclick="switchTool('youtube-summary')"><i class="fab fa-youtube"></i> YouTube Summary</span>
                             <span class="landing-chip" onclick="switchTool('citation-gen')"><i class="fas fa-quote-left"></i> Citation Gen</span>
                             <span class="landing-chip" onclick="switchTool('screenshot-annotate')"><i class="fas fa-pencil-alt"></i> Annotator</span>
+                            <span class="landing-chip" onclick="switchTool('color-palette')"><i class="fas fa-eye-dropper"></i> Color Palette</span>
                             <span class="landing-chip" onclick="switchTool('downloader')"><i class="fas fa-download"></i> Media Downloader</span>
                             <span class="landing-chip" onclick="switchTool('image-compress')"><i class="fas fa-compress-alt"></i> Image Compress</span>
                             <span class="landing-chip" onclick="switchTool('image-resize')"><i class="fas fa-expand-arrows-alt"></i> Image Resize</span>
@@ -359,6 +395,13 @@
                             <span class="landing-chip" onclick="switchTool('diff-checker')"><i class="fas fa-code-compare"></i> Difference Checker</span>
                             <span class="landing-chip" onclick="switchTool('word-counter')"><i class="fas fa-align-left"></i> Word Counter</span>
                             <span class="landing-chip" onclick="switchTool('csv-json')"><i class="fas fa-table"></i> CSV ↔ JSON</span>
+                            <span class="landing-chip" onclick="switchTool('unix-date')"><i class="fas fa-clock"></i> Unix ↔ Date</span>
+                            <span class="landing-chip" onclick="switchTool('regex-tester')"><i class="fas fa-asterisk"></i> Regex Tester</span>
+                            <span class="landing-chip" onclick="switchTool('code-beautify')"><i class="fas fa-indent"></i> Code Beautify</span>
+                            <span class="landing-chip" onclick="switchTool('uuid-gen')"><i class="fas fa-id-badge"></i> UUID Generator</span>
+                            <span class="landing-chip" onclick="switchTool('url-encode')"><i class="fas fa-link"></i> URL Encoder</span>
+                            <span class="landing-chip" onclick="switchTool('resume-builder')"><i class="fas fa-file-alt"></i> Resume Builder</span>
+                            <span class="landing-chip" onclick="switchTool('invoice-gen')"><i class="fas fa-file-invoice-dollar"></i> Invoice Generator</span>
                         </div>
                     </div>
 
@@ -2088,6 +2131,289 @@
                 </div>
             </div>
 
+            <!-- ── Mind Map Generator ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-mind-map">
+                <div class="tool-header">
+                    <h2><i class="fas fa-project-diagram"></i> Mind Map Generator</h2>
+                    <p>Convert your notes into a visual concept map with AI-powered topic extraction.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="study-notes-paste-area">
+                        <textarea id="mindmap-input" placeholder="Paste your notes, lecture content, or study material here...&#10;&#10;The AI will extract key concepts and create a visual mind map." rows="8"></textarea>
+                        <div class="paste-char-count"><span id="mindmap-char-count">0</span> characters</div>
+                    </div>
+                    <button class="process-btn" onclick="processMindMap()"><i class="fas fa-project-diagram"></i> Generate Mind Map</button>
+                    <div class="processing-status hidden" data-tool="mind-map">
+                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                        <span>Generating mind map...</span>
+                    </div>
+                    <div class="mindmap-result hidden" data-tool="mind-map"></div>
+                </div>
+            </div>
+
+            <!-- ── YouTube Summary ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-youtube-summary">
+                <div class="tool-header">
+                    <h2><i class="fab fa-youtube"></i> YouTube Lecture Summary</h2>
+                    <p>Paste a YouTube video URL to get an AI-generated summary of the lecture.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="input-group" style="margin-bottom:16px">
+                        <label for="youtube-url-input">YouTube Video URL</label>
+                        <input type="url" id="youtube-url-input" placeholder="https://www.youtube.com/watch?v=...">
+                    </div>
+                    <button class="process-btn" onclick="processYouTubeSummary()"><i class="fas fa-magic"></i> Summarize Video</button>
+                    <div class="processing-status hidden" data-tool="youtube-summary">
+                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                        <span>Fetching transcript and summarizing...</span>
+                    </div>
+                    <div class="youtube-result hidden" data-tool="youtube-summary"></div>
+                </div>
+            </div>
+
+            <!-- ── Color Palette Extractor ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-color-palette">
+                <div class="tool-header">
+                    <h2><i class="fas fa-eye-dropper"></i> Color Palette Extractor</h2>
+                    <p>Upload an image to extract its dominant colors with hex codes.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-color-palette" data-accept="image/*" data-max="10485760">
+                        <div class="upload-zone-content"><i class="fas fa-image"></i><p>Drag &amp; drop an image here</p><span>or click to browse</span><small>PNG, JPG, WebP &mdash; Max 10 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="palette-result hidden" data-tool="color-palette"></div>
+                </div>
+            </div>
+
+            <!-- ── Unix ↔ Date Converter ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-unix-date">
+                <div class="tool-header">
+                    <h2><i class="fas fa-clock"></i> Unix ↔ Date Converter</h2>
+                    <p>Convert between Unix timestamps and human-readable dates.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="unix-converter">
+                        <div class="input-group">
+                            <label for="unix-timestamp">Unix Timestamp</label>
+                            <div class="input-with-btn">
+                                <input type="number" id="unix-timestamp" placeholder="1708387200">
+                                <button class="btn-secondary" onclick="setCurrentTimestamp()"><i class="fas fa-clock"></i> Now</button>
+                            </div>
+                        </div>
+                        <div class="converter-arrow"><i class="fas fa-exchange-alt"></i></div>
+                        <div class="input-group">
+                            <label for="human-date">Human Readable Date</label>
+                            <input type="datetime-local" id="human-date" step="1">
+                        </div>
+                    </div>
+                    <div class="unix-output hidden" id="unix-output"></div>
+                </div>
+            </div>
+
+            <!-- ── Regex Tester ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-regex-tester">
+                <div class="tool-header">
+                    <h2><i class="fas fa-asterisk"></i> Regex Tester</h2>
+                    <p>Test regular expressions with live highlighting and match info.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="input-group" style="margin-bottom:12px">
+                        <label for="regex-pattern">Regular Expression</label>
+                        <div class="regex-input-wrap">
+                            <span class="regex-delim">/</span>
+                            <input type="text" id="regex-pattern" placeholder="[A-Za-z]+">
+                            <span class="regex-delim">/</span>
+                            <input type="text" id="regex-flags" placeholder="gi" maxlength="6" class="regex-flags">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="regex-test-text">Test String</label>
+                        <textarea id="regex-test-text" rows="6" placeholder="Enter text to test against the regex..."></textarea>
+                    </div>
+                    <div class="regex-result hidden" id="regex-result"></div>
+                </div>
+            </div>
+
+            <!-- ── Code Beautifier ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-code-beautify">
+                <div class="tool-header">
+                    <h2><i class="fas fa-indent"></i> Code Beautifier</h2>
+                    <p>Format and beautify JavaScript, JSON, CSS, HTML, and SQL code.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options" style="margin-bottom:12px">
+                        <label class="option-label">Language</label>
+                        <div class="preset-grid" data-tool="code-lang" style="grid-template-columns:repeat(5,1fr)">
+                            <button class="preset-btn active" data-val="javascript" onclick="selectPreset(this)"><span>JS</span></button>
+                            <button class="preset-btn" data-val="json" onclick="selectPreset(this)"><span>JSON</span></button>
+                            <button class="preset-btn" data-val="css" onclick="selectPreset(this)"><span>CSS</span></button>
+                            <button class="preset-btn" data-val="html" onclick="selectPreset(this)"><span>HTML</span></button>
+                            <button class="preset-btn" data-val="sql" onclick="selectPreset(this)"><span>SQL</span></button>
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-bottom:12px">
+                        <label for="code-input">Input Code</label>
+                        <textarea id="code-input" rows="8" placeholder="Paste your code here..." class="code-textarea"></textarea>
+                    </div>
+                    <button class="process-btn" onclick="beautifyCode()"><i class="fas fa-magic"></i> Beautify</button>
+                    <div class="code-output hidden" id="code-output">
+                        <div class="code-output-header">
+                            <span>Formatted Code</span>
+                            <button class="btn-icon" onclick="copyCodeOutput()" title="Copy"><i class="fas fa-copy"></i></button>
+                        </div>
+                        <pre id="code-output-text"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── UUID Generator ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-uuid-gen">
+                <div class="tool-header">
+                    <h2><i class="fas fa-id-badge"></i> UUID Generator</h2>
+                    <p>Generate random UUIDs (v4) for your applications.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options" style="margin-bottom:16px">
+                        <label class="option-label">Quantity</label>
+                        <div class="preset-grid" data-tool="uuid-count" style="grid-template-columns:repeat(4,1fr)">
+                            <button class="preset-btn active" data-val="1" onclick="selectPreset(this)"><span>1</span></button>
+                            <button class="preset-btn" data-val="5" onclick="selectPreset(this)"><span>5</span></button>
+                            <button class="preset-btn" data-val="10" onclick="selectPreset(this)"><span>10</span></button>
+                            <button class="preset-btn" data-val="25" onclick="selectPreset(this)"><span>25</span></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="generateUUIDs()"><i class="fas fa-dice"></i> Generate</button>
+                    <div class="uuid-output hidden" id="uuid-output">
+                        <div class="uuid-output-header">
+                            <span id="uuid-count-label">1 UUID generated</span>
+                            <button class="btn-secondary" onclick="copyAllUUIDs()"><i class="fas fa-copy"></i> Copy All</button>
+                        </div>
+                        <div class="uuid-list" id="uuid-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── URL Encoder/Decoder ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-url-encode">
+                <div class="tool-header">
+                    <h2><i class="fas fa-link"></i> URL Encoder / Decoder</h2>
+                    <p>Encode or decode URL strings and query parameters.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="input-group" style="margin-bottom:12px">
+                        <label for="url-input">Input Text</label>
+                        <textarea id="url-input" rows="4" placeholder="Enter text or URL to encode/decode..."></textarea>
+                    </div>
+                    <div class="btn-row">
+                        <button class="process-btn" onclick="encodeURL()" style="flex:1"><i class="fas fa-lock"></i> Encode</button>
+                        <button class="btn-secondary" onclick="decodeURL()" style="flex:1"><i class="fas fa-unlock"></i> Decode</button>
+                    </div>
+                    <div class="url-output hidden" id="url-output">
+                        <div class="url-output-header">
+                            <span id="url-direction">Encoded</span>
+                            <button class="btn-icon" onclick="copyURLOutput()" title="Copy"><i class="fas fa-copy"></i></button>
+                        </div>
+                        <textarea id="url-output-text" rows="4" readonly></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Resume Builder ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-resume-builder">
+                <div class="tool-header">
+                    <h2><i class="fas fa-file-alt"></i> Resume Builder</h2>
+                    <p>Create a professional resume with our easy-to-use builder. Export as PDF.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="resume-form">
+                        <div class="resume-section">
+                            <h3><i class="fas fa-user"></i> Personal Information</h3>
+                            <div class="form-grid">
+                                <div class="input-group"><label>Full Name</label><input type="text" id="resume-name" placeholder="John Doe"></div>
+                                <div class="input-group"><label>Professional Title</label><input type="text" id="resume-title" placeholder="Software Engineer"></div>
+                                <div class="input-group"><label>Email</label><input type="email" id="resume-email" placeholder="john@example.com"></div>
+                                <div class="input-group"><label>Phone</label><input type="tel" id="resume-phone" placeholder="+1 234 567 890"></div>
+                                <div class="input-group"><label>Location</label><input type="text" id="resume-location" placeholder="New York, NY"></div>
+                                <div class="input-group"><label>LinkedIn / Website</label><input type="url" id="resume-linkedin" placeholder="linkedin.com/in/johndoe"></div>
+                            </div>
+                        </div>
+                        <div class="resume-section">
+                            <h3><i class="fas fa-briefcase"></i> Professional Summary</h3>
+                            <textarea id="resume-summary" rows="3" placeholder="A brief 2-3 sentence summary of your professional background and key strengths..."></textarea>
+                        </div>
+                        <div class="resume-section">
+                            <h3><i class="fas fa-building"></i> Work Experience</h3>
+                            <div id="resume-experience-list"></div>
+                            <button class="btn-secondary" onclick="addExperience()"><i class="fas fa-plus"></i> Add Experience</button>
+                        </div>
+                        <div class="resume-section">
+                            <h3><i class="fas fa-graduation-cap"></i> Education</h3>
+                            <div id="resume-education-list"></div>
+                            <button class="btn-secondary" onclick="addEducation()"><i class="fas fa-plus"></i> Add Education</button>
+                        </div>
+                        <div class="resume-section">
+                            <h3><i class="fas fa-cogs"></i> Skills</h3>
+                            <textarea id="resume-skills" rows="2" placeholder="JavaScript, React, Node.js, Python, SQL, AWS..."></textarea>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="generateResume()"><i class="fas fa-file-pdf"></i> Generate PDF Resume</button>
+                </div>
+            </div>
+
+            <!-- ── Invoice Generator ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-invoice-gen">
+                <div class="tool-header">
+                    <h2><i class="fas fa-file-invoice-dollar"></i> Invoice Generator</h2>
+                    <p>Create professional invoices for your business. Export as PDF.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="invoice-form">
+                        <div class="invoice-row">
+                            <div class="invoice-col">
+                                <h3><i class="fas fa-user-tie"></i> From (Your Business)</h3>
+                                <div class="input-group"><label>Business Name</label><input type="text" id="inv-from-name" placeholder="Your Company Ltd."></div>
+                                <div class="input-group"><label>Address</label><textarea id="inv-from-address" rows="2" placeholder="123 Business St&#10;City, State 12345"></textarea></div>
+                                <div class="input-group"><label>Email</label><input type="email" id="inv-from-email" placeholder="billing@company.com"></div>
+                            </div>
+                            <div class="invoice-col">
+                                <h3><i class="fas fa-user"></i> Bill To (Client)</h3>
+                                <div class="input-group"><label>Client Name</label><input type="text" id="inv-to-name" placeholder="Client Company"></div>
+                                <div class="input-group"><label>Address</label><textarea id="inv-to-address" rows="2" placeholder="456 Client Ave&#10;City, State 67890"></textarea></div>
+                                <div class="input-group"><label>Email</label><input type="email" id="inv-to-email" placeholder="client@example.com"></div>
+                            </div>
+                        </div>
+                        <div class="invoice-details">
+                            <div class="input-group"><label>Invoice Number</label><input type="text" id="inv-number" placeholder="INV-001"></div>
+                            <div class="input-group"><label>Issue Date</label><input type="date" id="inv-date"></div>
+                            <div class="input-group"><label>Due Date</label><input type="date" id="inv-due"></div>
+                        </div>
+                        <div class="invoice-items-section">
+                            <h3><i class="fas fa-list"></i> Items</h3>
+                            <div class="invoice-items-header">
+                                <span>Description</span>
+                                <span>Qty</span>
+                                <span>Rate</span>
+                                <span>Amount</span>
+                                <span></span>
+                            </div>
+                            <div id="invoice-items-list"></div>
+                            <button class="btn-secondary" onclick="addInvoiceItem()"><i class="fas fa-plus"></i> Add Item</button>
+                        </div>
+                        <div class="invoice-totals" id="invoice-totals">
+                            <div class="invoice-total-row"><span>Subtotal:</span><span id="inv-subtotal">$0.00</span></div>
+                            <div class="invoice-total-row"><span>Tax (%):</span><input type="number" id="inv-tax" value="0" min="0" max="100" onchange="calculateInvoiceTotal()"></div>
+                            <div class="invoice-total-row total"><span>Total:</span><span id="inv-total">$0.00</span></div>
+                        </div>
+                        <div class="input-group">
+                            <label>Notes</label>
+                            <textarea id="inv-notes" rows="2" placeholder="Payment terms, bank details, or additional notes..."></textarea>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="generateInvoice()"><i class="fas fa-file-pdf"></i> Generate Invoice PDF</button>
+                </div>
+            </div>
+
             <footer class="footer">
                 <span>Powered by <strong>C++</strong>, <strong>WebAssembly</strong>, <strong>FFmpeg</strong>, <strong>yt-dlp</strong> &amp; <strong>Ghostscript</strong> &mdash; Built with <i class="fas fa-heart"></i> by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener" style="color:var(--accent-light);text-decoration:none;font-weight:600">Luma</a></span>
                 <br>
@@ -2163,6 +2489,7 @@
     <script src="js/batch.js"></script>
     <script src="js/tools-misc.js"></script>
     <script src="js/ai-tools.js"></script>
+    <script src="js/utility-tools.js"></script>
     <!-- Downloader & health -->
     <script src="js/downloader.js"></script>
     <script src="js/health.js"></script>

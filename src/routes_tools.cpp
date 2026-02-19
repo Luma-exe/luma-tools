@@ -2876,4 +2876,236 @@ IMPORTANT RULES:
 
         res.set_content(json({{"citation", citation}, {"metadata", metadata}}).dump(), "application/json");
     });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // AI MIND MAP GENERATOR
+    // ══════════════════════════════════════════════════════════════════════════════
+    svr.Post("/api/mind-map", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
+            return;
+        }
+
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400;
+            res.set_content(json({{"error", "Invalid JSON body"}}).dump(), "application/json");
+            return;
+        }
+
+        string text = body.value("text", "");
+        if (text.size() < 50) {
+            res.status = 400;
+            res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
+            return;
+        }
+        if (text.size() > 12000) text = text.substr(0, 12000);
+
+        discord_log_tool("AI Mind Map", "Text input", req.remote_addr);
+
+        string proc = get_processing_dir();
+        string jid = generate_job_id();
+
+        string system_prompt = "You are an expert at creating hierarchical mind maps from content. "
+            "Extract the main topic and subtopics, organizing them in a tree structure. "
+            "Output ONLY valid JSON with: 'central' (main topic string), 'nodes' (array of {id, label, parent}). "
+            "Use 'root' as parent for first-level nodes. Keep labels concise (max 5 words). "
+            "Generate 10-20 nodes covering key concepts.";
+
+        string user_prompt = "Create a mind map from this content:\n\n" + text +
+            "\n\nOutput as JSON: {\"central\": \"Main Topic\", \"nodes\": [{\"id\": \"n1\", \"label\": \"Subtopic\", \"parent\": \"root\"}, ...]}";
+
+        json payload = {
+            {"model", "llama-3.3-70b-versatile"},
+            {"messages", {
+                {{"role", "system"}, {"content", system_prompt}},
+                {{"role", "user"}, {"content", user_prompt}}
+            }},
+            {"temperature", 0.5},
+            {"max_tokens", 2048}
+        };
+
+        string payload_file = proc + "/" + jid + "_payload.json";
+        string resp_file = proc + "/" + jid + "_resp.json";
+        { ofstream f(payload_file); f << payload.dump(); }
+
+        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
+                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
+                          "-H \"Content-Type: application/json\" "
+                          "-d @" + escape_arg(payload_file) + " "
+                          "-o " + escape_arg(resp_file);
+
+        int rc = system(curl_cmd.c_str());
+
+        json result;
+        bool success = false;
+
+        if (rc == 0 && fs::exists(resp_file)) {
+            try {
+                ifstream f(resp_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+
+                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
+                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
+                    size_t start = content.find('{');
+                    size_t end = content.rfind('}');
+                    if (start != string::npos && end != string::npos) {
+                        result = json::parse(content.substr(start, end - start + 1));
+                        success = true;
+                    }
+                }
+            } catch (...) {}
+        }
+
+        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+
+        if (!success) {
+            res.status = 500;
+            res.set_content(json({{"error", "Failed to generate mind map"}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(result.dump(), "application/json");
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // YOUTUBE SUMMARY
+    // ══════════════════════════════════════════════════════════════════════════════
+    svr.Post("/api/youtube-summary", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
+            return;
+        }
+
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400;
+            res.set_content(json({{"error", "Invalid JSON body"}}).dump(), "application/json");
+            return;
+        }
+
+        string video_id = body.value("videoId", "");
+        if (video_id.empty() || video_id.size() != 11) {
+            res.status = 400;
+            res.set_content(json({{"error", "Invalid video ID"}}).dump(), "application/json");
+            return;
+        }
+
+        discord_log_tool("YouTube Summary", video_id, req.remote_addr);
+
+        string proc = get_processing_dir();
+        string jid = generate_job_id();
+
+        // Fetch transcript using YouTube transcript API (via a public endpoint)
+        // Using youtube-transcript-api via a wrapper service
+        string transcript_file = proc + "/" + jid + "_transcript.json";
+        
+        // Try to fetch transcript using yt-dlp (if available)
+        string transcript_cmd = "yt-dlp --skip-download --write-auto-sub --sub-lang en --convert-subs srt "
+                               "-o " + escape_arg(proc + "/" + jid) + " "
+                               "\"https://www.youtube.com/watch?v=" + video_id + "\" 2>&1";
+        
+        int code;
+        exec_command(transcript_cmd, code);
+        
+        string srt_path = proc + "/" + jid + ".en.srt";
+        string transcript_text;
+        
+        if (fs::exists(srt_path)) {
+            // Parse SRT to extract just the text
+            ifstream srt(srt_path);
+            string line;
+            bool reading_text = false;
+            while (getline(srt, line)) {
+                // Skip line numbers and timestamps
+                if (line.empty()) {
+                    reading_text = false;
+                    continue;
+                }
+                if (line.find("-->") != string::npos) {
+                    reading_text = true;
+                    continue;
+                }
+                if (reading_text && !line.empty() && line.find_first_not_of("0123456789") != 0) {
+                    transcript_text += line + " ";
+                } else if (reading_text) {
+                    transcript_text += line + " ";
+                }
+            }
+            try { fs::remove(srt_path); } catch (...) {}
+        }
+        
+        if (transcript_text.size() < 100) {
+            res.status = 400;
+            res.set_content(json({{"error", "Could not fetch video transcript. The video may not have captions enabled."}}).dump(), "application/json");
+            return;
+        }
+
+        // Truncate if too long
+        if (transcript_text.size() > 15000) transcript_text = transcript_text.substr(0, 15000);
+
+        string system_prompt = "You are an expert at summarizing video content. "
+            "Create a clear, comprehensive summary of the lecture/video. "
+            "Also extract 5-7 key points as bullet points. "
+            "Output ONLY valid JSON with: 'title' (inferred title), 'summary' (2-3 paragraphs), 'keyPoints' (array of strings).";
+
+        string user_prompt = "Summarize this video transcript:\n\n" + transcript_text +
+            "\n\nOutput as JSON: {\"title\": \"...\", \"summary\": \"...\", \"keyPoints\": [\"...\", ...]}";
+
+        json payload = {
+            {"model", "llama-3.3-70b-versatile"},
+            {"messages", {
+                {{"role", "system"}, {"content", system_prompt}},
+                {{"role", "user"}, {"content", user_prompt}}
+            }},
+            {"temperature", 0.5},
+            {"max_tokens", 2048}
+        };
+
+        string payload_file = proc + "/" + jid + "_payload.json";
+        string resp_file = proc + "/" + jid + "_resp.json";
+        { ofstream f(payload_file); f << payload.dump(); }
+
+        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
+                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
+                          "-H \"Content-Type: application/json\" "
+                          "-d @" + escape_arg(payload_file) + " "
+                          "-o " + escape_arg(resp_file);
+
+        int rc = system(curl_cmd.c_str());
+
+        json result;
+        bool success = false;
+
+        if (rc == 0 && fs::exists(resp_file)) {
+            try {
+                ifstream f(resp_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+
+                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
+                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
+                    size_t start = content.find('{');
+                    size_t end = content.rfind('}');
+                    if (start != string::npos && end != string::npos) {
+                        result = json::parse(content.substr(start, end - start + 1));
+                        success = true;
+                    }
+                }
+            } catch (...) {}
+        }
+
+        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+
+        if (!success) {
+            res.status = 500;
+            res.set_content(json({{"error", "Failed to summarize video"}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(result.dump(), "application/json");
+    });
 }

@@ -142,9 +142,9 @@ string mask_filename(const string& filename) {
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 void discord_log(const string& title, const string& description, int color) {
-    string footer_text = "Luma Tools";
+    string footer_text = "⚙️ Luma Tools";
 
-    if (!g_hostname.empty()) footer_text += " | " + g_hostname;
+    if (!g_hostname.empty()) footer_text += " • " + g_hostname;
     json embed = {
         {"title",       title},
         {"description", description},
@@ -158,30 +158,36 @@ void discord_log(const string& title, const string& description, int color) {
 
 void discord_log_download(const string& title, const string& platform, const string& format, const string& ip) {
     stat_record("download", platform, true, ip);
-    string desc = "**Platform:** " + platform + "\n**Format:** " + format + "\n**Title:** " + title;
-    discord_log("\xF0\x9F\x93\xA5 Download Started", desc, 0x3498DB);  // blue
+    string desc = "🎬 **Platform** › `" + platform + "`\n"
+                  "📦 **Format** › `" + format + "`\n"
+                  "📝 **Title** › " + title;
+    discord_log("📥 Media Download", desc, 0x5865F2);  // Discord blurple
 }
 
 void discord_log_tool(const string& tool_name, const string& filename, const string& ip) {
     stat_record("tool", tool_name, true, ip);
     string display = MASK_FILENAMES ? mask_filename(filename) : filename;
-    string desc = "**Tool:** " + tool_name + "\n**File:** " + display;
-    discord_log("\xF0\x9F\x94\xA7 Tool Used", desc, 0x2ECC71);  // green
+    string desc = "🛠️ **Tool** › `" + tool_name + "`\n"
+                  "📄 **File** › `" + display + "`";
+    discord_log("⚡ Tool Executed", desc, 0x57F287);  // Discord green
 }
 
 void discord_log_error(const string& context, const string& error, const string& ip) {
     stat_record("tool", context, false, ip);
-    string desc = "**Context:** " + context + "\n**Error:** " + error;
-    discord_log("\xE2\x9D\x8C Error", desc, 0xE74C3C);  // red
+    string desc = "🔍 **Context** › `" + context + "`\n"
+                  "💥 **Error** › " + error;
+    discord_log("❌ Operation Failed", desc, 0xED4245);  // Discord red
 }
 
 void discord_log_server_start(int port, const string& version) {
-    string desc = "**Port:** " + to_string(port);
+    string desc = "🌐 **Port** › `" + to_string(port) + "`";
 
-    if (!version.empty()) desc += "\n**Version:** " + version;
-    desc += "\n**FFmpeg:** " +
-        string(g_ffmpeg_exe.empty() ? "not found" : "available") + "\n**yt-dlp:** " +
-        (g_ytdlp_path.empty() ? "not found" : "available") + "\n**Ghostscript:** " +
-        (g_ghostscript_path.empty() ? "not found" : "available");
-    discord_log("\xF0\x9F\x9A\x80 Server Started", desc, 0x9B59B6);  // purple
+    if (!version.empty()) desc += "\n🏷️ **Version** › `" + version + "`";
+    
+    desc += "\n\n**📦 Dependencies**\n";
+    desc += (g_ffmpeg_exe.empty() ? "❌" : "✅") + string(" FFmpeg\n");
+    desc += (g_ytdlp_path.empty() ? "❌" : "✅") + string(" yt-dlp\n");
+    desc += (g_ghostscript_path.empty() ? "❌" : "✅") + string(" Ghostscript");
+    
+    discord_log("🚀 Server Online", desc, 0x5865F2);  // Discord blurple
 }
