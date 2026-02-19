@@ -3100,21 +3100,24 @@ IMPORTANT RULES:
         };
 
         string payload_file = proc + "/" + jid + "_payload.json";
-        string resp_file = proc + "/" + jid + "_resp.json";
+        string resp_file    = proc + "/" + jid + "_resp.json";
+        string hdr_file     = proc + "/" + jid + "_auth.txt";
         { ofstream f(payload_file); f << payload.dump(); }
+        { ofstream f(hdr_file);     f << "Authorization: Bearer " << g_groq_key; }
 
         string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
-                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
+                          "-H @" + escape_arg(hdr_file) + " "
                           "-H \"Content-Type: application/json\" "
                           "-d @" + escape_arg(payload_file) + " "
                           "-o " + escape_arg(resp_file);
 
-        int rc = system(curl_cmd.c_str());
+        int rc;
+        exec_command(curl_cmd, rc);
 
         json result;
         bool success = false;
 
-        if (rc == 0 && fs::exists(resp_file)) {
+        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
             try {
                 ifstream f(resp_file);
                 std::ostringstream ss; ss << f.rdbuf();
@@ -3132,13 +3135,13 @@ IMPORTANT RULES:
             } catch (...) {}
         }
 
-        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
-
         if (!success) {
             res.status = 500;
             res.set_content(json({{"error", "Failed to summarize video"}}).dump(), "application/json");
             return;
         }
+
+        try { fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
 
         res.set_content(result.dump(), "application/json");
     });

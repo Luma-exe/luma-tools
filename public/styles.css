@@ -631,7 +631,7 @@ body {
 }
 
 /* Preset grid */
-.preset-grid { display: flex; gap: 8px; }
+.preset-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .preset-btn {
     flex: 1; padding: 12px 8px;
     background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
