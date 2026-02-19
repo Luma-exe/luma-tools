@@ -663,6 +663,30 @@ body {
 .process-btn:active { transform: translateY(0); }
 .process-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+/* ─── Secondary Button ────────────────────────────────────────────────────── */
+.btn-secondary {
+    padding: 12px 20px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-family: var(--font-main);
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent-light);
+    background: rgba(124, 92, 255, 0.1);
+}
+.btn-secondary:active { transform: translateY(1px); }
+.btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 /* ─── Processing Status ───────────────────────────────────────────────────── */
 .processing-status {
     margin-top: 16px; padding: 16px;
