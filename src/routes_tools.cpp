@@ -348,7 +348,11 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             // Priority 2: inkscape (headless)
             if (!rasterised) {
-                string ink = find_executable("inkscape", {"/usr/bin/inkscape", "/usr/local/bin/inkscape"});
+                string ink = find_executable("inkscape", {
+                    "/usr/bin/inkscape", "/usr/local/bin/inkscape",
+                    "C:\\Program Files\\Inkscape\\bin\\inkscape.exe",
+                    "C:\\Program Files (x86)\\Inkscape\\bin\\inkscape.exe"
+                });
                 if (!ink.empty()) {
                     string cmd = escape_arg(ink) + " --export-type=png --export-filename=" + escape_arg(png_path) + " " + escape_arg(input_path);
                     cout << "[Luma Tools] SVG rasterise (inkscape): " << cmd << endl;
@@ -357,7 +361,18 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 }
             }
 
-            // Priority 3: ImageMagick convert
+            // Priority 3: ImageMagick magick (v7, Windows)
+            if (!rasterised) {
+                string magick7 = find_executable("magick", {});
+                if (!magick7.empty()) {
+                    string cmd = escape_arg(magick7) + " convert " + escape_arg(input_path) + " " + escape_arg(png_path);
+                    cout << "[Luma Tools] SVG rasterise (magick convert): " << cmd << endl;
+                    exec_command(cmd, rc);
+                    if (fs::exists(png_path) && fs::file_size(png_path) > 0) rasterised = true;
+                }
+            }
+
+            // Priority 4: ImageMagick convert (v6 / Linux)
             if (!rasterised) {
                 string magick = find_executable("convert", {"/usr/bin/convert", "/usr/local/bin/convert"});
                 if (!magick.empty()) {
