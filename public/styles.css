@@ -1534,6 +1534,66 @@ body {
 .nav-category.search-hidden { display: none; }
 .nav-item.search-hidden { display: none; }
 
+.nav-item.nav-disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    pointer-events: auto;
+}
+.nav-item.nav-disabled:hover { background: none; color: var(--text-secondary); }
+
+/* Disabled-tool modal */
+.disabled-tool-backdrop {
+    display: none;
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    align-items: center; justify-content: center;
+}
+.disabled-tool-backdrop.open { display: flex; }
+.disabled-tool-modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 32px 28px 24px;
+    max-width: 380px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    animation: dtm-in 0.18s ease;
+}
+@keyframes dtm-in {
+    from { opacity: 0; transform: scale(0.93) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.disabled-tool-modal .dtm-icon {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: rgba(239,68,68,0.12);
+    border: 1px solid rgba(239,68,68,0.25);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px;
+    font-size: 1.3rem; color: #f87171;
+}
+.disabled-tool-modal h3 {
+    font-size: 1rem; font-weight: 700;
+    color: var(--text-primary); margin: 0 0 8px;
+}
+.disabled-tool-modal p {
+    font-size: 0.82rem; color: var(--text-secondary);
+    line-height: 1.55; margin: 0 0 20px;
+}
+.disabled-tool-modal .dtm-close {
+    padding: 8px 24px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    font-size: 0.82rem; cursor: pointer;
+    transition: background 0.2s;
+}
+.disabled-tool-modal .dtm-close:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+
 /* ─── Tool Location Badge ─────────────────────────────────────────────────── */
 .tool-location-badge {
     display: inline-flex; align-items: center; gap: 5px;
@@ -3345,11 +3405,13 @@ body {
 }
 
 .quiz-submit {
-    flex: 1;
+    width: 100%;
+    margin-top: 16px;
 }
 
-.quiz-retry {
-    width: 100%;
+.quiz-retry,
+.quiz-shuffle-retry {
+    flex: 1;
     margin-top: 0;
 }
 

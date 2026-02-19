@@ -2494,6 +2494,16 @@
         <div class="drop-overlay-hint">Release to choose a tool for your file</div>
     </div>
 
+    <!-- Disabled-tool modal -->
+    <div class="disabled-tool-backdrop" id="disabledToolBackdrop" onclick="closeDisabledModal(event)">
+        <div class="disabled-tool-modal">
+            <div class="dtm-icon"><i class="fas fa-ban"></i></div>
+            <h3>Tool Unavailable</h3>
+            <p>This tool has been disabled by the administrator and is not currently available. Please check back later.</p>
+            <button class="dtm-close" onclick="closeDisabledModal()">Close</button>
+        </div>
+    </div>
+
     <!-- Quick-action modal -->
     <div class="quick-action-backdrop" id="quickActionBackdrop" onclick="closeQuickAction(event)">
         <div class="quick-action-modal">

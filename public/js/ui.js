@@ -3,6 +3,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 function switchTool(toolId) {
+    // Guard: if the nav item is marked disabled, show the modal and bail out
+    const navItemCheck = document.querySelector(`.nav-item[data-tool="${toolId}"]`);
+    if (navItemCheck?.dataset.disabled === 'true') {
+        showDisabledModal();
+        return;
+    }
+
     state.currentTool = toolId;
     $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tool === toolId));
     $$('.tool-panel').forEach(el => el.classList.toggle('active', el.id === 'tool-' + toolId));
@@ -81,6 +88,17 @@ function switchTool(toolId) {
         const isServer = _navItem?.dataset.location === 'server';
         banner.classList.toggle('hidden', !(isServer && window._serverOnline === false));
     }
+}
+
+function showDisabledModal() {
+    const bd = $('disabledToolBackdrop');
+    if (bd) bd.classList.add('open');
+}
+
+function closeDisabledModal(e) {
+    if (e && e.target !== $('disabledToolBackdrop') && !e.target.closest('.dtm-close')) return;
+    const bd = $('disabledToolBackdrop');
+    if (bd) bd.classList.remove('open');
 }
 
 function toggleSidebar(forceState) {
@@ -313,6 +331,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('popstate', (e) => {
         const toolId = e.state?.tool || 'landing';
         if (document.getElementById('tool-' + toolId)) switchTool(toolId);
+    });
+
+    // Escape closes the disabled-tool modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDisabledModal({ target: $('disabledToolBackdrop') });
     });
 });
 

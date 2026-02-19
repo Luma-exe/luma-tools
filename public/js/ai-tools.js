@@ -470,11 +470,7 @@ function renderQuizUI() {
     });
 
     if (!quizSubmitted) {
-        html += `
-            <div class="quiz-actions">
-                <button class="btn-secondary quiz-shuffle" onclick="shuffleQuiz()"><i class="fas fa-random"></i> Shuffle</button>
-                <button class="process-btn quiz-submit" onclick="submitQuiz()"><i class="fas fa-check-circle"></i> Submit Quiz</button>
-            </div>`;
+        html += `<button class="process-btn quiz-submit" onclick="submitQuiz()"><i class="fas fa-check-circle"></i> Submit Quiz</button>`;
     } else {
         const correct = quizData.filter((q, i) => quizAnswers[i] === q.correct).length;
         const percentage = Math.round((correct / quizData.length) * 100);
@@ -487,7 +483,10 @@ function renderQuizUI() {
                 </div>
                 <div class="quiz-score-text">${correct} of ${quizData.length} correct</div>
             </div>
-            <button class="btn-secondary quiz-retry" onclick="retryQuiz()"><i class="fas fa-redo"></i> Try Again</button>`;
+            <div class="quiz-actions">
+                <button class="btn-secondary quiz-retry" onclick="retryQuiz()"><i class="fas fa-redo"></i> Try Again</button>
+                <button class="btn-secondary quiz-shuffle-retry" onclick="shuffleAndRetry()"><i class="fas fa-random"></i> Shuffle &amp; Retry</button>
+            </div>`;
     }
 
     html += '</div>';
@@ -522,14 +521,14 @@ function shuffleArray(arr) {
     return arr;
 }
 
-function shuffleQuiz() {
-    if (quizSubmitted) return;
+function shuffleAndRetry() {
     quizOrder = shuffleArray(quizData.map((_, i) => i));
     quizOptionOrders = {};
     quizData.forEach((q, i) => {
         quizOptionOrders[i] = shuffleArray(q.options.map((_, j) => j));
     });
     quizAnswers = {};
+    quizSubmitted = false;
     renderQuizUI();
 }
 
