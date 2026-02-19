@@ -3114,6 +3114,10 @@ body {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    justify-content: center;
+}
+.flashcard-export .fc-section-label {
+    justify-content: center;
 }
 .export-fmt {
     font-size: 0.7rem;
