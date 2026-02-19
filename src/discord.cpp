@@ -16,9 +16,14 @@
 // ║                   false = filenames appear as-is                        ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-static const string WEBHOOK_URL =
-    "https://discord.com/api/webhooks/1473500051878838472/"
-    "5twIcm0QuHOhO_Uy78KyzYwBnnYXxr7T_2DtqjX9r3xczrQOvVSc7l1-2XmKt0lMLhrC";
+// Pull Discord Webhook
+
+static string discord_webhook_url() {
+    const char* env = std::getenv("DISCORD_WEBHOOK_URL");
+    return env ? string(env) : "";
+}
+
+static const string WEBHOOK_URL = discord_webhook_url();
 
 static constexpr bool MASK_FILENAMES = true;
 

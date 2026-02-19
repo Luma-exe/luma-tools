@@ -306,6 +306,13 @@ int main() {
         cout << "[Luma Tools] Stats dashboard enabled at /stats" << endl;
     }
 
+    if (!std::getenv("DISCORD_WEBHOOK_URL")) {
+        cerr << "[Luma Tools] WARNING: DISCORD_WEBHOOK_URL not set. Discord logging is disabled." << endl;
+        cerr << "[Luma Tools]          Set it to enable: set DISCORD_WEBHOOK_URL=your_webhook_url" << endl;
+    } else {
+        cout << "[Luma Tools] Discord logging enabled." << endl;
+    }
+
     if (!svr.listen("0.0.0.0", port)) {
         cerr << "[Luma Tools] Failed to start server on port " << port << endl;
         return 1;

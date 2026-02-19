@@ -181,11 +181,12 @@ Luma Tools includes a built-in analytics dashboard at `/stats` — no external s
 
 ### Setup
 
-Set the `STATS_PASSWORD` environment variable before starting the server. The dashboard is **disabled** if this variable is not set.
+Set the `STATS_PASSWORD` and `DISCORD_WEBHOOK_URL` environment variable before starting the server. The dashboard and discord logs are **disabled** if these variables are not set.
 
 **Local / dev:**
 ```powershell
 $env:STATS_PASSWORD = "your-password"
+$env:DISCORD_WEBHOOK_URL = "your-webhook-url"
 .\run.bat
 ```
 
@@ -193,6 +194,7 @@ $env:STATS_PASSWORD = "your-password"
 1. Open NSSM: `nssm edit LumaTools`
 2. Go to the **Environment** tab
 3. Add: `STATS_PASSWORD=your-password`
+3. Add: `DISCORD_WEBHOOK_URL=your-webhook-url`
 4. Click *Edit service* then restart: `nssm restart LumaTools`
 
 **Linux systemd:**
@@ -200,6 +202,7 @@ $env:STATS_PASSWORD = "your-password"
 # /etc/systemd/system/luma-tools.service
 [Service]
 Environment="STATS_PASSWORD=your-password"
+Environment="DISCORD_WEBHOOK_URL=your-webhook-url"
 ```
 Then `systemctl daemon-reload && systemctl restart luma-tools`.
 
