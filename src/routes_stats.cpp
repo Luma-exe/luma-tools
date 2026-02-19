@@ -882,14 +882,17 @@ void register_stats_routes(httplib::Server& svr) {
         if (body.contains("note"))           cfg.note           = body["note"].get<string>();
         set_tool_config(cfg);
 
-        // Build a diff description for Discord
+        // Build a diff description for Discord.
+        // Always show enabled state unconditionally so disabling is never silent.
         string changes;
-        if (cfg.enabled        != old_cfg.enabled)        changes += (cfg.enabled ? "✅ Enabled" : "❌ Disabled") + string("\n");
+        changes += (cfg.enabled ? "✅ Enabled" : "❌ Disabled");
+        if (cfg.enabled != old_cfg.enabled)
+            changes += string(" *(changed from ") + (old_cfg.enabled ? "enabled" : "disabled") + ")*";
+        changes += "\n";
         if (cfg.rate_limit_min != old_cfg.rate_limit_min) changes += "Rate limit: " + to_string(old_cfg.rate_limit_min) + " → " + to_string(cfg.rate_limit_min) + " req/min\n";
         if (cfg.max_file_mb    != old_cfg.max_file_mb)    changes += "Max file: " + to_string(old_cfg.max_file_mb) + " → " + to_string(cfg.max_file_mb) + " MB\n";
         if (cfg.max_text_chars != old_cfg.max_text_chars) changes += "Max chars: " + to_string(old_cfg.max_text_chars) + " → " + to_string(cfg.max_text_chars) + "\n";
         if (cfg.note           != old_cfg.note)           changes += "Note: \"" + cfg.note + "\"\n";
-        if (changes.empty()) changes = "(no changes)";
 
         discord_log("⚙️ Admin — Tool Config Updated",
             "**Tool:** `" + tool_id + "`\n**From IP:** " + req.remote_addr + "\n\n" + changes,
