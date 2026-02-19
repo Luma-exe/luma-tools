@@ -3126,6 +3126,7 @@ IMPORTANT RULES:
         json result;
         bool success = false;
 
+        string groq_error_msg;
         if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
             try {
                 ifstream f(resp_file);
@@ -3140,13 +3141,21 @@ IMPORTANT RULES:
                         result = json::parse(content.substr(start, end - start + 1));
                         success = true;
                     }
+                } else if (resp_json.contains("error")) {
+                    // Surface the actual Groq API error
+                    if (resp_json["error"].is_object() && resp_json["error"].contains("message")) {
+                        groq_error_msg = resp_json["error"]["message"].get<string>();
+                    } else if (resp_json["error"].is_string()) {
+                        groq_error_msg = resp_json["error"].get<string>();
+                    }
                 }
             } catch (...) {}
         }
 
         if (!success) {
+            string err_msg = groq_error_msg.empty() ? "Failed to summarize video. The AI service may be unavailable." : "AI API error: " + groq_error_msg;
             res.status = 500;
-            res.set_content(json({{"error", "Failed to summarize video"}}).dump(), "application/json");
+            res.set_content(json({{"error", err_msg}}).dump(), "application/json");
             return;
         }
 
