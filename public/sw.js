@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v3';
+const CACHE_NAME = 'lumatools-v4'; // bumped: force fresh fetch so COOP/COEP headers are present
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
@@ -47,6 +47,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
+    // API requests: always network, offline fallback
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
             fetch(event.request).catch(() => {
@@ -55,6 +56,17 @@ self.addEventListener('fetch', (event) => {
                     { status: 503, headers: { 'Content-Type': 'application/json' } }
                 );
             })
+        );
+        return;
+    }
+
+    // Navigation requests (HTML pages): ALWAYS go to network so that
+    // Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy headers from
+    // the server are respected. Serving stale HTML from cache strips those
+    // headers and breaks crossOriginIsolated (required for ffmpeg.wasm).
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match('/') || new Response('Offline', { status: 503 }))
         );
         return;
     }

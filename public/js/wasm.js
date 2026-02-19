@@ -19,23 +19,32 @@ const WasmProcessor = {
         this.loading = true;
         this._loadPromise = (async () => {
             try {
+                console.log('[WASM] crossOriginIsolated =', crossOriginIsolated);
+                console.log('[WASM] SharedArrayBuffer available =', typeof SharedArrayBuffer !== 'undefined');
                 showToast('Loading processing engine...', 'info');
                 const { FFmpeg } = FFmpegWASM;
                 const { toBlobURL } = FFmpegUtil;
                 this.ffmpeg = new FFmpeg();
+                this.ffmpeg.on('log', ({ type, message }) => console.log(`[WASM:${type}]`, message));
                 // Must use toBlobURL for both core JS + WASM — when ffmpeg creates its
                 // internal worker from a blob URL, relative paths inside the core script
                 // would resolve to the page origin (not the CDN), causing the .wasm fetch
                 // to 404. toBlobURL pre-fetches each file and re-hosts it as a blob so the
                 // paths stay consistent.
                 const BASE = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-                await this.ffmpeg.load({
-                    coreURL: await toBlobURL(`${BASE}/ffmpeg-core.js`,   'text/javascript'),
-                    wasmURL: await toBlobURL(`${BASE}/ffmpeg-core.wasm`, 'application/wasm'),
-                });
+                console.log('[WASM] Fetching core JS from CDN...');
+                const coreURL = await toBlobURL(`${BASE}/ffmpeg-core.js`, 'text/javascript');
+                console.log('[WASM] Core JS blob ready:', coreURL.slice(0, 40));
+                console.log('[WASM] Fetching core WASM from CDN...');
+                const wasmURL = await toBlobURL(`${BASE}/ffmpeg-core.wasm`, 'application/wasm');
+                console.log('[WASM] Core WASM blob ready:', wasmURL.slice(0, 40));
+                console.log('[WASM] Calling ffmpeg.load()...');
+                await this.ffmpeg.load({ coreURL, wasmURL });
                 this.loaded = true;
+                console.log('[WASM] Load succeeded!');
                 showToast('Processing engine ready!', 'success');
             } catch (err) {
+                console.error('[WASM] load() failed:', err);
                 this.loading = false;
                 this._loadPromise = null;
                 throw err;
@@ -186,6 +195,10 @@ async function processFileWasm(toolId) {
     // If the page is not cross-origin isolated, SharedArrayBuffer is unavailable
     // and ffmpeg.wasm will fail immediately — skip straight to the server fallback.
     if (!crossOriginIsolated || window._wasmFailed) {
+        const reason = !crossOriginIsolated
+            ? 'Page is not cross-origin isolated — WASM requires COOP/COEP headers'
+            : 'WASM failed earlier this session — using server fallback';
+        console.warn('[WASM] Skipping WASM for', toolId, '—', reason);
         showProcessing(toolId, true);
         try {
             await processFileServer(toolId);
