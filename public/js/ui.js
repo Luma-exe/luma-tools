@@ -28,7 +28,14 @@ function switchTool(toolId) {
 
             if (h2) {
                 h2.appendChild(badge);
-                // Fav button right after the badge
+
+                // AI model badge — show immediately for AI tools
+                const AI_TOOLS = ['ai-study-notes','ai-flashcards','ai-quiz','ai-paraphrase','mind-map','youtube-summary'];
+                if (AI_TOOLS.includes(toolId)) {
+                    showModelBadge(toolId, 'llama-3.3-70b-versatile');
+                }
+
+                // Fav button always last
                 const favs = getFavs();
                 const favBtn = document.createElement('button');
                 favBtn.className = 'tool-fav-btn' + (favs.includes(toolId) ? ' starred' : '');
@@ -326,7 +333,10 @@ function showModelBadge(toolId, modelId) {
     if (!badge) {
         badge = document.createElement('span');
         badge.className = 'tool-model-badge';
-        h2.appendChild(badge);
+        // Always insert before the fav button so order is: location → model → fav
+        const favBtn = h2.querySelector('.tool-fav-btn');
+        if (favBtn) h2.insertBefore(badge, favBtn);
+        else h2.appendChild(badge);
     }
     // Error state — all models unavailable
     if (!modelId || modelId === 'none') {
@@ -342,8 +352,8 @@ function showModelBadge(toolId, modelId) {
             <div class="tmb-model-row">
                 <span class="tmb-tier">${m.tier}</span>
                 <span class="tmb-name">${m.short}</span>
-                <span class="tmb-tpd">${m.tpd}</span>
             </div>
+            <div class="tmb-meta"><span class="tmb-tpd">${m.tpd}</span></div>
             <div class="tmb-desc">${m.desc}</div>
         </div>`).join('');
     const isLocal = modelId.startsWith('ollama:');
