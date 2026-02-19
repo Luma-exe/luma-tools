@@ -2187,4 +2187,693 @@ IMPORTANT RULES:
         }
 
         res.set_content(json({{"improved_notes", improved_notes}}).dump(), "application/json");
-    });}
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // AI FLASHCARD GENERATOR
+    // ══════════════════════════════════════════════════════════════════════════════
+    svr.Post("/api/tools/ai-flashcards", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
+            return;
+        }
+
+        bool has_text = req.has_file("text") && !req.get_file_value("text").content.empty();
+        bool has_file = req.has_file("file") && !req.get_file_value("file").content.empty();
+
+        if (!has_text && !has_file) {
+            res.status = 400;
+            res.set_content(json({{"error", "No content provided"}}).dump(), "application/json");
+            return;
+        }
+
+        int count = 20;
+        if (req.has_file("count")) {
+            try { count = std::stoi(req.get_file_value("count").content); } catch (...) {}
+        }
+        count = std::min(std::max(count, 5), 50);
+
+        string text;
+        string proc = get_processing_dir();
+        string jid = generate_job_id();
+
+        if (has_text) {
+            text = req.get_file_value("text").content;
+            discord_log_tool("AI Flashcards", "Pasted Text", req.remote_addr);
+        } else {
+            auto file = req.get_file_value("file");
+            discord_log_tool("AI Flashcards", file.filename, req.remote_addr);
+            
+            fs::path fp(file.filename);
+            string file_ext = fp.extension().string();
+            std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
+            
+            string input_path = proc + "/" + jid + "_input" + file_ext;
+            { ofstream f(input_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
+            
+            // Extract text based on file type
+            string txt_path = proc + "/" + jid + "_text.txt";
+            
+            if (file_ext == ".txt" || file_ext == ".md" || file_ext == ".rtf") {
+                ifstream f(input_path, std::ios::binary);
+                std::ostringstream ss; ss << f.rdbuf();
+                text = ss.str();
+            } else if (file_ext == ".pdf" && !g_ghostscript_path.empty()) {
+                string cmd = escape_arg(g_ghostscript_path) + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite -sOutputFile=" 
+                           + escape_arg(txt_path) + " " + escape_arg(input_path);
+                int code; exec_command(cmd, code);
+                if (fs::exists(txt_path)) {
+                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                    text = ss.str();
+                }
+            } else if (file_ext == ".docx") {
+                string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
+                int code; exec_command(cmd, code);
+                if (fs::exists(txt_path)) {
+                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                    text = ss.str();
+                }
+            }
+            
+            try { fs::remove(input_path); fs::remove(txt_path); } catch (...) {}
+        }
+
+        if (text.size() < 50) {
+            res.status = 400;
+            res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
+            return;
+        }
+        if (text.size() > 12000) text = text.substr(0, 12000);
+
+        string system_prompt = "You are an expert educator creating flashcards. Generate exactly " + to_string(count) + " flashcards from the provided content. "
+            "Each flashcard should test a key concept, term, or fact. "
+            "Output ONLY valid JSON array with objects containing 'question' and 'answer' fields. "
+            "Questions should be clear and specific. Answers should be concise but complete.";
+
+        string user_prompt = "Create " + to_string(count) + " flashcards from this content:\n\n" + text + 
+            "\n\nOutput as JSON array: [{\"question\": \"...\", \"answer\": \"...\"}]";
+
+        json payload = {
+            {"model", "llama-3.3-70b-versatile"},
+            {"messages", {
+                {{"role", "system"}, {"content", system_prompt}},
+                {{"role", "user"}, {"content", user_prompt}}
+            }},
+            {"temperature", 0.5},
+            {"max_tokens", 4096}
+        };
+
+        string payload_file = proc + "/" + jid + "_payload.json";
+        string resp_file = proc + "/" + jid + "_resp.json";
+        { ofstream f(payload_file); f << payload.dump(); }
+
+        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
+                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
+                          "-H \"Content-Type: application/json\" "
+                          "-d @" + escape_arg(payload_file) + " "
+                          "-o " + escape_arg(resp_file);
+
+        int rc = system(curl_cmd.c_str());
+        
+        json flashcards = json::array();
+        bool success = false;
+        
+        if (rc == 0 && fs::exists(resp_file)) {
+            try {
+                ifstream f(resp_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+                
+                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
+                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
+                    // Extract JSON array from response
+                    size_t start = content.find('[');
+                    size_t end = content.rfind(']');
+                    if (start != string::npos && end != string::npos) {
+                        flashcards = json::parse(content.substr(start, end - start + 1));
+                        success = true;
+                    }
+                }
+            } catch (...) {}
+        }
+
+        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+
+        if (!success) {
+            res.status = 500;
+            res.set_content(json({{"error", "Failed to generate flashcards"}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(json({{"flashcards", flashcards}}).dump(), "application/json");
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // AI PRACTICE QUIZ
+    // ══════════════════════════════════════════════════════════════════════════════
+    svr.Post("/api/tools/ai-quiz", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
+            return;
+        }
+
+        bool has_text = req.has_file("text") && !req.get_file_value("text").content.empty();
+        bool has_file = req.has_file("file") && !req.get_file_value("file").content.empty();
+
+        if (!has_text && !has_file) {
+            res.status = 400;
+            res.set_content(json({{"error", "No content provided"}}).dump(), "application/json");
+            return;
+        }
+
+        int count = 10;
+        string difficulty = "medium";
+        if (req.has_file("count")) {
+            try { count = std::stoi(req.get_file_value("count").content); } catch (...) {}
+        }
+        if (req.has_file("difficulty")) {
+            difficulty = req.get_file_value("difficulty").content;
+        }
+        count = std::min(std::max(count, 5), 20);
+
+        string text;
+        string proc = get_processing_dir();
+        string jid = generate_job_id();
+
+        if (has_text) {
+            text = req.get_file_value("text").content;
+            discord_log_tool("AI Quiz", "Pasted Text (" + difficulty + ")", req.remote_addr);
+        } else {
+            auto file = req.get_file_value("file");
+            discord_log_tool("AI Quiz", file.filename + " (" + difficulty + ")", req.remote_addr);
+            
+            fs::path fp(file.filename);
+            string file_ext = fp.extension().string();
+            std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
+            
+            string input_path = proc + "/" + jid + "_input" + file_ext;
+            { ofstream f(input_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
+            
+            string txt_path = proc + "/" + jid + "_text.txt";
+            
+            if (file_ext == ".txt" || file_ext == ".md" || file_ext == ".rtf") {
+                ifstream f(input_path, std::ios::binary);
+                std::ostringstream ss; ss << f.rdbuf();
+                text = ss.str();
+            } else if (file_ext == ".pdf" && !g_ghostscript_path.empty()) {
+                string cmd = escape_arg(g_ghostscript_path) + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite -sOutputFile=" 
+                           + escape_arg(txt_path) + " " + escape_arg(input_path);
+                int code; exec_command(cmd, code);
+                if (fs::exists(txt_path)) {
+                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                    text = ss.str();
+                }
+            } else if (file_ext == ".docx") {
+                string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
+                int code; exec_command(cmd, code);
+                if (fs::exists(txt_path)) {
+                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                    text = ss.str();
+                }
+            }
+            
+            try { fs::remove(input_path); fs::remove(txt_path); } catch (...) {}
+        }
+
+        if (text.size() < 50) {
+            res.status = 400;
+            res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
+            return;
+        }
+        if (text.size() > 12000) text = text.substr(0, 12000);
+
+        string diff_instruction = difficulty == "easy" ? "basic recall and simple concepts" :
+                                  difficulty == "hard" ? "complex analysis, application, and critical thinking" :
+                                  "moderate difficulty requiring understanding and application";
+
+        string system_prompt = "You are an expert quiz creator. Generate exactly " + to_string(count) + " multiple-choice questions. "
+            "Difficulty: " + diff_instruction + ". "
+            "Each question must have exactly 4 options with only ONE correct answer. "
+            "Include a brief explanation for the correct answer. "
+            "Output ONLY valid JSON array with objects containing: 'question', 'options' (array of 4 strings), 'correct' (0-3 index), 'explanation'.";
+
+        string user_prompt = "Create " + to_string(count) + " quiz questions from this content:\n\n" + text +
+            "\n\nOutput as JSON: [{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0, \"explanation\": \"...\"}]";
+
+        json payload = {
+            {"model", "llama-3.3-70b-versatile"},
+            {"messages", {
+                {{"role", "system"}, {"content", system_prompt}},
+                {{"role", "user"}, {"content", user_prompt}}
+            }},
+            {"temperature", 0.6},
+            {"max_tokens", 4096}
+        };
+
+        string payload_file = proc + "/" + jid + "_payload.json";
+        string resp_file = proc + "/" + jid + "_resp.json";
+        { ofstream f(payload_file); f << payload.dump(); }
+
+        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
+                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
+                          "-H \"Content-Type: application/json\" "
+                          "-d @" + escape_arg(payload_file) + " "
+                          "-o " + escape_arg(resp_file);
+
+        int rc = system(curl_cmd.c_str());
+        
+        json questions = json::array();
+        bool success = false;
+        
+        if (rc == 0 && fs::exists(resp_file)) {
+            try {
+                ifstream f(resp_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+                
+                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
+                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
+                    size_t start = content.find('[');
+                    size_t end = content.rfind(']');
+                    if (start != string::npos && end != string::npos) {
+                        questions = json::parse(content.substr(start, end - start + 1));
+                        success = true;
+                    }
+                }
+            } catch (...) {}
+        }
+
+        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+
+        if (!success) {
+            res.status = 500;
+            res.set_content(json({{"error", "Failed to generate quiz"}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(json({{"questions", questions}}).dump(), "application/json");
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // AI KEY TERMS EXTRACTOR
+    // ══════════════════════════════════════════════════════════════════════════════
+    svr.Post("/api/tools/ai-key-terms", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
+            return;
+        }
+
+        bool has_text = req.has_file("text") && !req.get_file_value("text").content.empty();
+        bool has_file = req.has_file("file") && !req.get_file_value("file").content.empty();
+
+        if (!has_text && !has_file) {
+            res.status = 400;
+            res.set_content(json({{"error", "No content provided"}}).dump(), "application/json");
+            return;
+        }
+
+        string text;
+        string proc = get_processing_dir();
+        string jid = generate_job_id();
+
+        if (has_text) {
+            text = req.get_file_value("text").content;
+            discord_log_tool("AI Key Terms", "Pasted Text", req.remote_addr);
+        } else {
+            auto file = req.get_file_value("file");
+            discord_log_tool("AI Key Terms", file.filename, req.remote_addr);
+            
+            fs::path fp(file.filename);
+            string file_ext = fp.extension().string();
+            std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
+            
+            string input_path = proc + "/" + jid + "_input" + file_ext;
+            { ofstream f(input_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
+            
+            string txt_path = proc + "/" + jid + "_text.txt";
+            
+            if (file_ext == ".txt" || file_ext == ".md" || file_ext == ".rtf") {
+                ifstream f(input_path, std::ios::binary);
+                std::ostringstream ss; ss << f.rdbuf();
+                text = ss.str();
+            } else if (file_ext == ".pdf" && !g_ghostscript_path.empty()) {
+                string cmd = escape_arg(g_ghostscript_path) + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite -sOutputFile=" 
+                           + escape_arg(txt_path) + " " + escape_arg(input_path);
+                int code; exec_command(cmd, code);
+                if (fs::exists(txt_path)) {
+                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                    text = ss.str();
+                }
+            } else if (file_ext == ".docx") {
+                string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
+                int code; exec_command(cmd, code);
+                if (fs::exists(txt_path)) {
+                    ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                    text = ss.str();
+                }
+            }
+            
+            try { fs::remove(input_path); fs::remove(txt_path); } catch (...) {}
+        }
+
+        if (text.size() < 50) {
+            res.status = 400;
+            res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
+            return;
+        }
+        if (text.size() > 12000) text = text.substr(0, 12000);
+
+        string system_prompt = "You are an expert educator extracting key terminology. Identify the most important terms, concepts, and vocabulary from the content. "
+            "For each term, provide a clear definition and optionally an example of usage. "
+            "Output ONLY valid JSON array with objects containing: 'term', 'definition', and optionally 'example'.";
+
+        string user_prompt = "Extract key terms and definitions from this content:\n\n" + text +
+            "\n\nOutput as JSON: [{\"term\": \"...\", \"definition\": \"...\", \"example\": \"...\"}]";
+
+        json payload = {
+            {"model", "llama-3.3-70b-versatile"},
+            {"messages", {
+                {{"role", "system"}, {"content", system_prompt}},
+                {{"role", "user"}, {"content", user_prompt}}
+            }},
+            {"temperature", 0.4},
+            {"max_tokens", 4096}
+        };
+
+        string payload_file = proc + "/" + jid + "_payload.json";
+        string resp_file = proc + "/" + jid + "_resp.json";
+        { ofstream f(payload_file); f << payload.dump(); }
+
+        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
+                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
+                          "-H \"Content-Type: application/json\" "
+                          "-d @" + escape_arg(payload_file) + " "
+                          "-o " + escape_arg(resp_file);
+
+        int rc = system(curl_cmd.c_str());
+        
+        json terms = json::array();
+        bool success = false;
+        
+        if (rc == 0 && fs::exists(resp_file)) {
+            try {
+                ifstream f(resp_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+                
+                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
+                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
+                    size_t start = content.find('[');
+                    size_t end = content.rfind(']');
+                    if (start != string::npos && end != string::npos) {
+                        terms = json::parse(content.substr(start, end - start + 1));
+                        success = true;
+                    }
+                }
+            } catch (...) {}
+        }
+
+        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+
+        if (!success) {
+            res.status = 500;
+            res.set_content(json({{"error", "Failed to extract key terms"}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(json({{"terms", terms}}).dump(), "application/json");
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // AI PARAPHRASER
+    // ══════════════════════════════════════════════════════════════════════════════
+    svr.Post("/api/tools/ai-paraphrase", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
+            return;
+        }
+
+        if (!req.has_file("text") || req.get_file_value("text").content.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "No text provided"}}).dump(), "application/json");
+            return;
+        }
+
+        string text = req.get_file_value("text").content;
+        string tone = req.has_file("tone") ? req.get_file_value("tone").content : "formal";
+
+        discord_log_tool("AI Paraphrase", tone, req.remote_addr);
+
+        if (text.size() < 20) {
+            res.status = 400;
+            res.set_content(json({{"error", "Text too short (minimum 20 characters)"}}).dump(), "application/json");
+            return;
+        }
+        if (text.size() > 5000) text = text.substr(0, 5000);
+
+        string tone_instruction;
+        if (tone == "formal") tone_instruction = "Use professional, formal language appropriate for business or academic settings.";
+        else if (tone == "casual") tone_instruction = "Use friendly, conversational language as if talking to a friend.";
+        else if (tone == "simplified") tone_instruction = "Use simple words and short sentences. Make it easy to understand for everyone.";
+        else if (tone == "academic") tone_instruction = "Use scholarly language with precise terminology appropriate for academic papers.";
+        else tone_instruction = "Rewrite in a clear, neutral tone.";
+
+        string system_prompt = "You are an expert writer and editor. Paraphrase the given text while preserving its meaning. " + tone_instruction +
+            " Output ONLY the paraphrased text, nothing else.";
+
+        json payload = {
+            {"model", "llama-3.3-70b-versatile"},
+            {"messages", {
+                {{"role", "system"}, {"content", system_prompt}},
+                {{"role", "user"}, {"content", "Paraphrase this text:\n\n" + text}}
+            }},
+            {"temperature", 0.7},
+            {"max_tokens", 2048}
+        };
+
+        string proc = get_processing_dir();
+        string jid = generate_job_id();
+        string payload_file = proc + "/" + jid + "_payload.json";
+        string resp_file = proc + "/" + jid + "_resp.json";
+        { ofstream f(payload_file); f << payload.dump(); }
+
+        string curl_cmd = "curl -s -X POST \"https://api.groq.com/openai/v1/chat/completions\" "
+                          "-H \"Authorization: Bearer " + g_groq_key + "\" "
+                          "-H \"Content-Type: application/json\" "
+                          "-d @" + escape_arg(payload_file) + " "
+                          "-o " + escape_arg(resp_file);
+
+        int rc = system(curl_cmd.c_str());
+        
+        string result;
+        bool success = false;
+        
+        if (rc == 0 && fs::exists(resp_file)) {
+            try {
+                ifstream f(resp_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+                
+                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
+                    result = resp_json["choices"][0]["message"]["content"].get<string>();
+                    success = true;
+                }
+            } catch (...) {}
+        }
+
+        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
+
+        if (!success) {
+            res.status = 500;
+            res.set_content(json({{"error", "Failed to paraphrase text"}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(json({{"result", result}}).dump(), "application/json");
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // CITATION GENERATOR
+    // ══════════════════════════════════════════════════════════════════════════════
+    svr.Post("/api/tools/citation-generate", [](const httplib::Request& req, httplib::Response& res) {
+        string source_type = req.has_file("source_type") ? req.get_file_value("source_type").content : "url";
+        string style = req.has_file("style") ? req.get_file_value("style").content : "apa";
+
+        discord_log_tool("Citation Generator", style + " / " + source_type, req.remote_addr);
+
+        json metadata;
+        string citation;
+
+        if (source_type == "doi") {
+            string doi = req.has_file("doi") ? req.get_file_value("doi").content : "";
+            if (doi.empty()) {
+                res.status = 400;
+                res.set_content(json({{"error", "DOI required"}}).dump(), "application/json");
+                return;
+            }
+
+            // Fetch DOI metadata from doi.org
+            string proc = get_processing_dir();
+            string jid = generate_job_id();
+            string resp_file = proc + "/" + jid + "_doi.json";
+            
+            string curl_cmd = "curl -s -L -H \"Accept: application/vnd.citationstyles.csl+json\" \"https://doi.org/" + doi + "\" -o " + escape_arg(resp_file);
+            int rc = system(curl_cmd.c_str());
+            
+            if (rc == 0 && fs::exists(resp_file)) {
+                try {
+                    ifstream f(resp_file);
+                    std::ostringstream ss; ss << f.rdbuf();
+                    auto doi_json = json::parse(ss.str());
+                    
+                    metadata["title"] = doi_json.value("title", "");
+                    if (doi_json.contains("author") && doi_json["author"].is_array() && !doi_json["author"].empty()) {
+                        string authors;
+                        for (const auto& a : doi_json["author"]) {
+                            if (!authors.empty()) authors += ", ";
+                            authors += a.value("family", "") + ", " + a.value("given", "");
+                        }
+                        metadata["author"] = authors;
+                    }
+                    if (doi_json.contains("published") && doi_json["published"].contains("date-parts")) {
+                        auto parts = doi_json["published"]["date-parts"][0];
+                        if (parts.is_array() && !parts.empty()) {
+                            metadata["date"] = to_string(parts[0].get<int>());
+                        }
+                    }
+                    metadata["publisher"] = doi_json.value("publisher", "");
+                    metadata["journal"] = doi_json.value("container-title", "");
+                    metadata["doi"] = doi;
+                } catch (...) {}
+            }
+            try { fs::remove(resp_file); } catch (...) {}
+        } else if (source_type == "url") {
+            string url = req.has_file("url") ? req.get_file_value("url").content : "";
+            if (url.empty()) {
+                res.status = 400;
+                res.set_content(json({{"error", "URL required"}}).dump(), "application/json");
+                return;
+            }
+
+            // Fetch webpage and extract metadata
+            string proc = get_processing_dir();
+            string jid = generate_job_id();
+            string resp_file = proc + "/" + jid + "_page.html";
+            
+            string curl_cmd = "curl -s -L -A \"Mozilla/5.0\" \"" + url + "\" -o " + escape_arg(resp_file);
+            int rc = system(curl_cmd.c_str());
+            
+            if (rc == 0 && fs::exists(resp_file)) {
+                ifstream f(resp_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                string html = ss.str();
+                
+                // Extract title
+                size_t t1 = html.find("<title");
+                if (t1 != string::npos) {
+                    size_t t2 = html.find(">", t1);
+                    size_t t3 = html.find("</title>", t2);
+                    if (t2 != string::npos && t3 != string::npos) {
+                        metadata["title"] = html.substr(t2 + 1, t3 - t2 - 1);
+                    }
+                }
+                
+                // Extract og:site_name
+                size_t s1 = html.find("og:site_name");
+                if (s1 != string::npos) {
+                    size_t s2 = html.find("content=\"", s1);
+                    if (s2 != string::npos) {
+                        size_t s3 = html.find("\"", s2 + 9);
+                        if (s3 != string::npos) {
+                            metadata["site"] = html.substr(s2 + 9, s3 - s2 - 9);
+                        }
+                    }
+                }
+
+                // Extract author from meta tag
+                size_t a1 = html.find("name=\"author\"");
+                if (a1 != string::npos) {
+                    size_t a2 = html.find("content=\"", a1);
+                    if (a2 != string::npos && a2 - a1 < 50) {
+                        size_t a3 = html.find("\"", a2 + 9);
+                        if (a3 != string::npos) {
+                            metadata["author"] = html.substr(a2 + 9, a3 - a2 - 9);
+                        }
+                    }
+                }
+
+                metadata["url"] = url;
+                
+                // Get current date for access date
+                time_t now = time(nullptr);
+                struct tm* t = localtime(&now);
+                char buf[64];
+                strftime(buf, sizeof(buf), "%B %d, %Y", t);
+                metadata["access_date"] = string(buf);
+            }
+            try { fs::remove(resp_file); } catch (...) {}
+        } else {
+            // Manual entry
+            metadata["author"] = req.has_file("author") ? req.get_file_value("author").content : "";
+            metadata["title"] = req.has_file("title") ? req.get_file_value("title").content : "";
+            metadata["date"] = req.has_file("year") ? req.get_file_value("year").content : "";
+            metadata["publisher"] = req.has_file("publisher") ? req.get_file_value("publisher").content : "";
+            metadata["url"] = req.has_file("url") ? req.get_file_value("url").content : "";
+            
+            time_t now = time(nullptr);
+            struct tm* t = localtime(&now);
+            char buf[64];
+            strftime(buf, sizeof(buf), "%B %d, %Y", t);
+            metadata["access_date"] = string(buf);
+        }
+
+        // Format citation based on style
+        string title = metadata.value("title", "Untitled");
+        string author = metadata.value("author", "");
+        string date = metadata.value("date", "n.d.");
+        string publisher = metadata.value("publisher", "");
+        string site = metadata.value("site", publisher);
+        string url = metadata.value("url", "");
+        string access = metadata.value("access_date", "");
+
+        if (style == "apa") {
+            // APA 7th: Author. (Year, Month Day). Title. Site Name. URL
+            citation = author.empty() ? "" : author + ". ";
+            citation += "(" + date + "). ";
+            citation += title + ". ";
+            if (!site.empty()) citation += site + ". ";
+            if (!url.empty()) citation += url;
+        } else if (style == "mla") {
+            // MLA 9th: Author. "Title." Site Name, Publisher, Date, URL. Accessed Day Month Year.
+            citation = author.empty() ? "" : author + ". ";
+            citation += "\"" + title + ".\" ";
+            if (!site.empty()) citation += site + ", ";
+            if (!publisher.empty() && publisher != site) citation += publisher + ", ";
+            if (!date.empty()) citation += date + ", ";
+            if (!url.empty()) citation += url + ". ";
+            if (!access.empty()) citation += "Accessed " + access + ".";
+        } else if (style == "chicago") {
+            // Chicago: Author. "Title." Site Name. Publisher. Last modified/Accessed Date. URL.
+            citation = author.empty() ? "" : author + ". ";
+            citation += "\"" + title + ".\" ";
+            if (!site.empty()) citation += site + ". ";
+            if (!publisher.empty() && publisher != site) citation += publisher + ". ";
+            if (!access.empty()) citation += "Accessed " + access + ". ";
+            if (!url.empty()) citation += url + ".";
+        } else if (style == "harvard") {
+            // Harvard: Author (Year) Title, Site Name. Available at: URL (Accessed: Date).
+            citation = author.empty() ? "" : author + " ";
+            citation += "(" + date + ") ";
+            citation += title + ", ";
+            if (!site.empty()) citation += site + ". ";
+            if (!url.empty()) citation += "Available at: " + url + " ";
+            if (!access.empty()) citation += "(Accessed: " + access + ").";
+        }
+
+        res.set_content(json({{"citation", citation}, {"metadata", metadata}}).dump(), "application/json");
+    });
+}

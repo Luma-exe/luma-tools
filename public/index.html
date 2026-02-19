@@ -73,6 +73,27 @@
                     <a class="nav-item" data-tool="ai-study-notes" data-location="server" onclick="switchTool('ai-study-notes')">
                         <i class="fas fa-brain"></i><span>Study Notes</span>
                     </a>
+                    <a class="nav-item" data-tool="ai-flashcards" data-location="server" onclick="switchTool('ai-flashcards')">
+                        <i class="fas fa-clone"></i><span>Flashcards</span>
+                    </a>
+                    <a class="nav-item" data-tool="ai-quiz" data-location="server" onclick="switchTool('ai-quiz')">
+                        <i class="fas fa-question-circle"></i><span>Practice Quiz</span>
+                    </a>
+                    <a class="nav-item" data-tool="ai-key-terms" data-location="server" onclick="switchTool('ai-key-terms')">
+                        <i class="fas fa-key"></i><span>Key Terms</span>
+                    </a>
+                    <a class="nav-item" data-tool="ai-paraphrase" data-location="server" onclick="switchTool('ai-paraphrase')">
+                        <i class="fas fa-sync-alt"></i><span>Paraphraser</span>
+                    </a>
+                    <a class="nav-item" data-tool="citation-gen" data-location="server" onclick="switchTool('citation-gen')">
+                        <i class="fas fa-quote-left"></i><span>Citation Gen</span>
+                    </a>
+                </div>
+                <div class="nav-category">
+                    <div class="nav-category-title">ANNOTATE</div>
+                    <a class="nav-item" data-tool="screenshot-annotate" data-location="browser" onclick="switchTool('screenshot-annotate')">
+                        <i class="fas fa-pencil-alt"></i><span>Screenshot Annotator</span>
+                    </a>
                 </div>
                 <div class="nav-category">
                     <div class="nav-category-title">DOWNLOAD</div>
@@ -292,9 +313,15 @@
                     </div>
 
                     <div class="landing-tools-overview">
-                        <h2>35+ Tools, Zero Ads</h2>
+                        <h2>40+ Tools, Zero Ads</h2>
                         <div class="landing-tool-chips">
                             <span class="landing-chip" onclick="switchTool('ai-study-notes')"><i class="fas fa-brain"></i> AI Study Notes</span>
+                            <span class="landing-chip" onclick="switchTool('ai-flashcards')"><i class="fas fa-clone"></i> Flashcards</span>
+                            <span class="landing-chip" onclick="switchTool('ai-quiz')"><i class="fas fa-question-circle"></i> Practice Quiz</span>
+                            <span class="landing-chip" onclick="switchTool('ai-key-terms')"><i class="fas fa-key"></i> Key Terms</span>
+                            <span class="landing-chip" onclick="switchTool('ai-paraphrase')"><i class="fas fa-sync-alt"></i> Paraphraser</span>
+                            <span class="landing-chip" onclick="switchTool('citation-gen')"><i class="fas fa-quote-left"></i> Citation Gen</span>
+                            <span class="landing-chip" onclick="switchTool('screenshot-annotate')"><i class="fas fa-pencil-alt"></i> Annotator</span>
                             <span class="landing-chip" onclick="switchTool('downloader')"><i class="fas fa-download"></i> Media Downloader</span>
                             <span class="landing-chip" onclick="switchTool('image-compress')"><i class="fas fa-compress-alt"></i> Image Compress</span>
                             <span class="landing-chip" onclick="switchTool('image-resize')"><i class="fas fa-expand-arrows-alt"></i> Image Resize</span>
@@ -1797,6 +1824,270 @@
                 </div>
             </div>
 
+            <!-- ── AI Flashcard Generator ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-ai-flashcards">
+                <div class="tool-header">
+                    <h2><i class="fas fa-clone"></i> AI Flashcard Generator</h2>
+                    <p>Upload notes or paste content to generate study flashcards with spaced repetition support.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options" style="margin-bottom:12px">
+                        <label class="option-label">Input method</label>
+                        <div class="preset-grid" data-tool="flashcards-input-mode" style="grid-template-columns:repeat(2,1fr)">
+                            <button class="preset-btn active" data-val="upload" onclick="selectPreset(this); toggleFlashcardsInput('upload')"><i class="fas fa-file-upload"></i><span>Upload File</span><small>PDF, Word, TXT</small></button>
+                            <button class="preset-btn" data-val="paste" onclick="selectPreset(this); toggleFlashcardsInput('paste')"><i class="fas fa-paste"></i><span>Paste Text</span><small>Copy &amp; paste</small></button>
+                        </div>
+                    </div>
+                    <div id="flashcards-upload-mode">
+                        <div class="upload-zone" id="uz-ai-flashcards" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md" data-max="20971520">
+                            <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop your file here</p><span>or click to browse</span><small>PDF, Word, Text, or Markdown &mdash; Max 20 MB</small></div>
+                            <input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md">
+                        </div>
+                        <div class="file-preview hidden" data-tool="ai-flashcards">
+                            <div class="file-info"><i class="fas fa-file-alt"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                            <button class="file-remove" onclick="removeFile('ai-flashcards')"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div id="flashcards-paste-mode" class="hidden">
+                        <div class="study-notes-paste-area">
+                            <textarea id="flashcards-text-input" placeholder="Paste your study notes, lecture content, or any material to convert into flashcards..." rows="8"></textarea>
+                            <div class="paste-char-count"><span id="flashcards-char-count">0</span> characters</div>
+                        </div>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Number of cards</label>
+                        <div class="preset-grid" data-tool="flashcards-count" style="grid-template-columns:repeat(4,1fr)">
+                            <button class="preset-btn" data-val="10" onclick="selectPreset(this)"><span>10</span></button>
+                            <button class="preset-btn active" data-val="20" onclick="selectPreset(this)"><span>20</span></button>
+                            <button class="preset-btn" data-val="30" onclick="selectPreset(this)"><span>30</span></button>
+                            <button class="preset-btn" data-val="50" onclick="selectPreset(this)"><span>50</span></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFlashcards()"><i class="fas fa-clone"></i> Generate Flashcards</button>
+                    <div class="processing-status hidden" data-tool="ai-flashcards">
+                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                        <span>Generating flashcards...</span>
+                    </div>
+                    <div class="flashcards-result hidden" data-tool="ai-flashcards"></div>
+                </div>
+            </div>
+
+            <!-- ── AI Practice Quiz ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-ai-quiz">
+                <div class="tool-header">
+                    <h2><i class="fas fa-question-circle"></i> AI Practice Quiz</h2>
+                    <p>Generate multiple-choice questions from your study material to test your knowledge.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options" style="margin-bottom:12px">
+                        <label class="option-label">Input method</label>
+                        <div class="preset-grid" data-tool="quiz-input-mode" style="grid-template-columns:repeat(2,1fr)">
+                            <button class="preset-btn active" data-val="upload" onclick="selectPreset(this); toggleQuizInput('upload')"><i class="fas fa-file-upload"></i><span>Upload File</span><small>PDF, Word, TXT</small></button>
+                            <button class="preset-btn" data-val="paste" onclick="selectPreset(this); toggleQuizInput('paste')"><i class="fas fa-paste"></i><span>Paste Text</span><small>Copy &amp; paste</small></button>
+                        </div>
+                    </div>
+                    <div id="quiz-upload-mode">
+                        <div class="upload-zone" id="uz-ai-quiz" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md" data-max="20971520">
+                            <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop your file here</p><span>or click to browse</span><small>PDF, Word, Text, or Markdown &mdash; Max 20 MB</small></div>
+                            <input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md">
+                        </div>
+                        <div class="file-preview hidden" data-tool="ai-quiz">
+                            <div class="file-info"><i class="fas fa-file-alt"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                            <button class="file-remove" onclick="removeFile('ai-quiz')"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div id="quiz-paste-mode" class="hidden">
+                        <div class="study-notes-paste-area">
+                            <textarea id="quiz-text-input" placeholder="Paste your study notes or lecture content to generate quiz questions..." rows="8"></textarea>
+                            <div class="paste-char-count"><span id="quiz-char-count">0</span> characters</div>
+                        </div>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Number of questions</label>
+                        <div class="preset-grid" data-tool="quiz-count" style="grid-template-columns:repeat(4,1fr)">
+                            <button class="preset-btn" data-val="5" onclick="selectPreset(this)"><span>5</span></button>
+                            <button class="preset-btn active" data-val="10" onclick="selectPreset(this)"><span>10</span></button>
+                            <button class="preset-btn" data-val="15" onclick="selectPreset(this)"><span>15</span></button>
+                            <button class="preset-btn" data-val="20" onclick="selectPreset(this)"><span>20</span></button>
+                        </div>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Difficulty</label>
+                        <div class="preset-grid" data-tool="quiz-difficulty" style="grid-template-columns:repeat(3,1fr)">
+                            <button class="preset-btn" data-val="easy" onclick="selectPreset(this)"><i class="fas fa-seedling"></i><span>Easy</span></button>
+                            <button class="preset-btn active" data-val="medium" onclick="selectPreset(this)"><i class="fas fa-balance-scale"></i><span>Medium</span></button>
+                            <button class="preset-btn" data-val="hard" onclick="selectPreset(this)"><i class="fas fa-fire"></i><span>Hard</span></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processQuiz()"><i class="fas fa-question-circle"></i> Generate Quiz</button>
+                    <div class="processing-status hidden" data-tool="ai-quiz">
+                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                        <span>Generating quiz...</span>
+                    </div>
+                    <div class="quiz-result hidden" data-tool="ai-quiz"></div>
+                </div>
+            </div>
+
+            <!-- ── AI Key Terms Extractor ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-ai-key-terms">
+                <div class="tool-header">
+                    <h2><i class="fas fa-key"></i> AI Key Terms Extractor</h2>
+                    <p>Extract vocabulary and key terms with AI-generated definitions from your content.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options" style="margin-bottom:12px">
+                        <label class="option-label">Input method</label>
+                        <div class="preset-grid" data-tool="keyterms-input-mode" style="grid-template-columns:repeat(2,1fr)">
+                            <button class="preset-btn active" data-val="upload" onclick="selectPreset(this); toggleKeyTermsInput('upload')"><i class="fas fa-file-upload"></i><span>Upload File</span><small>PDF, Word, TXT</small></button>
+                            <button class="preset-btn" data-val="paste" onclick="selectPreset(this); toggleKeyTermsInput('paste')"><i class="fas fa-paste"></i><span>Paste Text</span><small>Copy &amp; paste</small></button>
+                        </div>
+                    </div>
+                    <div id="keyterms-upload-mode">
+                        <div class="upload-zone" id="uz-ai-key-terms" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md" data-max="20971520">
+                            <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop your file here</p><span>or click to browse</span><small>PDF, Word, Text, or Markdown &mdash; Max 20 MB</small></div>
+                            <input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md">
+                        </div>
+                        <div class="file-preview hidden" data-tool="ai-key-terms">
+                            <div class="file-info"><i class="fas fa-file-alt"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                            <button class="file-remove" onclick="removeFile('ai-key-terms')"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div id="keyterms-paste-mode" class="hidden">
+                        <div class="study-notes-paste-area">
+                            <textarea id="keyterms-text-input" placeholder="Paste your study notes or content to extract key terms and definitions..." rows="8"></textarea>
+                            <div class="paste-char-count"><span id="keyterms-char-count">0</span> characters</div>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processKeyTerms()"><i class="fas fa-key"></i> Extract Key Terms</button>
+                    <div class="processing-status hidden" data-tool="ai-key-terms">
+                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                        <span>Extracting key terms...</span>
+                    </div>
+                    <div class="keyterms-result hidden" data-tool="ai-key-terms"></div>
+                </div>
+            </div>
+
+            <!-- ── AI Paraphraser ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-ai-paraphrase">
+                <div class="tool-header">
+                    <h2><i class="fas fa-sync-alt"></i> AI Paraphraser</h2>
+                    <p>Rewrite text in different tones — formal, casual, simplified, or academic.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="study-notes-paste-area">
+                        <textarea id="paraphrase-input" placeholder="Paste the text you want to paraphrase..." rows="6"></textarea>
+                        <div class="paste-char-count"><span id="paraphrase-char-count">0</span> characters</div>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Tone</label>
+                        <div class="preset-grid" data-tool="paraphrase-tone" style="grid-template-columns:repeat(2,1fr)">
+                            <button class="preset-btn active" data-val="formal" onclick="selectPreset(this)"><i class="fas fa-user-tie"></i><span>Formal</span><small>Professional</small></button>
+                            <button class="preset-btn" data-val="casual" onclick="selectPreset(this)"><i class="fas fa-smile"></i><span>Casual</span><small>Friendly</small></button>
+                            <button class="preset-btn" data-val="simplified" onclick="selectPreset(this)"><i class="fas fa-child"></i><span>Simplified</span><small>Easy to read</small></button>
+                            <button class="preset-btn" data-val="academic" onclick="selectPreset(this)"><i class="fas fa-graduation-cap"></i><span>Academic</span><small>Scholarly</small></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processParaphrase()"><i class="fas fa-sync-alt"></i> Paraphrase</button>
+                    <div class="processing-status hidden" data-tool="ai-paraphrase">
+                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                        <span>Paraphrasing...</span>
+                    </div>
+                    <div class="paraphrase-result hidden" data-tool="ai-paraphrase"></div>
+                </div>
+            </div>
+
+            <!-- ── Citation Generator ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-citation-gen">
+                <div class="tool-header">
+                    <h2><i class="fas fa-quote-left"></i> Citation Generator</h2>
+                    <p>Generate properly formatted citations from URLs, DOIs, or book information.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options" style="margin-bottom:12px">
+                        <label class="option-label">Source type</label>
+                        <div class="preset-grid" data-tool="citation-source" style="grid-template-columns:repeat(3,1fr)">
+                            <button class="preset-btn active" data-val="url" onclick="selectPreset(this); toggleCitationInput('url')"><i class="fas fa-link"></i><span>URL</span></button>
+                            <button class="preset-btn" data-val="doi" onclick="selectPreset(this); toggleCitationInput('doi')"><i class="fas fa-book-open"></i><span>DOI</span></button>
+                            <button class="preset-btn" data-val="manual" onclick="selectPreset(this); toggleCitationInput('manual')"><i class="fas fa-edit"></i><span>Manual</span></button>
+                        </div>
+                    </div>
+                    <div id="citation-url-mode">
+                        <div class="input-group" style="margin-bottom:16px">
+                            <label for="citation-url-input">Website URL</label>
+                            <input type="url" id="citation-url-input" placeholder="https://example.com/article">
+                        </div>
+                    </div>
+                    <div id="citation-doi-mode" class="hidden">
+                        <div class="input-group" style="margin-bottom:16px">
+                            <label for="citation-doi-input">DOI</label>
+                            <input type="text" id="citation-doi-input" placeholder="10.1000/xyz123">
+                        </div>
+                    </div>
+                    <div id="citation-manual-mode" class="hidden">
+                        <div class="citation-manual-grid">
+                            <div class="input-group"><label for="cit-author">Author(s)</label><input type="text" id="cit-author" placeholder="Last, First; Last, First"></div>
+                            <div class="input-group"><label for="cit-title">Title</label><input type="text" id="cit-title" placeholder="Article or Book Title"></div>
+                            <div class="input-group"><label for="cit-year">Year</label><input type="text" id="cit-year" placeholder="2024"></div>
+                            <div class="input-group"><label for="cit-publisher">Publisher / Journal</label><input type="text" id="cit-publisher" placeholder="Publisher name"></div>
+                            <div class="input-group"><label for="cit-url">URL (optional)</label><input type="url" id="cit-url" placeholder="https://..."></div>
+                        </div>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Citation style</label>
+                        <div class="preset-grid" data-tool="citation-style" style="grid-template-columns:repeat(4,1fr)">
+                            <button class="preset-btn active" data-val="apa" onclick="selectPreset(this)"><span>APA</span></button>
+                            <button class="preset-btn" data-val="mla" onclick="selectPreset(this)"><span>MLA</span></button>
+                            <button class="preset-btn" data-val="chicago" onclick="selectPreset(this)"><span>Chicago</span></button>
+                            <button class="preset-btn" data-val="harvard" onclick="selectPreset(this)"><span>Harvard</span></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processCitation()"><i class="fas fa-quote-left"></i> Generate Citation</button>
+                    <div class="processing-status hidden" data-tool="citation-gen">
+                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                        <span>Generating citation...</span>
+                    </div>
+                    <div class="citation-result hidden" data-tool="citation-gen"></div>
+                </div>
+            </div>
+
+            <!-- ── Screenshot Annotator ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-screenshot-annotate">
+                <div class="tool-header">
+                    <h2><i class="fas fa-pencil-alt"></i> Screenshot Annotator</h2>
+                    <p>Add arrows, boxes, text, and blur to screenshots — great for tutorials and bug reports.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-screenshot-annotate" data-accept="image/*" data-max="20971520">
+                        <div class="upload-zone-content"><i class="fas fa-image"></i><p>Drag &amp; drop an image here</p><span>or click to browse</span><small>PNG, JPG, WebP &mdash; Max 20 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*">
+                    </div>
+                    <div class="annotator-workspace hidden" data-tool="screenshot-annotate">
+                        <div class="annotator-toolbar">
+                            <button class="ann-tool active" data-tool="select" title="Select"><i class="fas fa-mouse-pointer"></i></button>
+                            <button class="ann-tool" data-tool="arrow" title="Arrow"><i class="fas fa-long-arrow-alt-right"></i></button>
+                            <button class="ann-tool" data-tool="rect" title="Rectangle"><i class="far fa-square"></i></button>
+                            <button class="ann-tool" data-tool="circle" title="Circle"><i class="far fa-circle"></i></button>
+                            <button class="ann-tool" data-tool="text" title="Text"><i class="fas fa-font"></i></button>
+                            <button class="ann-tool" data-tool="blur" title="Blur"><i class="fas fa-eye-slash"></i></button>
+                            <button class="ann-tool" data-tool="highlight" title="Highlight"><i class="fas fa-highlighter"></i></button>
+                            <div class="ann-separator"></div>
+                            <input type="color" id="ann-color" value="#ff3366" title="Color">
+                            <input type="range" id="ann-stroke" min="2" max="10" value="4" title="Stroke width">
+                            <div class="ann-separator"></div>
+                            <button class="ann-action" data-action="undo" title="Undo"><i class="fas fa-undo"></i></button>
+                            <button class="ann-action" data-action="clear" title="Clear all"><i class="fas fa-trash"></i></button>
+                        </div>
+                        <div class="annotator-canvas-wrap">
+                            <canvas id="annotator-canvas"></canvas>
+                        </div>
+                        <div class="annotator-actions">
+                            <button class="btn-secondary" onclick="resetAnnotator()"><i class="fas fa-times"></i> Cancel</button>
+                            <button class="process-btn" onclick="downloadAnnotated()"><i class="fas fa-download"></i> Download</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <footer class="footer">
                 <span>Powered by <strong>C++</strong>, <strong>WebAssembly</strong>, <strong>FFmpeg</strong>, <strong>yt-dlp</strong> &amp; <strong>Ghostscript</strong> &mdash; Built with <i class="fas fa-heart"></i> by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener" style="color:var(--accent-light);text-decoration:none;font-weight:600">Luma</a></span>
                 <br>
@@ -1871,6 +2162,7 @@
     <script src="js/file-tools.js"></script>
     <script src="js/batch.js"></script>
     <script src="js/tools-misc.js"></script>
+    <script src="js/ai-tools.js"></script>
     <!-- Downloader & health -->
     <script src="js/downloader.js"></script>
     <script src="js/health.js"></script>
