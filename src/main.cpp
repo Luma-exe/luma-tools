@@ -182,49 +182,65 @@ int main() {
         else
             cout << "[Luma Tools] ImageMagick not found (optional)" << endl;
 
-        // rembg — probe 'rembg --help'; if that fails, try explicit Python Scripts paths
+        // rembg — find rembg.exe by existence check (don't rely on exit code of --help)
         {
+            // Helper: checks if rembg.exe exists at a path; if so marks available + patches PATH
+            auto try_rembg = [&](const string& candidate) -> bool {
+                if (!fs::exists(candidate)) return false;
+                string scripts_dir = fs::path(candidate).parent_path().string();
+                const char* cur = std::getenv("PATH");
+                string new_path = scripts_dir + ";" + (cur ? cur : "");
+                _putenv_s("PATH", new_path.c_str());
+                g_rembg_available = true;
+                cout << "[Luma Tools] rembg found: " << candidate << endl;
+                return true;
+            };
+
+            // 1. Try bare command first (already on PATH)
             int rc;
-            exec_command("rembg --help", rc);
-            g_rembg_available = (rc == 0);
-            if (!g_rembg_available) {
-                // Build list of candidate rembg.exe paths from all Python installs
-                vector<string> rembg_candidates;
-                // C:\Program Files\Python*\Scripts\rembg.exe
-                const char* pff = std::getenv("ProgramFiles");
-                string pf_str = pff ? pff : "C:\\Program Files";
-                try {
-                    for (const auto& e : fs::directory_iterator(pf_str)) {
-                        if (!e.is_directory()) continue;
-                        string n = e.path().filename().string();
-                        if (n.rfind("Python", 0) == 0)
-                            rembg_candidates.push_back(e.path().string() + "\\Scripts\\rembg.exe");
-                    }
-                } catch (...) {}
-                // C:\Users\*\AppData\Local\Programs\Python\Python*\Scripts\rembg.exe
+            exec_command("rembg --version 2>&1", rc);
+            if (rc == 0) {
+                g_rembg_available = true;
+            } else {
+                // 2. Scan all Python installs for rembg.exe
+                vector<string> scripts_roots;
+
+                // C:\Program Files\Python*\Scripts  (system-wide pip install)
+                for (const string& pf_base : {"C:\\Program Files", "C:\\Program Files (x86)"}) {
+                    try {
+                        for (const auto& e : fs::directory_iterator(pf_base)) {
+                            if (!e.is_directory()) continue;
+                            if (e.path().filename().string().rfind("Python", 0) == 0)
+                                scripts_roots.push_back(e.path().string() + "\\Scripts");
+                        }
+                    } catch (...) {}
+                }
+
+                // C:\Users\*\AppData\Local\Programs\Python\Python*\Scripts  (user pip install)
+                // C:\Users\*\AppData\Roaming\Python\Python*\Scripts
                 try {
                     for (const auto& user : fs::directory_iterator("C:\\Users")) {
                         if (!user.is_directory()) continue;
-                        string pybase = user.path().string() + "\\AppData\\Local\\Programs\\Python";
-                        if (!fs::exists(pybase)) continue;
-                        for (const auto& ver : fs::directory_iterator(pybase)) {
-                            if (!ver.is_directory()) continue;
-                            rembg_candidates.push_back(ver.path().string() + "\\Scripts\\rembg.exe");
+                        string base = user.path().string();
+                        for (const string& sub : {
+                            "\\AppData\\Local\\Programs\\Python",
+                            "\\AppData\\Roaming\\Python"}) {
+                            string pybase = base + sub;
+                            if (!fs::exists(pybase)) continue;
+                            try {
+                                for (const auto& ver : fs::directory_iterator(pybase)) {
+                                    if (ver.is_directory())
+                                        scripts_roots.push_back(ver.path().string() + "\\Scripts");
+                                }
+                            } catch (...) {}
                         }
+                        // Also check flat Roaming\Python\Scripts
+                        scripts_roots.push_back(base + "\\AppData\\Roaming\\Python\\Scripts");
                     }
                 } catch (...) {}
-                for (const auto& cand : rembg_candidates) {
-                    if (fs::exists(cand)) {
-                        // Add its Scripts dir to PATH so future calls work bare
-                        string scripts_dir = fs::path(cand).parent_path().string();
-                        const char* cur = std::getenv("PATH");
-                        string new_path = scripts_dir + ";" + (cur ? cur : "");
-                        _putenv_s("PATH", new_path.c_str());
-                        int rc2;
-                        exec_command("rembg --help", rc2);
-                        g_rembg_available = (rc2 == 0);
-                        if (g_rembg_available) break;
-                    }
+
+                for (const auto& scripts : scripts_roots) {
+                    if (try_rembg(scripts + "\\rembg.exe")) break;
                 }
             }
             cout << "[Luma Tools] rembg: " << (g_rembg_available ? "available" : "not found (optional)") << endl;
