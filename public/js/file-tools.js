@@ -493,6 +493,9 @@ function showResult(toolId, blob, filename, jobId = null) {
     // clear any previous preview / multi list
     result.querySelectorAll('.result-preview, .result-actions, .multi-result-list, .result-zip-btn, .notes-preview-pane').forEach(el => el.remove());
 
+    // Re-attach downloadLink to result in case it was inside a removed .result-actions
+    if (!downloadLink.parentNode) result.appendChild(downloadLink);
+
     // wrap download button + optional preview in a side-by-side container
     const actions = document.createElement('div');
     actions.className = 'result-actions';
