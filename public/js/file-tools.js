@@ -967,10 +967,15 @@ function detectFileCategory(file) {
     const type = (file.type || '').toLowerCase();
     const name = file.name.toLowerCase();
 
-    if (type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|tiff?|ico|gif|svg)$/.test(name)) return 'image';
+    // GIF gets its own category (gif-to-video tool etc.)
+    if (/\.gif$/.test(name) || type === 'image/gif') return 'gif';
+    if (type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|tiff?|ico|svg)$/.test(name)) return 'image';
     if (type.startsWith('video/') || /\.(mp4|webm|avi|mov|mkv|flv|wmv)$/.test(name)) return 'video';
     if (type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|aac|m4a|wma|opus)$/.test(name)) return 'audio';
     if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
+    if (/\.(md|markdown)$/.test(name) || type === 'text/markdown') return 'markdown';
+    if (/\.csv$/.test(name) || type === 'text/csv') return 'csv';
+    if (/\.json$/.test(name) || type === 'application/json') return 'json';
     return null;
 }
 

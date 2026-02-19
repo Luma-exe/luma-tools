@@ -35,13 +35,22 @@ const $$ = sel => document.querySelectorAll(sel);
 // File → tool mappings for quick-action modal
 const FILE_TOOL_MAP = {
     'image': [
-        { id: 'image-compress',  label: 'Compress',        icon: 'fas fa-compress-alt' },
-        { id: 'image-resize',    label: 'Resize',           icon: 'fas fa-expand-arrows-alt' },
-        { id: 'image-convert',   label: 'Convert',          icon: 'fas fa-exchange-alt' },
-        { id: 'image-crop',      label: 'Crop',             icon: 'fas fa-crop-alt' },
-        { id: 'image-bg-remove', label: 'Remove BG',        icon: 'fas fa-magic' },
-        { id: 'image-watermark', label: 'Watermark',         icon: 'fas fa-stamp' },
-        { id: 'metadata-strip',  label: 'Strip Metadata',   icon: 'fas fa-eraser' },
+        { id: 'image-compress',      label: 'Compress',        icon: 'fas fa-compress-alt' },
+        { id: 'image-resize',        label: 'Resize',           icon: 'fas fa-expand-arrows-alt' },
+        { id: 'image-convert',       label: 'Convert',          icon: 'fas fa-exchange-alt' },
+        { id: 'image-crop',          label: 'Crop',             icon: 'fas fa-crop-alt' },
+        { id: 'image-bg-remove',     label: 'Remove BG',        icon: 'fas fa-magic' },
+        { id: 'image-watermark',     label: 'Watermark',        icon: 'fas fa-stamp' },
+        { id: 'metadata-strip',      label: 'Strip Metadata',   icon: 'fas fa-eraser' },
+        { id: 'color-palette',       label: 'Color Palette',    icon: 'fas fa-eye-dropper' },
+        { id: 'favicon-generate',    label: 'Make Favicon',     icon: 'fas fa-icons' },
+        { id: 'screenshot-annotate', label: 'Annotate',         icon: 'fas fa-pen-nib' },
+        { id: 'redact',              label: 'Redact',           icon: 'fas fa-user-secret' },
+    ],
+    'gif': [
+        { id: 'gif-to-video',    label: 'To Video',  icon: 'fas fa-film' },
+        { id: 'image-compress',  label: 'Compress',  icon: 'fas fa-compress-alt' },
+        { id: 'image-convert',   label: 'Convert',   icon: 'fas fa-exchange-alt' },
     ],
     'video': [
         { id: 'video-compress',      label: 'Compress',       icon: 'fas fa-compress' },
@@ -49,8 +58,11 @@ const FILE_TOOL_MAP = {
         { id: 'video-trim',          label: 'Trim',           icon: 'fas fa-cut' },
         { id: 'video-extract-audio', label: 'Extract Audio',  icon: 'fas fa-music' },
         { id: 'video-to-gif',        label: 'To GIF',         icon: 'fas fa-magic' },
-        { id: 'video-speed',         label: 'Speed',          icon: 'fas fa-tachometer-alt' },
+        { id: 'video-speed',         label: 'Change Speed',   icon: 'fas fa-tachometer-alt' },
         { id: 'video-remove-audio',  label: 'Remove Audio',   icon: 'fas fa-volume-mute' },
+        { id: 'video-frame',         label: 'Extract Frame',  icon: 'fas fa-film' },
+        { id: 'video-stabilize',     label: 'Stabilize',      icon: 'fas fa-crosshairs' },
+        { id: 'redact',              label: 'Redact',         icon: 'fas fa-user-secret' },
     ],
     'audio': [
         { id: 'audio-convert',   label: 'Convert',    icon: 'fas fa-headphones' },
@@ -58,18 +70,23 @@ const FILE_TOOL_MAP = {
         { id: 'audio-trim',      label: 'Trim',       icon: 'fas fa-cut' },
     ],
     'pdf': [
-        { id: 'pdf-compress',     label: 'Compress',     icon: 'fas fa-file-pdf' },
-        { id: 'pdf-to-images',    label: 'To Images',    icon: 'fas fa-images' },
-        { id: 'pdf-split',        label: 'Split',        icon: 'fas fa-scissors' },
-        { id: 'ai-study-notes',   label: 'Study Notes',  icon: 'fas fa-brain' },
+        { id: 'pdf-compress',    label: 'Compress',     icon: 'fas fa-file-pdf' },
+        { id: 'pdf-merge',       label: 'Merge',        icon: 'fas fa-layer-group' },
+        { id: 'pdf-split',       label: 'Split',        icon: 'fas fa-scissors' },
+        { id: 'pdf-to-images',   label: 'To Images',    icon: 'fas fa-images' },
+        { id: 'ai-study-notes',  label: 'Study Notes',  icon: 'fas fa-brain' },
+        { id: 'ai-flashcards',   label: 'Flashcards',   icon: 'fas fa-clone' },
+        { id: 'ai-quiz',         label: 'Quiz Me',      icon: 'fas fa-question-circle' },
+        { id: 'ai-key-terms',    label: 'Key Terms',    icon: 'fas fa-key' },
     ],
     'markdown': [
-        { id: 'markdown-to-pdf',  label: 'To PDF',       icon: 'fab fa-markdown' },
+        { id: 'markdown-to-pdf',  label: 'To PDF',    icon: 'fab fa-markdown' },
+        { id: 'markdown-preview', label: 'Preview',   icon: 'fas fa-eye' },
     ],
     'csv': [
-        { id: 'csv-json',         label: 'To JSON',      icon: 'fas fa-exchange-alt' },
+        { id: 'csv-json', label: 'To JSON', icon: 'fas fa-exchange-alt' },
     ],
     'json': [
-        { id: 'csv-json',         label: 'To CSV',       icon: 'fas fa-exchange-alt' },
+        { id: 'csv-json', label: 'To CSV', icon: 'fas fa-exchange-alt' },
     ],
 };
