@@ -162,8 +162,19 @@ async function processFileWasm(toolId) {
     } catch (err) {
         showToast('Client processing failed, trying server...', 'info');
 
-        try { await processFileServer(toolId); return; }
-        catch (serverErr) { showToast(serverErr.message, 'error'); }
+    try {
+        await processFileServer(toolId);
+        // Update badge to reflect actual server execution
+        const _panel = document.getElementById('tool-' + toolId);
+        const _lb = _panel?.querySelector('.tool-location-badge');
+        if (_lb) {
+            _lb.className = 'tool-location-badge loc-server';
+            _lb.title = 'Ran on our server — browser processing unavailable';
+            _lb.innerHTML = '<i class="fas fa-server"></i> On our server';
+        }
+        return;
+    }
+    catch (serverErr) { showToast(serverErr.message, 'error'); }
     } finally {
         showProcessing(toolId, false);
     }
