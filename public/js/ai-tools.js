@@ -82,7 +82,8 @@ let cardFlipped = false;
 function processFlashcards() {
     const toolId = 'ai-flashcards';
     const inputMode = document.querySelector('.preset-grid[data-tool="flashcards-input-mode"] .preset-btn.active')?.dataset.val || 'upload';
-    const count = document.querySelector('.preset-grid[data-tool="flashcards-count"] .preset-btn.active')?.dataset.val || '20';
+    let count = document.querySelector('.preset-grid[data-tool="flashcards-count"] .preset-btn.active')?.dataset.val || '20';
+    if (count === 'max') count = '0'; // backend interprets 0 as max-mode
 
     let text = '';
     if (inputMode === 'paste') {

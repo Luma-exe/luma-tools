@@ -2446,11 +2446,13 @@ IMPORTANT RULES:
             return;
         }
 
+        string count_raw = req.has_file("count") ? req.get_file_value("count").content : "20";
+        bool max_mode = (count_raw == "max" || count_raw == "0");
         int count = 20;
-        if (req.has_file("count")) {
-            try { count = std::stoi(req.get_file_value("count").content); } catch (...) {}
+        if (!max_mode) {
+            try { count = std::stoi(count_raw); } catch (...) {}
+            count = std::min(std::max(count, 5), 100);
         }
-        count = std::min(std::max(count, 5), 50);
 
         string text;
         string proc = get_processing_dir();
@@ -2471,15 +2473,29 @@ IMPORTANT RULES:
             res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
             return;
         }
-        if (text.size() > 12000) text = text.substr(0, 12000);
+        if (text.size() > 16000) text = text.substr(0, 16000);
 
-        string system_prompt = "You are an expert educator creating flashcards. Generate exactly " + to_string(count) + " flashcards from the provided content. "
-            "Each flashcard should test a key concept, term, or fact. "
-            "Output ONLY valid JSON array with objects containing 'question' and 'answer' fields. "
-            "Questions should be clear and specific. Answers should be concise but complete.";
+        string system_prompt, user_prompt;
+        int max_tokens;
 
-        string user_prompt = "Create " + to_string(count) + " flashcards from this content:\n\n" + text + 
-            "\n\nOutput as JSON array: [{\"question\": \"...\", \"answer\": \"...\"}]";
+        if (max_mode) {
+            system_prompt = "You are an expert educator creating flashcards. "
+                "Generate the MAXIMUM number of flashcards possible from the provided content — cover every concept, term, definition, fact, and relationship present. "
+                "Do not skip anything that could be tested. "
+                "Output ONLY a valid JSON array with objects containing 'question' and 'answer' fields. "
+                "Questions should be clear and specific. Answers should be concise but complete.";
+            user_prompt = "Generate as many flashcards as possible from this content — cover every testable concept, term, and fact:\n\n" + text +
+                "\n\nOutput ONLY JSON array: [{\"question\": \"...\", \"answer\": \"...\"}]";
+            max_tokens = 8192;
+        } else {
+            system_prompt = "You are an expert educator creating flashcards. Generate exactly " + to_string(count) + " flashcards from the provided content. "
+                "Each flashcard should test a key concept, term, or fact. "
+                "Output ONLY valid JSON array with objects containing 'question' and 'answer' fields. "
+                "Questions should be clear and specific. Answers should be concise but complete.";
+            user_prompt = "Create " + to_string(count) + " flashcards from this content:\n\n" + text +
+                "\n\nOutput as JSON array: [{\"question\": \"...\", \"answer\": \"...\"}]";
+            max_tokens = 4096;
+        }
 
         json payload = {
             {"model", "llama-3.3-70b-versatile"},
@@ -2488,7 +2504,7 @@ IMPORTANT RULES:
                 {{"role", "user"}, {"content", user_prompt}}
             }},
             {"temperature", 0.5},
-            {"max_tokens", 4096}
+            {"max_tokens", max_tokens}
         };
 
         auto gr = call_groq(payload, proc, jid + "_fc");
@@ -2514,9 +2530,10 @@ IMPORTANT RULES:
             return;
         }
 
+        string label = input_desc + " (" + (max_mode ? "max" : to_string(count)) + " cards → " + to_string(flashcards.size()) + " generated)";
         stat_record_ai_call("AI Flashcards", gr.model_used, gr.tokens_used, req.remote_addr);
-        discord_log_ai_tool("AI Flashcards", input_desc, gr.model_used, gr.tokens_used, req.remote_addr);
-        res.set_content(json({{"flashcards", flashcards}, {"model_used", gr.model_used}}).dump(), "application/json");
+        discord_log_ai_tool("AI Flashcards", label, gr.model_used, gr.tokens_used, req.remote_addr);
+        res.set_content(json({{"flashcards", flashcards}, {"model_used", gr.model_used}, {"count", flashcards.size()}}).dump(), "application/json");
     });
 
     // ══════════════════════════════════════════════════════════════════════════════

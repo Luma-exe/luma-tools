@@ -1941,11 +1941,12 @@
                     </div>
                     <div class="tool-options">
                         <label class="option-label">Number of cards</label>
-                        <div class="preset-grid" data-tool="flashcards-count" style="grid-template-columns:repeat(4,1fr)">
+                        <div class="preset-grid" data-tool="flashcards-count" style="grid-template-columns:repeat(5,1fr)">
                             <button class="preset-btn" data-val="10" onclick="selectPreset(this)"><span>10</span></button>
                             <button class="preset-btn active" data-val="20" onclick="selectPreset(this)"><span>20</span></button>
                             <button class="preset-btn" data-val="30" onclick="selectPreset(this)"><span>30</span></button>
                             <button class="preset-btn" data-val="50" onclick="selectPreset(this)"><span>50</span></button>
+                            <button class="preset-btn" data-val="max" onclick="selectPreset(this)"><span>Max</span><small>All concepts</small></button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFlashcards()"><i class="fas fa-clone"></i> Generate Flashcards</button>
