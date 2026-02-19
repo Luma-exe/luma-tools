@@ -402,6 +402,7 @@ function pollJobStatus(toolId, jobId) {
                 showResult(toolId, blob, filename, jobId);
             } catch (err) { showToast(err.message, 'error'); }
             showProcessing(toolId, false);
+            if (data.model_used) showModelBadge(toolId, data.model_used);
         } else if (data.status === 'error' || data.status === 'not_found' || data.status === 'timeout') {
             es.close(); delete state.jobPolls[toolId];
             showProcessing(toolId, false);
@@ -1184,7 +1185,7 @@ function processStudyNotes() {
                 showProcessing(toolId, false);
                 return;
             }
-            if (data.job_id) pollJob(toolId, data.job_id);
+            if (data.job_id) pollJobStatus(toolId, data.job_id);
         })
         .catch(err => {
             showToast(err.message || 'Request failed', 'error');
@@ -1218,7 +1219,7 @@ function processStudyNotes() {
                     return;
                 }
                 if (data.job_id) {
-                    pollJob(toolId, data.job_id);
+                    pollJobStatus(toolId, data.job_id);
                 }
             })
             .catch(err => {

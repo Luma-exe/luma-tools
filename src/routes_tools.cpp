@@ -25,6 +25,52 @@ static std::string join(const std::vector<std::string>& v, const std::string& de
 #include "discord.h"
 #include "routes.h"
 
+// ── Groq model chain with automatic fallback ─────────────────────────────────
+static const vector<string> GROQ_MODEL_CHAIN = {
+    "llama-3.3-70b-versatile",
+    "deepseek-r1-distill-llama-70b",
+    "llama-3.1-8b-instant"
+};
+
+struct GroqResult {
+    json response;
+    string model_used;
+    bool ok = false;
+};
+
+static GroqResult call_groq(json payload, const string& proc, const string& prefix) {
+    string pf = proc + "/" + prefix + "_pl.json";
+    string hf = proc + "/" + prefix + "_hdr.txt";
+    string rf = proc + "/" + prefix + "_resp.json";
+    { ofstream f(hf); f << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
+    string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                      " -H @" + escape_arg(hf) +
+                      " -d @" + escape_arg(pf) +
+                      " -o " + escape_arg(rf);
+    GroqResult result;
+    for (const auto& model : GROQ_MODEL_CHAIN) {
+        payload["model"] = model;
+        { ofstream f(pf); f << payload.dump(); }
+        try { if (fs::exists(rf)) fs::remove(rf); } catch (...) {}
+        int rc; exec_command(curl_cmd, rc);
+        if (!fs::exists(rf) || fs::file_size(rf) == 0) continue;
+        try {
+            ifstream f(rf); ostringstream ss; ss << f.rdbuf();
+            auto rj = json::parse(ss.str());
+            bool rate_limited = rj.contains("error") && rj["error"].is_object() &&
+                (rj["error"].value("message","").find("Rate limit") != string::npos ||
+                 rj["error"].value("message","").find("rate limit") != string::npos);
+            if (rate_limited) continue;
+            result.response = rj;
+            result.model_used = model;
+            result.ok = rj.contains("choices") && !rj["choices"].empty();
+            break;
+        } catch (...) {}
+    }
+    try { fs::remove(pf); fs::remove(hf); fs::remove(rf); } catch (...) {}
+    return result;
+}
+
 void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
     // ── POST /api/tools/image-compress ──────────────────────────────────────
@@ -528,72 +574,37 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             {"temperature", 0.3}
         };
 
-        string payload_file = proc + "/" + rid + "_coverage_payload.json";
-        { ofstream f(payload_file); f << payload.dump(); }
-
-        string hdr_file = proc + "/" + rid + "_auth.txt";
-        { ofstream f(hdr_file); f << "Authorization: Bearer " << g_groq_key; }
-
-        string resp_file = proc + "/" + rid + "_coverage_resp.json";
-        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-            " -H \"Content-Type: application/json\""
-            " -H @" + escape_arg(hdr_file) +
-            " -d @" + escape_arg(payload_file) +
-            " -o " + escape_arg(resp_file);
-        int code; exec_command(curl_cmd, code);
-        // Fallback: retry with alternative models if rate-limited
-        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
-          for (const auto& _fb : _fbs) {
-            bool _rl = false;
-            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
-                      auto _rj = json::parse(_ss.str());
-                      if (_rj.contains("error") && _rj["error"].is_object())
-                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
-                } catch (...) {}
-            }
-            if (!_rl) break;
-            payload["model"] = _fb;
-            { ofstream _pf(payload_file); _pf << payload.dump(); }
-            int _frc; exec_command(curl_cmd, _frc);
-          }
-        }
+        auto gr = call_groq(payload, proc, rid + "_coverage");
 
         json result;
         bool ok = false;
-        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+        if (gr.ok) {
             try {
-                ifstream f(resp_file); std::ostringstream ss; ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-                if (resp_json.contains("choices") && resp_json["choices"].is_array() && !resp_json["choices"].empty()) {
-                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
-                    // Strip markdown code blocks if present
-                    if (content.find("```json") != string::npos) {
-                        size_t start = content.find("```json") + 7;
-                        size_t end = content.find("```", start);
-                        if (end != string::npos) content = content.substr(start, end - start);
-                    } else if (content.find("```") != string::npos) {
-                        size_t start = content.find("```") + 3;
-                        size_t end = content.find("```", start);
-                        if (end != string::npos) content = content.substr(start, end - start);
-                    }
-                    // Trim whitespace
-                    while (!content.empty() && (content.front() == ' ' || content.front() == '\n')) content.erase(0, 1);
-                    while (!content.empty() && (content.back() == ' ' || content.back() == '\n')) content.pop_back();
-                    result = json::parse(content);
-                    ok = true;
-                } else if (resp_json.contains("error")) {
-                    result = {{"error", resp_json["error"].value("message", "AI API error")}};
+                string content = gr.response["choices"][0]["message"]["content"].get<string>();
+                // Strip markdown code blocks if present
+                if (content.find("```json") != string::npos) {
+                    size_t start = content.find("```json") + 7;
+                    size_t end = content.find("```", start);
+                    if (end != string::npos) content = content.substr(start, end - start);
+                } else if (content.find("```") != string::npos) {
+                    size_t start = content.find("```") + 3;
+                    size_t end = content.find("```", start);
+                    if (end != string::npos) content = content.substr(start, end - start);
                 }
+                // Trim whitespace
+                while (!content.empty() && (content.front() == ' ' || content.front() == '\n')) content.erase(0, 1);
+                while (!content.empty() && (content.back() == ' ' || content.back() == '\n')) content.pop_back();
+                result = json::parse(content);
+                result["model_used"] = gr.model_used;
+                ok = true;
             } catch (const std::exception& e) {
                 result = {{"error", string("Failed to parse AI response: ") + e.what()}};
             }
+        } else if (!gr.response.is_null() && gr.response.contains("error")) {
+            result = {{"error", gr.response["error"].value("message", "AI API error")}};
         } else {
             result = {{"error", "AI API call failed"}};
         }
-
-        // Cleanup temp files
-        try { fs::remove(payload_file); fs::remove(hdr_file); fs::remove(resp_file); } catch (...) {}
 
         if (!ok && !result.contains("error")) {
             result = {{"error", "Unknown AI analysis error"}};
@@ -2014,65 +2025,24 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
                 {"temperature", 0.4}
             };
 
-            string payload_str = payload.dump();
-            string payload_file = proc + "/" + jid + "_payload.json";
-            { ofstream f(payload_file); f << payload_str; }
-
-            // Write auth header to a separate file to avoid shell-escaping issues
-            string hdr_file = proc + "/" + jid + "_auth.txt";
-            { ofstream f(hdr_file); f << "Authorization: Bearer " << g_groq_key; }
-
-            string resp_file = proc + "/" + jid + "_resp.json";
-            string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-                " -H \"Content-Type: application/json\""
-                " -H @" + escape_arg(hdr_file) +
-                " -d @" + escape_arg(payload_file) +
-                " -o " + escape_arg(resp_file);
-            int code; exec_command(curl_cmd, code);
-            // Fallback: retry with alternative models if rate-limited
-            { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
-              for (const auto& _fb : _fbs) {
-                bool _rl = false;
-                if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                    try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
-                          auto _rj = json::parse(_ss.str());
-                          if (_rj.contains("error") && _rj["error"].is_object())
-                              _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
-                    } catch (...) {}
-                }
-                if (!_rl) break;
-                payload["model"] = _fb;
-                { ofstream _pf(payload_file); _pf << payload.dump(); }
-                int _frc; exec_command(curl_cmd, _frc);
-              }
-            }
+            auto gr = call_groq(payload, proc, jid + "_sn");
 
             string notes;
-            bool ai_ok = false;
-            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                try {
-                    ifstream f(resp_file); std::ostringstream ss; ss << f.rdbuf();
-                    auto resp_json = json::parse(ss.str());
-                    if (resp_json.contains("choices") && resp_json["choices"].is_array()
-                            && !resp_json["choices"].empty()) {
-                        notes = resp_json["choices"][0]["message"]["content"].get<string>();
-                        ai_ok = true;
-                    } else if (resp_json.contains("error")) {
-                        string msg = resp_json["error"].value("message", "OpenAI API error");
-                        update_job(jid, {{"status","error"},{"error", msg}});
-                        if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
-                        try { fs::remove(txt_path);
-                              fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
-                        return;
-                    }
-                } catch (...) {}
+            bool ai_ok = gr.ok;
+            if (ai_ok) {
+                notes = gr.response["choices"][0]["message"]["content"].get<string>();
+            } else if (!gr.response.is_null() && gr.response.contains("error")) {
+                string msg = gr.response["error"].value("message", "AI API error");
+                update_job(jid, {{"status","error"},{"error", msg}});
+                if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
+                try { fs::remove(txt_path); } catch (...) {}
+                return;
             }
 
             if (!ai_ok) {
                 update_job(jid, {{"status","error"},{"error","AI API call failed. Check server logs and Groq key."}});
                 if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
-                try { fs::remove(txt_path);
-                      fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
+                try { fs::remove(txt_path); } catch (...) {}
                 return;
             }
 
@@ -2081,10 +2051,9 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             string out_path = proc + "/" + jid + "_notes" + ext;
             { ofstream f(out_path); f << notes; }
 
-            update_job(jid, {{"status","completed"},{"progress",100},{"filename","study_notes" + ext}}, out_path);
+            update_job(jid, {{"status","completed"},{"progress",100},{"filename","study_notes" + ext},{"model_used", gr.model_used}}, out_path);
             if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
-            try { fs::remove(txt_path);
-                  fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
+            try { fs::remove(txt_path); } catch (...) {}
           } catch (const std::exception& e) {
               update_job(jid, {{"status","error"},{"error", string("Internal error: ") + e.what()}});
               if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
@@ -2172,71 +2141,19 @@ IMPORTANT RULES:
         };
 
         string proc = get_processing_dir();
-        
-        string payload_file = proc + "/improve_" + job_id + "_payload.json";
-        string resp_file = proc + "/improve_" + job_id + "_resp.json";
-        string hdr_file = proc + "/improve_" + job_id + "_hdr.txt";
-        
-        { ofstream f(payload_file); f << payload.dump(); }
-        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
 
-        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-                          " -H @" + escape_arg(hdr_file) +
-                          " -d @" + escape_arg(payload_file) +
-                          " -o " + escape_arg(resp_file);
+        auto gr = call_groq(payload, proc, "improve_" + job_id);
 
-        int rc; exec_command(curl_cmd, rc);
-        // Fallback: retry with alternative models if rate-limited
-        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
-          for (const auto& _fb : _fbs) {
-            bool _rl = false;
-            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
-                      auto _rj = json::parse(_ss.str());
-                      if (_rj.contains("error") && _rj["error"].is_object())
-                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
-                } catch (...) {}
-            }
-            if (!_rl) break;
-            payload["model"] = _fb;
-            { ofstream _pf(payload_file); _pf << payload.dump(); }
-            int _frc; exec_command(curl_cmd, _frc);
-          }
-        }
-        
-        string improved_notes;
-        bool success = false;
-        
-        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-            try {
-                ifstream f(resp_file);
-                std::ostringstream ss;
-                ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-                
-                if (resp_json.contains("choices") && resp_json["choices"].is_array() && !resp_json["choices"].empty()) {
-                    improved_notes = resp_json["choices"][0]["message"]["content"].get<string>();
-                    success = true;
-                } else if (resp_json.contains("error")) {
-                    string msg = resp_json["error"].value("message", "AI API error");
-                    res.status = 500;
-                    res.set_content(json({{"error", msg}}).dump(), "application/json");
-                    try { fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
-                    return;
-                }
-            } catch (...) {}
-        }
-
-        // Cleanup temp files
-        try { fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
-
-        if (!success) {
+        if (!gr.ok) {
+            string msg = (!gr.response.is_null() && gr.response.contains("error"))
+                ? gr.response["error"].value("message", "AI API error") : "Failed to improve notes";
             res.status = 500;
-            res.set_content(json({{"error", "Failed to improve notes"}}).dump(), "application/json");
+            res.set_content(json({{"error", msg}}).dump(), "application/json");
             return;
         }
 
-        res.set_content(json({{"improved_notes", improved_notes}}).dump(), "application/json");
+        string improved_notes = gr.response["choices"][0]["message"]["content"].get<string>();
+        res.set_content(json({{"improved_notes", improved_notes}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
     // ══════════════════════════════════════════════════════════════════════════════
@@ -2334,59 +2251,22 @@ IMPORTANT RULES:
             {"max_tokens", 4096}
         };
 
-        string payload_file = proc + "/" + jid + "_payload.json";
-        string resp_file = proc + "/" + jid + "_resp.json";
-        string hdr_file = proc + "/" + jid + "_hdr.txt";
-        { ofstream f(payload_file); f << payload.dump(); }
-        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
+        auto gr = call_groq(payload, proc, jid + "_fc");
 
-        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-                          " -H @" + escape_arg(hdr_file) +
-                          " -d @" + escape_arg(payload_file) +
-                          " -o " + escape_arg(resp_file);
-
-        int rc; exec_command(curl_cmd, rc);
-        // Fallback: retry with alternative models if rate-limited
-        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
-          for (const auto& _fb : _fbs) {
-            bool _rl = false;
-            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
-                      auto _rj = json::parse(_ss.str());
-                      if (_rj.contains("error") && _rj["error"].is_object())
-                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
-                } catch (...) {}
-            }
-            if (!_rl) break;
-            payload["model"] = _fb;
-            { ofstream _pf(payload_file); _pf << payload.dump(); }
-            int _frc; exec_command(curl_cmd, _frc);
-          }
-        }
-        
         json flashcards = json::array();
         bool success = false;
-        
-        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+
+        if (gr.ok) {
             try {
-                ifstream f(resp_file);
-                std::ostringstream ss; ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-                
-                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
-                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
-                    // Extract JSON array from response
-                    size_t start = content.find('[');
-                    size_t end = content.rfind(']');
-                    if (start != string::npos && end != string::npos) {
-                        flashcards = json::parse(content.substr(start, end - start + 1));
-                        success = true;
-                    }
+                string content = gr.response["choices"][0]["message"]["content"].get<string>();
+                size_t start = content.find('[');
+                size_t end = content.rfind(']');
+                if (start != string::npos && end != string::npos) {
+                    flashcards = json::parse(content.substr(start, end - start + 1));
+                    success = true;
                 }
             } catch (...) {}
         }
-
-        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
 
         if (!success) {
             res.status = 500;
@@ -2394,7 +2274,7 @@ IMPORTANT RULES:
             return;
         }
 
-        res.set_content(json({{"flashcards", flashcards}}).dump(), "application/json");
+        res.set_content(json({{"flashcards", flashcards}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
     // ══════════════════════════════════════════════════════════════════════════════
@@ -2500,58 +2380,22 @@ IMPORTANT RULES:
             {"max_tokens", 4096}
         };
 
-        string payload_file = proc + "/" + jid + "_payload.json";
-        string resp_file = proc + "/" + jid + "_resp.json";
-        string hdr_file = proc + "/" + jid + "_hdr.txt";
-        { ofstream f(payload_file); f << payload.dump(); }
-        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
+        auto gr = call_groq(payload, proc, jid + "_qz");
 
-        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-                          " -H @" + escape_arg(hdr_file) +
-                          " -d @" + escape_arg(payload_file) +
-                          " -o " + escape_arg(resp_file);
-
-        int rc; exec_command(curl_cmd, rc);
-        // Fallback: retry with alternative models if rate-limited
-        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
-          for (const auto& _fb : _fbs) {
-            bool _rl = false;
-            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
-                      auto _rj = json::parse(_ss.str());
-                      if (_rj.contains("error") && _rj["error"].is_object())
-                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
-                } catch (...) {}
-            }
-            if (!_rl) break;
-            payload["model"] = _fb;
-            { ofstream _pf(payload_file); _pf << payload.dump(); }
-            int _frc; exec_command(curl_cmd, _frc);
-          }
-        }
-        
         json questions = json::array();
         bool success = false;
-        
-        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+
+        if (gr.ok) {
             try {
-                ifstream f(resp_file);
-                std::ostringstream ss; ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-                
-                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
-                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
-                    size_t start = content.find('[');
-                    size_t end = content.rfind(']');
-                    if (start != string::npos && end != string::npos) {
-                        questions = json::parse(content.substr(start, end - start + 1));
-                        success = true;
-                    }
+                string content = gr.response["choices"][0]["message"]["content"].get<string>();
+                size_t start = content.find('[');
+                size_t end = content.rfind(']');
+                if (start != string::npos && end != string::npos) {
+                    questions = json::parse(content.substr(start, end - start + 1));
+                    success = true;
                 }
             } catch (...) {}
         }
-
-        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
 
         if (!success) {
             res.status = 500;
@@ -2559,20 +2403,13 @@ IMPORTANT RULES:
             return;
         }
 
-        res.set_content(json({{"questions", questions}}).dump(), "application/json");
+        res.set_content(json({{"questions", questions}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
     // ══════════════════════════════════════════════════════════════════════════════
     // AI PARAPHRASER
     // ══════════════════════════════════════════════════════════════════════════════
     svr.Post("/api/tools/ai-paraphrase", [](const httplib::Request& req, httplib::Response& res) {
-        if (g_groq_key.empty()) {
-            res.status = 503;
-            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
-            return;
-        }
-
-        if (!req.has_file("text") || req.get_file_value("text").content.empty()) { [](const httplib::Request& req, httplib::Response& res) {
         if (g_groq_key.empty()) {
             res.status = 503;
             res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
@@ -2619,61 +2456,16 @@ IMPORTANT RULES:
 
         string proc = get_processing_dir();
         string jid = generate_job_id();
-        string payload_file = proc + "/" + jid + "_payload.json";
-        string resp_file = proc + "/" + jid + "_resp.json";
-        string hdr_file = proc + "/" + jid + "_hdr.txt";
-        { ofstream f(payload_file); f << payload.dump(); }
-        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
+        auto gr = call_groq(payload, proc, jid + "_pp");
 
-        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-                          " -H @" + escape_arg(hdr_file) +
-                          " -d @" + escape_arg(payload_file) +
-                          " -o " + escape_arg(resp_file);
-
-        int rc; exec_command(curl_cmd, rc);
-        // Fallback: retry with alternative models if rate-limited
-        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
-          for (const auto& _fb : _fbs) {
-            bool _rl = false;
-            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
-                      auto _rj = json::parse(_ss.str());
-                      if (_rj.contains("error") && _rj["error"].is_object())
-                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
-                } catch (...) {}
-            }
-            if (!_rl) break;
-            payload["model"] = _fb;
-            { ofstream _pf(payload_file); _pf << payload.dump(); }
-            int _frc; exec_command(curl_cmd, _frc);
-          }
-        }
-        
-        string result;
-        bool success = false;
-        
-        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-            try {
-                ifstream f(resp_file);
-                std::ostringstream ss; ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-                
-                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
-                    result = resp_json["choices"][0]["message"]["content"].get<string>();
-                    success = true;
-                }
-            } catch (...) {}
-        }
-
-        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
-
-        if (!success) {
+        if (!gr.ok) {
             res.status = 500;
             res.set_content(json({{"error", "Failed to paraphrase text"}}).dump(), "application/json");
             return;
         }
 
-        res.set_content(json({{"result", result}}).dump(), "application/json");
+        string result = gr.response["choices"][0]["message"]["content"].get<string>();
+        res.set_content(json({{"result", result}, {"model_used", gr.model_used}}).dump(), "application/json");
     });
 
     // ══════════════════════════════════════════════════════════════════════════════
@@ -2911,58 +2703,22 @@ IMPORTANT RULES:
             {"max_tokens", 2048}
         };
 
-        string payload_file = proc + "/" + jid + "_payload.json";
-        string resp_file = proc + "/" + jid + "_resp.json";
-        string hdr_file = proc + "/" + jid + "_hdr.txt";
-        { ofstream f(payload_file); f << payload.dump(); }
-        { ofstream fh(hdr_file); fh << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
-
-        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-                          " -H @" + escape_arg(hdr_file) +
-                          " -d @" + escape_arg(payload_file) +
-                          " -o " + escape_arg(resp_file);
-
-        int rc; exec_command(curl_cmd, rc);
-        // Fallback: retry with alternative models if rate-limited
-        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
-          for (const auto& _fb : _fbs) {
-            bool _rl = false;
-            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
-                      auto _rj = json::parse(_ss.str());
-                      if (_rj.contains("error") && _rj["error"].is_object())
-                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
-                } catch (...) {}
-            }
-            if (!_rl) break;
-            payload["model"] = _fb;
-            { ofstream _pf(payload_file); _pf << payload.dump(); }
-            int _frc; exec_command(curl_cmd, _frc);
-          }
-        }
+        auto gr = call_groq(payload, proc, jid + "_mm");
 
         json result;
         bool success = false;
 
-        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+        if (gr.ok) {
             try {
-                ifstream f(resp_file);
-                std::ostringstream ss; ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-
-                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
-                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
-                    size_t start = content.find('{');
-                    size_t end = content.rfind('}');
-                    if (start != string::npos && end != string::npos) {
-                        result = json::parse(content.substr(start, end - start + 1));
-                        success = true;
-                    }
+                string content = gr.response["choices"][0]["message"]["content"].get<string>();
+                size_t start = content.find('{');
+                size_t end = content.rfind('}');
+                if (start != string::npos && end != string::npos) {
+                    result = json::parse(content.substr(start, end - start + 1));
+                    success = true;
                 }
             } catch (...) {}
         }
-
-        try { fs::remove(payload_file); fs::remove(resp_file); } catch (...) {}
 
         if (!success) {
             res.status = 500;
@@ -2970,6 +2726,7 @@ IMPORTANT RULES:
             return;
         }
 
+        result["model_used"] = gr.model_used;
         res.set_content(result.dump(), "application/json");
     });
 
@@ -3103,75 +2860,37 @@ IMPORTANT RULES:
             {"max_tokens", 2048}
         };
 
-        string payload_file = proc + "/" + jid + "_payload.json";
-        string resp_file    = proc + "/" + jid + "_resp.json";
-        string hdr_file     = proc + "/" + jid + "_auth.txt";
-        { ofstream f(payload_file); f << payload.dump(); }
-        { ofstream f(hdr_file); f << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
-
-        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
-                          " -H @" + escape_arg(hdr_file) +
-                          " -d @" + escape_arg(payload_file) +
-                          " -o " + escape_arg(resp_file);
-
-        int rc;
-        exec_command(curl_cmd, rc);
-        // Fallback: retry with alternative models if rate-limited
-        { const vector<string> _fbs = {"deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"};
-          for (const auto& _fb : _fbs) {
-            bool _rl = false;
-            if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
-                try { ifstream _fi(resp_file); ostringstream _ss; _ss << _fi.rdbuf();
-                      auto _rj = json::parse(_ss.str());
-                      if (_rj.contains("error") && _rj["error"].is_object())
-                          _rl = _rj["error"].value("message","").find("Rate limit") != string::npos;
-                } catch (...) {}
-            }
-            if (!_rl) break;
-            payload["model"] = _fb;
-            { ofstream _pf(payload_file); _pf << payload.dump(); }
-            int _frc; exec_command(curl_cmd, _frc);
-          }
-        }
+        auto gr = call_groq(payload, proc, jid + "_yt");
 
         json result;
         bool success = false;
 
-        string groq_error_msg;
-        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+        if (gr.ok) {
             try {
-                ifstream f(resp_file);
-                std::ostringstream ss; ss << f.rdbuf();
-                auto resp_json = json::parse(ss.str());
-
-                if (resp_json.contains("choices") && !resp_json["choices"].empty()) {
-                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
-                    size_t start = content.find('{');
-                    size_t end = content.rfind('}');
-                    if (start != string::npos && end != string::npos) {
-                        result = json::parse(content.substr(start, end - start + 1));
-                        success = true;
-                    }
-                } else if (resp_json.contains("error")) {
-                    // Surface the actual Groq API error
-                    if (resp_json["error"].is_object() && resp_json["error"].contains("message")) {
-                        groq_error_msg = resp_json["error"]["message"].get<string>();
-                    } else if (resp_json["error"].is_string()) {
-                        groq_error_msg = resp_json["error"].get<string>();
-                    }
+                string content = gr.response["choices"][0]["message"]["content"].get<string>();
+                size_t start = content.find('{');
+                size_t end = content.rfind('}');
+                if (start != string::npos && end != string::npos) {
+                    result = json::parse(content.substr(start, end - start + 1));
+                    success = true;
                 }
             } catch (...) {}
         }
 
         if (!success) {
-            string err_msg = groq_error_msg.empty() ? "Failed to summarize video. The AI service may be unavailable." : "AI API error: " + groq_error_msg;
+            string err_msg = "Failed to summarize video. The AI service may be unavailable.";
+            if (!gr.response.is_null() && gr.response.contains("error")) {
+                if (gr.response["error"].is_object() && gr.response["error"].contains("message"))
+                    err_msg = "AI API error: " + gr.response["error"]["message"].get<string>();
+                else if (gr.response["error"].is_string())
+                    err_msg = "AI API error: " + gr.response["error"].get<string>();
+            }
             res.status = 500;
             res.set_content(json({{"error", err_msg}}).dump(), "application/json");
             return;
         }
 
-        try { fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
-
+        result["model_used"] = gr.model_used;
         res.set_content(result.dump(), "application/json");
     });
 }

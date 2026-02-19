@@ -122,6 +122,7 @@ function processFlashcards() {
                 currentCardIndex = 0;
                 cardFlipped = false;
                 renderFlashcardsUI();
+                if (data.model_used) showModelBadge(toolId, data.model_used);
             }
         })
         .catch(err => {
@@ -273,6 +274,7 @@ function processQuiz() {
                 quizAnswers = {};
                 quizSubmitted = false;
                 renderQuizUI();
+                if (data.model_used) showModelBadge(toolId, data.model_used);
             }
         })
         .catch(err => {
@@ -500,6 +502,7 @@ function processParaphrase() {
             }
             if (data.result) {
                 renderParaphraseUI(text, data.result, tone);
+                if (data.model_used) showModelBadge(toolId, data.model_used);
             }
         })
         .catch(err => {

@@ -13,7 +13,7 @@ function switchTool(toolId) {
 
     if (navItem && panel) {
         const loc = navItem.dataset.location; // 'browser' | 'server'
-        panel.querySelectorAll('.tool-location-badge, .tool-fav-btn').forEach(b => b.remove());
+        panel.querySelectorAll('.tool-location-badge, .tool-fav-btn, .tool-model-badge').forEach(b => b.remove());
 
         if (loc) {
             const badge = document.createElement('span');
@@ -287,9 +287,53 @@ document.addEventListener('DOMContentLoaded', () => {
         switchTool(hash);
     }
 
-    // ─ Handle browser back/forward ─
+    // Handle browser back/forward
     window.addEventListener('popstate', (e) => {
         const toolId = e.state?.tool || 'landing';
         if (document.getElementById('tool-' + toolId)) switchTool(toolId);
     });
 });
+
+// ═════════════════════════════════════════════════════════════════════════
+// AI MODEL BADGE
+// ═════════════════════════════════════════════════════════════════════════
+
+const AI_MODELS = {
+    'llama-3.3-70b-versatile': {
+        badge: 'L3.3 70B', short: 'Llama 3.3 70B', tier: 'Primary', tpd: '100k/day',
+        desc: "Meta's most capable open model. Used first for best quality results."
+    },
+    'deepseek-r1-distill-llama-70b': {
+        badge: 'R1 70B', short: 'DeepSeek R1 70B', tier: 'Fallback 1', tpd: 'Separate quota',
+        desc: 'DeepSeek R1 reasoning distilled on Llama 70B. Used when primary hits daily limits.'
+    },
+    'llama-3.1-8b-instant': {
+        badge: 'L3.1 8B', short: 'Llama 3.1 8B', tier: 'Fallback 2', tpd: '500k/day',
+        desc: 'Fast & lightweight. Highest daily allowance. Used as last resort.'
+    }
+};
+
+function showModelBadge(toolId, modelId) {
+    const model = AI_MODELS[modelId];
+    if (!model) return;
+    const panel = document.getElementById('tool-' + toolId);
+    if (!panel) return;
+    const h2 = panel.querySelector('.tool-header h2');
+    if (!h2) return;
+    let badge = h2.querySelector('.tool-model-badge');
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'tool-model-badge';
+        h2.appendChild(badge);
+    }
+    const allModels = Object.entries(AI_MODELS).map(([id, m]) => `
+        <div class="tmb-model ${id === modelId ? 'active' : ''}">
+            <div class="tmb-model-row">
+                <span class="tmb-tier">${m.tier}</span>
+                <span class="tmb-name">${m.short}</span>
+                <span class="tmb-tpd">${m.tpd}</span>
+            </div>
+            <div class="tmb-desc">${m.desc}</div>
+        </div>`).join('');
+    badge.innerHTML = `<i class="fas fa-robot"></i> ${model.badge}<div class="tmb-tooltip"><div class="tmb-header">AI Model Chain</div>${allModels}<div class="tmb-why">Currently using <strong>${model.short}</strong> &mdash; ${model.tier}</div></div>`;
+}

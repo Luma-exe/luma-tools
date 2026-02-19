@@ -30,6 +30,7 @@ async function processMindMap() {
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'Failed to generate mind map');
         renderMindMap(data, resultEl);
+        if (data.model_used) showModelBadge('mind-map', data.model_used);
         resultEl.classList.remove('hidden');
     } catch (err) {
         showToast(err.message, 'error');
@@ -296,6 +297,7 @@ async function processYouTubeSummary() {
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'Failed to summarize video');
         renderYouTubeSummary(data, resultEl, videoId);
+        if (data.model_used) showModelBadge('youtube-summary', data.model_used);
         resultEl.classList.remove('hidden');
     } catch (err) {
         showToast(err.message, 'error');

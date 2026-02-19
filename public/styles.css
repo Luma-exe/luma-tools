@@ -1498,6 +1498,55 @@ body {
 }
 .tool-location-badge i { font-size: 0.6rem; }
 
+/* ─── AI Model Badge ───────────────────────────────────────────── */
+.tool-model-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 20px;
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em;
+    margin-left: 6px; cursor: pointer; user-select: none;
+    white-space: nowrap; flex-shrink: 0; position: relative;
+    background: rgba(250, 204, 21, 0.1); color: #fbbf24;
+    border: 1px solid rgba(250, 204, 21, 0.25); transition: background 0.2s;
+}
+.tool-model-badge:hover { background: rgba(250, 204, 21, 0.18); }
+.tool-model-badge > i { font-size: 0.6rem; }
+.tmb-tooltip {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0;
+    width: 290px; background: var(--bg-secondary);
+    border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+    padding: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 1000; text-align: left; cursor: default;
+}
+.tool-model-badge:hover .tmb-tooltip { display: block; }
+.tmb-header {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-muted);
+    margin-bottom: 8px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--glass-border);
+}
+.tmb-model {
+    padding: 7px 8px; border-radius: 6px; margin-bottom: 4px; opacity: 0.5;
+}
+.tmb-model.active {
+    background: rgba(250, 204, 21, 0.08);
+    border: 1px solid rgba(250, 204, 21, 0.2); opacity: 1;
+}
+.tmb-model-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.tmb-tier {
+    font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; padding: 1px 5px; border-radius: 4px;
+    background: var(--bg-tertiary); color: var(--text-muted); flex-shrink: 0;
+}
+.tmb-model.active .tmb-tier { background: rgba(250, 204, 21, 0.15); color: #fbbf24; }
+.tmb-name { font-size: 0.72rem; font-weight: 600; color: var(--text-primary); flex: 1; }
+.tmb-tpd { font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono); }
+.tmb-desc { font-size: 0.65rem; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
+.tmb-why {
+    font-size: 0.66rem; color: #fbbf24;
+    padding-top: 7px; margin-top: 4px;
+    border-top: 1px solid var(--glass-border);
+}
+
 /* ─── Waveform Visualization ─────────────────────────────────────────────── */
 .waveform-wrap {
     margin-bottom: 12px; padding: 10px 12px;
