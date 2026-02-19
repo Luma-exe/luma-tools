@@ -600,16 +600,26 @@ function showResult(toolId, blob, filename, jobId = null) {
                             <!-- Score Section with Circle -->
                             <div class="ncp-score-section">
                                 <div class="ncp-ring-container">
-                                    <svg class="ncp-ring-svg" viewBox="0 0 ${ringSize} ${ringSize}">
+                                    <svg class="ncp-ring-svg" viewBox="0 0 ${ringSize} ${ringSize}" xmlns="http://www.w3.org/2000/svg">
+                                        <defs>
+                                            <filter id="glow-${score}" x="-50%" y="-50%" width="200%" height="200%">
+                                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                                <feMerge>
+                                                    <feMergeNode in="coloredBlur"/>
+                                                    <feMergeNode in="SourceGraphic"/>
+                                                </feMerge>
+                                            </filter>
+                                        </defs>
                                         <circle class="ncp-ring-bg" cx="${ringSize/2}" cy="${ringSize/2}" r="${radius}" 
-                                            stroke-width="${strokeWidth}" fill="none" stroke="rgba(255,255,255,0.1)"/>
+                                            stroke-width="${strokeWidth}" fill="none" stroke="rgba(255,255,255,0.15)"/>
                                         <circle class="ncp-ring-progress" cx="${ringSize/2}" cy="${ringSize/2}" r="${radius}"
                                             stroke-width="${strokeWidth}" fill="none" stroke="${scoreColor}"
                                             stroke-linecap="round" stroke-dasharray="${circumference}" 
-                                            stroke-dashoffset="${strokeDashoffset}" transform="rotate(-90 ${ringSize/2} ${ringSize/2})"/>
+                                            stroke-dashoffset="${strokeDashoffset}" transform="rotate(-90 ${ringSize/2} ${ringSize/2})"
+                                            filter="url(#glow-${score})" style="filter: drop-shadow(0 0 6px ${scoreColor});"/>
                                     </svg>
                                     <div class="ncp-ring-inner">
-                                        <span class="ncp-ring-score">${score}</span>
+                                        <span class="ncp-ring-score" style="color:${scoreColor}">${score}</span>
                                         <span class="ncp-ring-percent">%</span>
                                     </div>
                                 </div>

@@ -2235,23 +2235,31 @@ body {
     gap: 20px;
     padding: 20px 24px;
     border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(124,92,255,0.05) 0%, rgba(0,230,138,0.03) 100%);
 }
 
 .ncp-ring-container {
     position: relative;
-    width: 90px;
-    height: 90px;
+    width: 100px;
+    height: 100px;
     flex-shrink: 0;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
 }
 
 .ncp-ring-svg {
     width: 100%;
     height: 100%;
-    transform: rotate(0deg);
+    display: block;
+    overflow: visible;
+}
+
+.ncp-ring-bg {
+    stroke: rgba(255,255,255,0.1);
 }
 
 .ncp-ring-progress {
-    transition: stroke-dashoffset 0.6s ease;
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 0 6px currentColor);
 }
 
 .ncp-ring-inner {
@@ -2264,15 +2272,16 @@ body {
 }
 
 .ncp-ring-score {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: 800;
     font-family: var(--font-mono);
     line-height: 1;
     color: var(--text-primary);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 .ncp-ring-percent {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-secondary);
     margin-top: 2px;
@@ -2371,7 +2380,7 @@ body {
 
 .ncp-topic-card {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
     padding: 12px 14px;
     background: var(--bg-tertiary);
@@ -2382,6 +2391,7 @@ body {
 
 .ncp-topic-card:hover {
     background: rgba(255,255,255,0.04);
+    transform: translateX(2px);
 }
 
 .ncp-topic--ok {
@@ -2394,23 +2404,25 @@ body {
 
 .ncp-topic-status {
     flex-shrink: 0;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
 }
 
 .ncp-topic--ok .ncp-topic-status {
-    background: rgba(0,230,138,0.15);
+    background: rgba(0,230,138,0.2);
     color: var(--success);
+    box-shadow: 0 0 8px rgba(0,230,138,0.3);
 }
 
 .ncp-topic--missing .ncp-topic-status {
-    background: rgba(245,158,11,0.15);
+    background: rgba(245,158,11,0.2);
     color: #f59e0b;
+    box-shadow: 0 0 8px rgba(245,158,11,0.3);
 }
 
 .ncp-topic-content {
@@ -2426,29 +2438,36 @@ body {
 }
 
 .ncp-topic-priority {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 3px 8px;
-    border-radius: 4px;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 12px;
     flex-shrink: 0;
-    align-self: flex-start;
+    margin-left: auto;
+    white-space: nowrap;
 }
 
 .ncp-priority--high {
-    background: rgba(239,68,68,0.15);
-    color: #ef4444;
+    background: linear-gradient(135deg, rgba(239,68,68,0.25) 0%, rgba(239,68,68,0.15) 100%);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.3);
+    box-shadow: 0 2px 8px rgba(239,68,68,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
 .ncp-priority--medium {
-    background: rgba(245,158,11,0.15);
-    color: #f59e0b;
+    background: linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(245,158,11,0.15) 100%);
+    color: #fbbf24;
+    border: 1px solid rgba(245,158,11,0.3);
+    box-shadow: 0 2px 8px rgba(245,158,11,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
 .ncp-priority--low {
-    background: rgba(100,116,139,0.15);
-    color: #64748b;
+    background: linear-gradient(135deg, rgba(100,116,139,0.25) 0%, rgba(100,116,139,0.15) 100%);
+    color: #94a3b8;
+    border: 1px solid rgba(100,116,139,0.3);
+    box-shadow: 0 2px 8px rgba(100,116,139,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
 .ncp-topic-excerpt {
