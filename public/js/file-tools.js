@@ -525,6 +525,7 @@ function showResult(toolId, blob, filename, jobId = null) {
             };
 
             // Helper: Coverage Report button
+            // Helper: AI-Powered Coverage Report
             const makeCompareBtn = (notesText) => {
                 if (!jobId) return null;
                 const btn = document.createElement('button');
@@ -538,227 +539,190 @@ function showResult(toolId, blob, filename, jobId = null) {
                         return;
                     }
                     btn.disabled = true;
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analysing...';
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI Analysing...';
                     try {
-                        const resp = await fetch(`/api/tools/raw-text/${jobId}`);
-                        if (!resp.ok) throw new Error('Source text not available');
-                        const srcText = await resp.text();
+                        // Call AI-powered coverage analysis
+                        const formData = new FormData();
+                        formData.append('job_id', jobId);
+                        formData.append('notes', notesText);
+                        
+                        const resp = await fetch('/api/tools/ai-coverage-analysis', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (!resp.ok) throw new Error('Coverage analysis failed');
+                        const analysis = await resp.json();
+                        
+                        if (analysis.error) throw new Error(analysis.error);
 
-                        // ── Coverage Analysis ───────────────────────────────────────
-                        const stopwords = new Set([
-                            'this','that','with','from','have','been','they','their','there',
-                            'were','what','when','where','which','will','your','about','would',
-                            'could','should','these','those','then','than','also','into','some',
-                            'more','over','such','each','both','only','after','before','other',
-                            'same','well','just','most','using','used','being','having','making',
-                            'taking','getting','going','doing','saying','knowing','looking',
-                            'giving','working','trying','asking','needing','very','many','often',
-                        ]);
-                        const srcWords = srcText.toLowerCase().match(/\b[a-z]{5,}\b/g) || [];
-                        const freq = {};
-                        for (const w of srcWords) if (!stopwords.has(w)) freq[w] = (freq[w] || 0) + 1;
-                        const topTerms = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 50).map(([t]) => t);
-                        const notesLower = notesText.toLowerCase();
-                        const covered = topTerms.filter(t => notesLower.includes(t));
-                        const missed  = topTerms.filter(t => !notesLower.includes(t));
-                        const score   = topTerms.length ? Math.round(covered.length / topTerms.length * 100) : 0;
-                        const srcWC   = (srcText.match(/\b\w+\b/g) || []).length;
-                        const notesWC = (notesText.match(/\b\w+\b/g) || []).length;
-                        const compression = srcWC ? Math.round(notesWC / srcWC * 100) : 0;
-
-                        // ── Helpers ─────────────────────────────────────────────────
                         const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                        const hlTerms = (rawText) => {
-                            if (!topTerms.length) return esc(rawText);
-                            const re = new RegExp(`\\b(${topTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')})\\b`, 'gi');
-                            return esc(rawText).replace(re, m => {
-                                const isCov = covered.some(c => c.toLowerCase() === m.toLowerCase());
-                                return `<mark class="ncp-hl ${isCov ? 'ncp-hl--covered' : 'ncp-hl--missed'}">${m}</mark>`;
-                            });
-                        };
-
-                        // ── Panel shell ─────────────────────────────────────────────
+                        const score = analysis.overall_score || 0;
+                        const verdict = analysis.verdict || 'Unknown';
+                        const summary = analysis.summary || '';
+                        const keyConcepts = analysis.key_concepts || [];
+                        const strengths = analysis.strengths || [];
+                        const gaps = analysis.gaps || [];
+                        const studyTips = analysis.study_tips || [];
+                        
+                        const covered = keyConcepts.filter(c => c.covered);
+                        const missed = keyConcepts.filter(c => !c.covered);
+                        const highPriority = keyConcepts.filter(c => c.importance === 'high');
+                        const highCovered = highPriority.filter(c => c.covered);
+                        
+                        // Panel colors & icons based on score
                         const scoreColor = score >= 80 ? '#00e68a' : score >= 60 ? '#f59e0b' : '#ef4444';
-                        const scoreLabel = score >= 80 ? 'Excellent Coverage' : score >= 60 ? 'Good Coverage' : 'Partial Coverage';
-                        const r = 38, circ = 2 * Math.PI * r, dash = (score / 100) * circ;
+                        const scoreBg = score >= 80 ? 'rgba(0,230,138,0.1)' : score >= 60 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)';
+                        const scoreIcon = score >= 80 ? 'fa-circle-check' : score >= 60 ? 'fa-circle-exclamation' : 'fa-circle-xmark';
 
                         const panel = document.createElement('div');
                         panel.className = 'notes-coverage-panel';
 
-                        // Header
-                        const hdr = document.createElement('div');
-                        hdr.className = 'ncp-header';
-                        hdr.innerHTML = `<i class="fas fa-microscope" style="color:var(--accent)"></i><span>AI Coverage Report</span>`;
-                        const closeBtn2 = document.createElement('button');
-                        closeBtn2.className = 'ncp-close-btn';
-                        closeBtn2.innerHTML = '<i class="fas fa-times"></i> Close';
-                        closeBtn2.addEventListener('click', () => {
-                            panel.remove();
-                            btn.innerHTML = '<i class="fas fa-chart-bar"></i> Coverage Report';
-                        });
-                        hdr.appendChild(closeBtn2);
-                        panel.appendChild(hdr);
-
-                        // Scorecard
-                        const scorecard = document.createElement('div');
-                        scorecard.className = 'ncp-scorecard';
-                        scorecard.innerHTML = `
-                            <div class="ncp-ring-wrap">
-                                <svg width="110" height="110" viewBox="0 0 110 110">
-                                    <circle cx="55" cy="55" r="${r}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="10"/>
-                                    <circle cx="55" cy="55" r="${r}" fill="none" stroke="${scoreColor}" stroke-width="10"
-                                        stroke-dasharray="${dash.toFixed(2)} ${circ.toFixed(2)}"
-                                        stroke-dashoffset="${(circ * 0.25).toFixed(2)}" stroke-linecap="round"
-                                        style="transition:stroke-dasharray 1.2s ease"/>
-                                </svg>
-                                <div class="ncp-ring-center">
-                                    <span class="ncp-ring-pct" style="color:${scoreColor}">${score}%</span>
-                                    <span class="ncp-ring-sub">coverage</span>
+                        // Header with close button
+                        panel.innerHTML = `
+                            <div class="ncp-header">
+                                <div class="ncp-header-left">
+                                    <i class="fas fa-microscope"></i>
+                                    <span>AI Coverage Analysis</span>
+                                </div>
+                                <button class="ncp-close-btn" onclick="this.closest('.notes-coverage-panel').remove(); document.querySelector('.notes-compare-btn').innerHTML='<i class=\\'fas fa-chart-bar\\'></i> Coverage Report';">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Main Score Banner -->
+                            <div class="ncp-score-banner" style="background:${scoreBg}; border-color:${scoreColor}">
+                                <div class="ncp-score-main">
+                                    <div class="ncp-score-number" style="color:${scoreColor}">${score}<span class="ncp-score-percent">%</span></div>
+                                    <div class="ncp-score-verdict" style="color:${scoreColor}">
+                                        <i class="fas ${scoreIcon}"></i>
+                                        ${esc(verdict)}
+                                    </div>
+                                </div>
+                                <div class="ncp-score-summary">${esc(summary)}</div>
+                            </div>
+                            
+                            <!-- Quick Stats Row -->
+                            <div class="ncp-quick-stats">
+                                <div class="ncp-quick-stat">
+                                    <div class="ncp-quick-stat-icon" style="background:rgba(0,230,138,0.15); color:#00e68a">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <div class="ncp-quick-stat-info">
+                                        <span class="ncp-quick-stat-value">${covered.length} <span class="ncp-quick-stat-total">of ${keyConcepts.length}</span></span>
+                                        <span class="ncp-quick-stat-label">Topics Covered</span>
+                                    </div>
+                                </div>
+                                <div class="ncp-quick-stat">
+                                    <div class="ncp-quick-stat-icon" style="background:rgba(245,158,11,0.15); color:#f59e0b">
+                                        <i class="fas fa-exclamation"></i>
+                                    </div>
+                                    <div class="ncp-quick-stat-info">
+                                        <span class="ncp-quick-stat-value">${missed.length}</span>
+                                        <span class="ncp-quick-stat-label">Topics Missing</span>
+                                    </div>
+                                </div>
+                                <div class="ncp-quick-stat">
+                                    <div class="ncp-quick-stat-icon" style="background:rgba(139,92,246,0.15); color:var(--accent)">
+                                        <i class="fas fa-star"></i>
+                                    </div>
+                                    <div class="ncp-quick-stat-info">
+                                        <span class="ncp-quick-stat-value">${highCovered.length} <span class="ncp-quick-stat-total">of ${highPriority.length}</span></span>
+                                        <span class="ncp-quick-stat-label">High Priority</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="ncp-score-right">
-                                <div class="ncp-score-label" style="color:${scoreColor}">${scoreLabel}</div>
-                                <div class="ncp-stats-grid">
-                                    <div class="ncp-stat">
-                                        <span class="ncp-stat-val" style="color:var(--success)">${covered.length}<span class="ncp-stat-denom">/${topTerms.length}</span></span>
-                                        <span class="ncp-stat-lbl">Key Topics Found</span>
+                            
+                            <!-- Tabbed Content -->
+                            <div class="ncp-tabs">
+                                <button class="ncp-tab-btn active" data-tab="concepts"><i class="fas fa-list-check"></i> Topics</button>
+                                <button class="ncp-tab-btn" data-tab="feedback"><i class="fas fa-comment-dots"></i> Feedback</button>
+                                <button class="ncp-tab-btn" data-tab="tips"><i class="fas fa-lightbulb"></i> Study Tips</button>
+                            </div>
+                            
+                            <!-- Topics Tab -->
+                            <div class="ncp-tab-content active" data-tab-content="concepts">
+                                ${keyConcepts.length ? `
+                                    <div class="ncp-topics-grid">
+                                        ${keyConcepts.map(c => {
+                                            const statusClass = c.covered ? 'ncp-topic--ok' : 'ncp-topic--missing';
+                                            const priorityClass = c.importance === 'high' ? 'ncp-priority--high' : c.importance === 'medium' ? 'ncp-priority--medium' : 'ncp-priority--low';
+                                            return `
+                                                <div class="ncp-topic-card ${statusClass}">
+                                                    <div class="ncp-topic-status">
+                                                        <i class="fas ${c.covered ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+                                                    </div>
+                                                    <div class="ncp-topic-content">
+                                                        <div class="ncp-topic-name">${esc(c.topic)}</div>
+                                                        ${c.notes_excerpt ? `<div class="ncp-topic-excerpt">"${esc(c.notes_excerpt)}"</div>` : 
+                                                          !c.covered ? `<div class="ncp-topic-missing-hint">Not found in your notes</div>` : ''}
+                                                    </div>
+                                                    <div class="ncp-topic-priority ${priorityClass}">${esc(c.importance || 'medium')}</div>
+                                                </div>
+                                            `;
+                                        }).join('')}
                                     </div>
-                                    <div class="ncp-stat">
-                                        <span class="ncp-stat-val">${notesWC.toLocaleString()}</span>
-                                        <span class="ncp-stat-lbl">Notes Words</span>
+                                ` : '<p class="ncp-empty">No topics analyzed.</p>'}
+                            </div>
+                            
+                            <!-- Feedback Tab -->
+                            <div class="ncp-tab-content" data-tab-content="feedback">
+                                <div class="ncp-feedback-grid">
+                                    <div class="ncp-feedback-card ncp-feedback--strengths">
+                                        <div class="ncp-feedback-header">
+                                            <i class="fas fa-thumbs-up"></i>
+                                            <span>What You Did Well</span>
+                                        </div>
+                                        ${strengths.length ? `
+                                            <ul class="ncp-feedback-list">
+                                                ${strengths.map(s => `<li>${esc(s)}</li>`).join('')}
+                                            </ul>
+                                        ` : '<p class="ncp-empty-small">No specific strengths identified.</p>'}
                                     </div>
-                                    <div class="ncp-stat">
-                                        <span class="ncp-stat-val">${srcWC.toLocaleString()}</span>
-                                        <span class="ncp-stat-lbl">Source Words</span>
-                                    </div>
-                                    <div class="ncp-stat">
-                                        <span class="ncp-stat-val">${compression}%</span>
-                                        <span class="ncp-stat-lbl">Compression</span>
+                                    <div class="ncp-feedback-card ncp-feedback--gaps">
+                                        <div class="ncp-feedback-header">
+                                            <i class="fas fa-search"></i>
+                                            <span>Areas to Review</span>
+                                        </div>
+                                        ${gaps.length ? `
+                                            <ul class="ncp-feedback-list">
+                                                ${gaps.map(g => `<li>${esc(g)}</li>`).join('')}
+                                            </ul>
+                                        ` : '<p class="ncp-empty-small">No significant gaps found!</p>'}
                                     </div>
                                 </div>
-                            </div>`;
-                        panel.appendChild(scorecard);
-
-                        // Topic chips
-                        if (topTerms.length) {
-                            const chipsWrap = document.createElement('div');
-                            chipsWrap.className = 'ncp-chips-wrap';
-                            if (covered.length) {
-                                const row = document.createElement('div');
-                                row.className = 'ncp-chips-row';
-                                row.innerHTML = `<span class="ncp-chips-lbl ncp-chips-lbl--ok"><i class="fas fa-circle-check"></i> Covered</span>
-                                    <div class="ncp-chips">${covered.slice(0, 20).map(t => `<span class="ncp-chip ncp-chip--ok">${t}</span>`).join('')}</div>`;
-                                chipsWrap.appendChild(row);
-                            }
-                            if (missed.length) {
-                                const row = document.createElement('div');
-                                row.className = 'ncp-chips-row';
-                                row.innerHTML = `<span class="ncp-chips-lbl ncp-chips-lbl--warn"><i class="fas fa-circle-exclamation"></i> Not Found</span>
-                                    <div class="ncp-chips">${missed.slice(0, 15).map(t => `<span class="ncp-chip ncp-chip--warn">${t}</span>`).join('')}</div>`;
-                                chipsWrap.appendChild(row);
-                            }
-                            panel.appendChild(chipsWrap);
-                        }
-
-                        // Split view header
-                        const splitHdr = document.createElement('div');
-                        splitHdr.className = 'ncp-split-hdr';
-                        splitHdr.innerHTML = `
-                            <span class="ncp-split-title"><i class="fas fa-columns"></i> Side-by-Side Comparison</span>
-                            <label class="ncp-sync-lbl" title="Scroll both panels together">
-                                <input type="checkbox" class="ncp-sync-chk" checked>
-                                <i class="fas fa-link"></i> Sync Scroll
-                            </label>`;
-                        panel.appendChild(splitHdr);
-
-                        // Split columns
-                        const split = document.createElement('div');
-                        split.className = 'ncp-split';
-
-                        // Left: AI Notes
-                        const leftCol = document.createElement('div');
-                        leftCol.className = 'ncp-col';
-                        const leftColHdr = document.createElement('div');
-                        leftColHdr.className = 'ncp-col-hdr';
-                        leftColHdr.innerHTML = '<i class="fas fa-robot"></i> AI Notes';
-                        leftCol.appendChild(leftColHdr);
-
-                        if (isMarkdown) {
-                            const tabBar = document.createElement('div');
-                            tabBar.className = 'ncp-tab-bar';
-                            tabBar.innerHTML = `
-                                <button class="ncp-tab active" data-tab="rendered"><i class="fas fa-eye"></i> Rendered</button>
-                                <button class="ncp-tab" data-tab="highlighted"><i class="fas fa-highlighter"></i> Highlighted</button>`;
-                            leftCol.appendChild(tabBar);
-                            const renderedEl = document.createElement('div');
-                            renderedEl.className = 'notes-rendered ncp-scroll-body';
-                            renderedEl.setAttribute('data-tab-content', 'rendered');
-                            renderedEl.innerHTML = parseMarkdown(notesText);
-                            const hlEl = document.createElement('pre');
-                            hlEl.className = 'notes-raw ncp-scroll-body';
-                            hlEl.setAttribute('data-tab-content', 'highlighted');
-                            hlEl.style.display = 'none';
-                            hlEl.innerHTML = hlTerms(notesText);
-                            leftCol.appendChild(renderedEl);
-                            leftCol.appendChild(hlEl);
-                            tabBar.addEventListener('click', e => {
-                                const tab = e.target.closest('.ncp-tab');
-                                if (!tab) return;
-                                tabBar.querySelectorAll('.ncp-tab').forEach(t => t.classList.remove('active'));
-                                tab.classList.add('active');
-                                leftCol.querySelectorAll('[data-tab-content]').forEach(el => {
-                                    el.style.display = el.dataset.tabContent === tab.dataset.tab ? '' : 'none';
-                                });
+                            </div>
+                            
+                            <!-- Study Tips Tab -->
+                            <div class="ncp-tab-content" data-tab-content="tips">
+                                ${studyTips.length ? `
+                                    <div class="ncp-tips-list">
+                                        ${studyTips.map((t, i) => `
+                                            <div class="ncp-tip-card">
+                                                <div class="ncp-tip-number">${i + 1}</div>
+                                                <div class="ncp-tip-text">${esc(t)}</div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<p class="ncp-empty">No specific study tips generated.</p>'}
+                            </div>
+                        `;
+                        
+                        // Add tab switching logic
+                        panel.querySelectorAll('.ncp-tab-btn').forEach(tabBtn => {
+                            tabBtn.addEventListener('click', () => {
+                                panel.querySelectorAll('.ncp-tab-btn').forEach(b => b.classList.remove('active'));
+                                panel.querySelectorAll('.ncp-tab-content').forEach(c => c.classList.remove('active'));
+                                tabBtn.classList.add('active');
+                                panel.querySelector(`[data-tab-content="${tabBtn.dataset.tab}"]`).classList.add('active');
                             });
-                        } else {
-                            const pre = document.createElement('pre');
-                            pre.className = 'notes-raw ncp-scroll-body';
-                            pre.setAttribute('data-tab-content', 'main');
-                            pre.innerHTML = hlTerms(notesText);
-                            leftCol.appendChild(pre);
-                        }
+                        });
 
-                        // Right: Source PDF
-                        const rightCol = document.createElement('div');
-                        rightCol.className = 'ncp-col';
-                        const rightColHdr = document.createElement('div');
-                        rightColHdr.className = 'ncp-col-hdr';
-                        rightColHdr.innerHTML = '<i class="fas fa-file-pdf"></i> Source PDF Text';
-                        const rightPre = document.createElement('pre');
-                        rightPre.className = 'notes-raw ncp-scroll-body';
-                        rightPre.innerHTML = hlTerms(srcText);
-                        rightCol.appendChild(rightColHdr);
-                        rightCol.appendChild(rightPre);
-
-                        split.appendChild(leftCol);
-                        split.appendChild(rightCol);
-                        panel.appendChild(split);
                         pane.appendChild(panel);
-
-                        // ── Sync Scroll ─────────────────────────────────────────────
-                        const syncChk = splitHdr.querySelector('.ncp-sync-chk');
-                        let lock = false;
-                        const getActiveLeft = () =>
-                            leftCol.querySelector('[data-tab-content]:not([style*="display: none"],[style*="display:none"])') ||
-                            leftCol.querySelector('.ncp-scroll-body');
-                        const syncScroll = (src, targets) => {
-                            if (!syncChk.checked || lock) return;
-                            lock = true;
-                            const pct = src.scrollTop / Math.max(1, src.scrollHeight - src.clientHeight);
-                            for (const t of targets) {
-                                if (t && t !== src) t.scrollTop = pct * Math.max(0, t.scrollHeight - t.clientHeight);
-                            }
-                            lock = false;
-                        };
-                        leftCol.addEventListener('scroll', e => {
-                            if (e.target.classList.contains('ncp-scroll-body')) syncScroll(e.target, [rightPre]);
-                        }, true);
-                        rightPre.addEventListener('scroll', () => syncScroll(rightPre, [getActiveLeft()]));
-
                         btn.innerHTML = '<i class="fas fa-times"></i> Close Report';
                         btn.disabled = false;
                     } catch (err) {
-                        showToast(err.message, 'error');
+                        showToast(err.message || 'Coverage analysis failed', 'error');
                         btn.innerHTML = '<i class="fas fa-chart-bar"></i> Coverage Report';
                         btn.disabled = false;
                     }
@@ -1007,6 +971,79 @@ function closeQuickAction(e) {
     state.droppedFiles = [];
     state.droppedCategory = null;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AI STUDY NOTES — INPUT MODE TOGGLE & PROCESSING
+// ═══════════════════════════════════════════════════════════════════════════
+
+function toggleStudyNotesInput(mode) {
+    const uploadMode = document.getElementById('study-notes-upload-mode');
+    const pasteMode = document.getElementById('study-notes-paste-mode');
+    
+    if (mode === 'paste') {
+        uploadMode.classList.add('hidden');
+        pasteMode.classList.remove('hidden');
+    } else {
+        uploadMode.classList.remove('hidden');
+        pasteMode.classList.add('hidden');
+    }
+    // Clear results when switching modes
+    hideResult('ai-study-notes');
+}
+
+function processStudyNotes() {
+    const toolId = 'ai-study-notes';
+    const inputMode = document.querySelector('.preset-grid[data-tool="study-notes-input-mode"] .preset-btn.active')?.dataset.val || 'upload';
+    const format = document.querySelector('.preset-grid[data-tool="study-notes-format"] .preset-btn.active')?.dataset.val || 'markdown';
+    
+    if (inputMode === 'paste') {
+        // Handle pasted text
+        const textInput = document.getElementById('study-notes-text-input');
+        const text = textInput?.value?.trim() || '';
+        
+        if (!text || text.length < 50) {
+            showToast('Please paste at least 50 characters of content', 'error');
+            return;
+        }
+        
+        showProcessing(toolId, true);
+        
+        const formData = new FormData();
+        formData.append('text', text);
+        formData.append('format', format);
+        
+        fetch('/api/tools/ai-study-notes', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    showProcessing(toolId, false);
+                    return;
+                }
+                if (data.job_id) {
+                    pollJob(toolId, data.job_id);
+                }
+            })
+            .catch(err => {
+                showToast(err.message || 'Request failed', 'error');
+                showProcessing(toolId, false);
+            });
+    } else {
+        // Handle file upload — use existing processFile logic
+        processFile(toolId);
+    }
+}
+
+// Initialize paste textarea character counter
+document.addEventListener('DOMContentLoaded', () => {
+    const pasteInput = document.getElementById('study-notes-text-input');
+    const charCounter = document.getElementById('paste-char-count');
+    if (pasteInput && charCounter) {
+        pasteInput.addEventListener('input', () => {
+            charCounter.textContent = pasteInput.value.length.toLocaleString();
+        });
+    }
+});
 
 function onQuickActionSelect(toolId) {
     const files = state.droppedFiles;

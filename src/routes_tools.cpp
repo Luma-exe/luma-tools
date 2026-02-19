@@ -461,6 +461,130 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         res.set_content(raw, "text/plain; charset=utf-8");
     });
 
+    // ── POST /api/tools/ai-coverage-analysis — AI-powered coverage comparison ─
+    svr.Post("/api/tools/ai-coverage-analysis", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
+            return;
+        }
+
+        string job_id = req.has_file("job_id") ? req.get_file_value("job_id").content : "";
+        string notes = req.has_file("notes") ? req.get_file_value("notes").content : "";
+
+        if (job_id.empty() || notes.empty()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Missing job_id or notes"}}).dump(), "application/json");
+            return;
+        }
+
+        string source_text = get_job_raw_text(job_id);
+        if (source_text.empty()) {
+            res.status = 404;
+            res.set_content(json({{"error", "Source text not found for this job"}}).dump(), "application/json");
+            return;
+        }
+
+        // Truncate to fit API limits
+        if (source_text.size() > 6000) source_text = source_text.substr(0, 6000);
+        if (notes.size() > 6000) notes = notes.substr(0, 6000);
+
+        string proc = get_processing_dir();
+        string rid = generate_job_id(); // request ID for temp files
+
+        // Build prompt for AI coverage analysis
+        string system_prompt = R"(You are an expert study advisor analyzing the coverage between source material and generated study notes.
+
+Your task is to:
+1. Identify the key concepts, facts, and topics in the SOURCE material
+2. Check which of these key concepts are covered in the NOTES
+3. Identify any important topics that are missing from the notes
+
+Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, just pure JSON):
+{
+  "overall_score": <number 0-100>,
+  "verdict": "<Excellent|Good|Adequate|Needs Improvement>",
+  "summary": "<1-2 sentence overall assessment>",
+  "key_concepts": [
+    {"topic": "<concept name>", "covered": <true/false>, "importance": "<high|medium|low>", "notes_excerpt": "<brief quote from notes if covered, empty if not>"}
+  ],
+  "strengths": ["<what the notes do well>"],
+  "gaps": ["<important topics missing or underexplained>"],
+  "study_tips": ["<actionable recommendations>"]
+}
+
+Focus on educational value. A concept is "covered" if its key information is present in the notes, even if worded differently.
+Return 8-15 key concepts. Be thorough but fair in your assessment.)";
+
+        string user_prompt = "SOURCE MATERIAL:\n" + source_text + "\n\n---\n\nGENERATED NOTES:\n" + notes;
+
+        json payload = {
+            {"model", "llama-3.3-70b-versatile"},
+            {"messages", json::array({
+                {{"role","system"}, {"content", system_prompt}},
+                {{"role","user"},   {"content", user_prompt}}
+            })},
+            {"max_tokens", 2000},
+            {"temperature", 0.3}
+        };
+
+        string payload_file = proc + "/" + rid + "_coverage_payload.json";
+        { ofstream f(payload_file); f << payload.dump(); }
+
+        string hdr_file = proc + "/" + rid + "_auth.txt";
+        { ofstream f(hdr_file); f << "Authorization: Bearer " << g_groq_key; }
+
+        string resp_file = proc + "/" + rid + "_coverage_resp.json";
+        string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+            " -H \"Content-Type: application/json\""
+            " -H @" + escape_arg(hdr_file) +
+            " -d @" + escape_arg(payload_file) +
+            " -o " + escape_arg(resp_file);
+        int code; exec_command(curl_cmd, code);
+
+        json result;
+        bool ok = false;
+        if (fs::exists(resp_file) && fs::file_size(resp_file) > 0) {
+            try {
+                ifstream f(resp_file); std::ostringstream ss; ss << f.rdbuf();
+                auto resp_json = json::parse(ss.str());
+                if (resp_json.contains("choices") && resp_json["choices"].is_array() && !resp_json["choices"].empty()) {
+                    string content = resp_json["choices"][0]["message"]["content"].get<string>();
+                    // Strip markdown code blocks if present
+                    if (content.find("```json") != string::npos) {
+                        size_t start = content.find("```json") + 7;
+                        size_t end = content.find("```", start);
+                        if (end != string::npos) content = content.substr(start, end - start);
+                    } else if (content.find("```") != string::npos) {
+                        size_t start = content.find("```") + 3;
+                        size_t end = content.find("```", start);
+                        if (end != string::npos) content = content.substr(start, end - start);
+                    }
+                    // Trim whitespace
+                    while (!content.empty() && (content.front() == ' ' || content.front() == '\n')) content.erase(0, 1);
+                    while (!content.empty() && (content.back() == ' ' || content.back() == '\n')) content.pop_back();
+                    result = json::parse(content);
+                    ok = true;
+                } else if (resp_json.contains("error")) {
+                    result = {{"error", resp_json["error"].value("message", "AI API error")}};
+                }
+            } catch (const std::exception& e) {
+                result = {{"error", string("Failed to parse AI response: ") + e.what()}};
+            }
+        } else {
+            result = {{"error", "AI API call failed"}};
+        }
+
+        // Cleanup temp files
+        try { fs::remove(payload_file); fs::remove(hdr_file); fs::remove(resp_file); } catch (...) {}
+
+        if (!ok && !result.contains("error")) {
+            result = {{"error", "Unknown AI analysis error"}};
+        }
+
+        res.set_content(result.dump(), "application/json");
+    });
+
     // ── POST /api/tools/pdf-compress ────────────────────────────────────────
     svr.Post("/api/tools/pdf-compress", [](const httplib::Request& req, httplib::Response& res) {
         if (g_ghostscript_path.empty()) {
@@ -1658,35 +1782,58 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
     });
 
     // ── POST /api/tools/ai-study-notes (async) ───────────────────────────────
-    // Accepts a PDF, extracts text via Ghostscript, sends to Groq, returns notes.
+    // Accepts text directly, OR a file (PDF, DOCX, TXT). Extracts text, sends to Groq.
     svr.Post("/api/tools/ai-study-notes", [](const httplib::Request& req, httplib::Response& res) {
         if (g_groq_key.empty()) {
             res.status = 503;
             res.set_content(json({{"error", "AI features are not configured on this server."}}).dump(), "application/json");
             return;
         }
-        if (!req.has_file("file")) {
+        
+        bool has_text = req.has_file("text") && !req.get_file_value("text").content.empty();
+        bool has_file = req.has_file("file") && !req.get_file_value("file").content.empty();
+        
+        if (!has_text && !has_file) {
             res.status = 400;
-            res.set_content(json({{"error", "No PDF uploaded"}}).dump(), "application/json");
+            res.set_content(json({{"error", "No content provided. Upload a file or paste text."}}).dump(), "application/json");
             return;
         }
-        auto file = req.get_file_value("file");
+        
         string format = req.has_file("format") ? req.get_file_value("format").content : "markdown";
-
-        discord_log_tool("AI Study Notes", file.filename + " (" + format + ")", req.remote_addr);
-
         string jid = generate_job_id();
         string proc = get_processing_dir();
-        string pdf_path  = proc + "/" + jid + "_in.pdf";
-        string txt_path  = proc + "/" + jid + "_text.txt";
+        
+        // Variables for the thread
+        string input_text;
+        string filename;
+        string input_path;
+        string file_ext;
+        
+        if (has_text) {
+            // Pasted text mode
+            input_text = req.get_file_value("text").content;
+            filename = "pasted_text";
+            discord_log_tool("AI Study Notes", "Pasted Text (" + format + ")", req.remote_addr);
+        } else {
+            // File upload mode
+            auto file = req.get_file_value("file");
+            filename = file.filename;
+            discord_log_tool("AI Study Notes", filename + " (" + format + ")", req.remote_addr);
+            
+            // Detect file extension
+            fs::path fp(filename);
+            file_ext = fp.extension().string();
+            std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
+            
+            input_path = proc + "/" + jid + "_input" + file_ext;
+            { ofstream f(input_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
+        }
 
-        { ofstream f(pdf_path, std::ios::binary); f.write(file.content.data(), file.content.size()); }
+        update_job(jid, {{"status", "processing"}, {"progress", 10}, {"stage", has_text ? "Processing pasted text..." : "Extracting text from file..."}});
 
-        update_job(jid, {{"status", "processing"}, {"progress", 10}, {"stage", "Extracting text from PDF..."}});
-
-        thread([jid, pdf_path, txt_path, format, proc]() {
+        thread([jid, input_text, input_path, file_ext, format, proc, has_text, filename]() {
+          string txt_path = proc + "/" + jid + "_text.txt";
           try {
-            // ── Step 1: extract text ─────────────────────────────────────────
             string text;
             bool extracted = false;
 
@@ -1716,34 +1863,103 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                 }
                 return out;
             };
-
-            if (!g_ghostscript_path.empty()) {
-                string cmd = escape_arg(g_ghostscript_path) +
-                    " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite"
-                    " -dTextFormat=3"
-                    " -sOutputFile=" + escape_arg(txt_path) +
-                    " " + escape_arg(pdf_path);
+            
+            if (has_text) {
+                // Direct text input — just sanitize
+                text = sanitize_utf8(input_text);
+                extracted = !text.empty();
+            } else if (file_ext == ".txt" || file_ext == ".rtf") {
+                // Plain text file — read directly
+                ifstream f(input_path, std::ios::binary);
+                std::ostringstream ss; ss << f.rdbuf();
+                text = sanitize_utf8(ss.str());
+                extracted = !text.empty();
+            } else if (file_ext == ".docx") {
+                // Word document — try pandoc first, then fallback to unzip/grep
+                string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
                 int code; exec_command(cmd, code);
                 if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
                     ifstream f(txt_path, std::ios::binary); std::ostringstream ss; ss << f.rdbuf();
                     text = sanitize_utf8(ss.str());
                     extracted = !text.empty();
                 }
-            }
-            // Fallback: try pdftotext (poppler)
-            if (!extracted) {
-                string cmd = "pdftotext " + escape_arg(pdf_path) + " " + escape_arg(txt_path);
+                // Fallback: extract text from document.xml using basic parsing
+                if (!extracted) {
+                    #ifdef _WIN32
+                    string unzip_cmd = "powershell -Command \"Expand-Archive -Path '" + input_path + "' -DestinationPath '" + proc + "/" + jid + "_docx' -Force\"";
+                    #else
+                    string unzip_cmd = "unzip -o " + escape_arg(input_path) + " -d " + escape_arg(proc + "/" + jid + "_docx");
+                    #endif
+                    exec_command(unzip_cmd, code);
+                    string doc_xml = proc + "/" + jid + "_docx/word/document.xml";
+                    if (fs::exists(doc_xml)) {
+                        ifstream f(doc_xml); std::ostringstream ss; ss << f.rdbuf();
+                        string xml = ss.str();
+                        // Strip XML tags, keep text content
+                        string plain;
+                        bool in_tag = false;
+                        for (char c : xml) {
+                            if (c == '<') in_tag = true;
+                            else if (c == '>') { in_tag = false; plain += ' '; }
+                            else if (!in_tag) plain += c;
+                        }
+                        text = sanitize_utf8(plain);
+                        extracted = !text.empty();
+                    }
+                    try { fs::remove_all(proc + "/" + jid + "_docx"); } catch (...) {}
+                }
+            } else if (file_ext == ".doc") {
+                // Old Word format — try antiword or catdoc
+                string cmd = "antiword " + escape_arg(input_path) + " > " + escape_arg(txt_path);
                 int code; exec_command(cmd, code);
+                if (!fs::exists(txt_path) || fs::file_size(txt_path) == 0) {
+                    cmd = "catdoc " + escape_arg(input_path) + " > " + escape_arg(txt_path);
+                    exec_command(cmd, code);
+                }
                 if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
                     ifstream f(txt_path, std::ios::binary); std::ostringstream ss; ss << f.rdbuf();
                     text = sanitize_utf8(ss.str());
                     extracted = !text.empty();
                 }
+            } else if (file_ext == ".pdf") {
+                // PDF — use Ghostscript or pdftotext
+                if (!g_ghostscript_path.empty()) {
+                    string cmd = escape_arg(g_ghostscript_path) +
+                        " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite"
+                        " -dTextFormat=3"
+                        " -sOutputFile=" + escape_arg(txt_path) +
+                        " " + escape_arg(input_path);
+                    int code; exec_command(cmd, code);
+                    if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
+                        ifstream f(txt_path, std::ios::binary); std::ostringstream ss; ss << f.rdbuf();
+                        text = sanitize_utf8(ss.str());
+                        extracted = !text.empty();
+                    }
+                }
+                // Fallback: pdftotext
+                if (!extracted) {
+                    string cmd = "pdftotext " + escape_arg(input_path) + " " + escape_arg(txt_path);
+                    int code; exec_command(cmd, code);
+                    if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
+                        ifstream f(txt_path, std::ios::binary); std::ostringstream ss; ss << f.rdbuf();
+                        text = sanitize_utf8(ss.str());
+                        extracted = !text.empty();
+                    }
+                }
+            } else {
+                // Unknown format — try reading as plain text
+                ifstream f(input_path, std::ios::binary);
+                std::ostringstream ss; ss << f.rdbuf();
+                text = sanitize_utf8(ss.str());
+                extracted = !text.empty();
             }
 
             if (!extracted || text.size() < 50) {
-                update_job(jid, {{"status","error"},{"error","Could not extract text from PDF. Is it a scanned/image PDF?"}});
-                try { fs::remove(pdf_path); fs::remove(txt_path); } catch (...) {}
+                string err_msg = has_text ? "Text too short (minimum 50 characters)." : 
+                    "Could not extract text from file. Try a different format or paste text directly.";
+                update_job(jid, {{"status","error"},{"error", err_msg}});
+                if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
+                try { fs::remove(txt_path); } catch (...) {}
                 return;
             }
 
@@ -1810,7 +2026,8 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
                     } else if (resp_json.contains("error")) {
                         string msg = resp_json["error"].value("message", "OpenAI API error");
                         update_job(jid, {{"status","error"},{"error", msg}});
-                        try { fs::remove(pdf_path); fs::remove(txt_path);
+                        if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
+                        try { fs::remove(txt_path);
                               fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
                         return;
                     }
@@ -1819,7 +2036,8 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
             if (!ai_ok) {
                 update_job(jid, {{"status","error"},{"error","AI API call failed. Check server logs and Groq key."}});
-                try { fs::remove(pdf_path); fs::remove(txt_path);
+                if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
+                try { fs::remove(txt_path);
                       fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
                 return;
             }
@@ -1830,14 +2048,17 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             { ofstream f(out_path); f << notes; }
 
             update_job(jid, {{"status","completed"},{"progress",100},{"filename","study_notes" + ext}}, out_path);
-            try { fs::remove(pdf_path); fs::remove(txt_path);
+            if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
+            try { fs::remove(txt_path);
                   fs::remove(payload_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
           } catch (const std::exception& e) {
               update_job(jid, {{"status","error"},{"error", string("Internal error: ") + e.what()}});
-              try { fs::remove(pdf_path); fs::remove(txt_path); } catch (...) {}
+              if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
+              try { fs::remove(txt_path); } catch (...) {}
           } catch (...) {
               update_job(jid, {{"status","error"},{"error","Unknown internal error in study notes worker"}});
-              try { fs::remove(pdf_path); fs::remove(txt_path); } catch (...) {}
+              if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
+              try { fs::remove(txt_path); } catch (...) {}
           }
         }).detach();
 
