@@ -57,6 +57,18 @@ function handleFileSelect(toolId, file) {
     if (toolId === 'video-extract-audio') initWaveform('video-extract-audio', file);
     if (toolId === 'video-trim') initWaveform('video-trim', file);
     if (toolId === 'audio-trim') initWaveform('audio-trim', file);
+
+    // Show SVG server notice immediately when user uploads an SVG to a Canvas tool.
+    // Defer one tick so the badge DOM is stable after switchTool / zone hide.
+    if (typeof CANVAS_TOOLS !== 'undefined' && CANVAS_TOOLS.has(toolId)) {
+        setTimeout(() => {
+            if (/\.svg$/i.test(file.name) || file.type === 'image/svg+xml') {
+                typeof _handleSvgServerNotice === 'function' && _handleSvgServerNotice(toolId);
+            } else {
+                typeof _resetCanvasBadge === 'function' && _resetCanvasBadge(toolId);
+            }
+        }, 0);
+    }
 }
 
 function handleMultiFiles(toolId, files) {
@@ -95,6 +107,11 @@ function removeFile(toolId) {
 
     if (zone) zone.classList.remove('hidden');
     hideResult(toolId);
+
+    // Reset location badge back to "In Browser" when a file is removed from a Canvas tool.
+    if (typeof CANVAS_TOOLS !== 'undefined' && CANVAS_TOOLS.has(toolId)) {
+        setTimeout(() => typeof _resetCanvasBadge === 'function' && _resetCanvasBadge(toolId), 0);
+    }
 }
 
 function removeMultiFile(toolId, idx) {

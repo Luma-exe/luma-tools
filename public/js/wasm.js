@@ -6,8 +6,19 @@
 // SVG / unsupported formats: always route to server with an explanatory badge.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ─── Discord error reporter ───────────────────────────────────────────────
-// Called whenever browser processing fails so we can debug via Discord logs.
+// ─── Discord reporters ───────────────────────────────────────────────────
+// Log a successful browser-side tool use (Canvas / audio WASM).
+async function reportBrowserToolUse(tool, filename) {
+    try {
+        await fetch('/api/browser-tool', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tool, filename: filename || 'unknown' }),
+        });
+    } catch (_) {}
+}
+
+// Log a browser-side processing failure to Discord for debugging.
 async function reportWasmError(tool, errorMsg) {
     try {
         await fetch('/api/wasm/error', {
@@ -238,6 +249,18 @@ function _applyWasmFallbackBadge(toolId, reason) {
     lb.insertAdjacentElement('afterend', warn);
 }
 
+// Reset a Canvas tool's location badge back to "In Browser" (e.g. after file removal).
+function _resetCanvasBadge(toolId) {
+    const panel = document.getElementById('tool-' + toolId);
+    const lb    = panel?.querySelector('.tool-location-badge');
+    if (!lb) return;
+    // Only reset if we previously changed it — don't clobber server-only tools
+    lb.className = 'tool-location-badge loc-browser';
+    lb.title     = 'Processed entirely in your browser — no upload required';
+    lb.innerHTML = '<i class="fas fa-microchip"></i> In browser';
+    panel.querySelector('.tool-wasm-warn-badge')?.remove();
+}
+
 // Blue info badge — shown immediately when user picks an SVG file.
 function _handleSvgServerNotice(toolId) {
     const panel = document.getElementById('tool-' + toolId);
@@ -318,6 +341,7 @@ async function processFileWasm(toolId) {
                 const stem   = file.name.replace(/\.[^.]+$/, '');
                 const outExt = extFromBlob(blob);
                 showResult(toolId, blob, stem + '>_LumaTools' + outExt);
+                reportBrowserToolUse(toolId, file.name); // Discord log
                 return;
             }
             // null = format/method not handled by Canvas → route to server silently
@@ -343,6 +367,7 @@ async function processFileWasm(toolId) {
                 const blob   = await WasmProcessor.processAudio(file, args, output);
                 const stem   = file.name.replace(/\.[^.]+$/, '');
                 showResult(toolId, blob, stem + '>_LumaTools.' + fmt);
+                reportBrowserToolUse(toolId, file.name); // Discord log
             } catch (wasmErr) {
                 console.error('[WASM audio]', wasmErr);
                 await reportWasmError(toolId, wasmErr.message || String(wasmErr));

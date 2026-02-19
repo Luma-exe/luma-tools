@@ -803,6 +803,26 @@ void register_stats_routes(httplib::Server& svr) {
         res.status = 204;
     });
 
+    // POST /api/browser-tool  (PUBLIC — browser reports successful Canvas/WASM processing)
+    svr.Post("/api/browser-tool", [](const httplib::Request& req, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        try {
+            auto body = json::parse(req.body);
+            string tool     = body.value("tool",     "unknown");
+            string filename = body.value("filename", "unknown");
+            if (tool.size()     > 64)  tool     = tool.substr(0, 64);
+            if (filename.size() > 255) filename = filename.substr(0, 255);
+            discord_log_tool(tool, filename, req.remote_addr, "browser");
+        } catch (...) {}
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+    svr.Options("/api/browser-tool", [](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        res.status = 204;
+    });
+
     // POST /api/stats/digest
     svr.Post("/api/stats/digest", [](const httplib::Request& req, httplib::Response& res) {
         if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
