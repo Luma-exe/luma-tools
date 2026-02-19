@@ -2494,6 +2494,20 @@
         <div class="drop-overlay-hint">Release to choose a tool for your file</div>
     </div>
 
+    <!-- Quiz partial-submit confirm modal -->
+    <div class="quiz-confirm-backdrop" id="quizConfirmBackdrop">
+        <div class="quiz-confirm-modal">
+            <div class="qcm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3>Submit with unanswered questions?</h3>
+            <div class="qcm-body">You haven't answered all of the questions.</div>
+            <div class="qcm-unanswered" id="qcmUnansweredList"></div>
+            <div class="qcm-actions">
+                <button class="qcm-cancel" onclick="closeQuizConfirmModal()"><i class="fas fa-arrow-left"></i> Go Back</button>
+                <button class="qcm-submit" onclick="confirmSubmitQuiz()"><i class="fas fa-check-circle"></i> Submit Anyway</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Disabled-tool modal -->
     <div class="disabled-tool-backdrop" id="disabledToolBackdrop" onclick="closeDisabledModal(event)">
         <div class="disabled-tool-modal">

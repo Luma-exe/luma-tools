@@ -333,9 +333,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.getElementById('tool-' + toolId)) switchTool(toolId);
     });
 
-    // Escape closes the disabled-tool modal
+    // Escape closes any open modal
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeDisabledModal({ target: $('disabledToolBackdrop') });
+        if (e.key === 'Escape') {
+            closeDisabledModal({ target: $('disabledToolBackdrop') });
+            closeQuizConfirmModal();
+        }
     });
 });
 

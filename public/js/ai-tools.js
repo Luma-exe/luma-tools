@@ -501,13 +501,45 @@ function selectQuizAnswer(questionIdx, optionIdx) {
 }
 
 function submitQuiz() {
-    if (Object.keys(quizAnswers).length < quizData.length) {
-        showToast('Please answer all questions before submitting', 'warning');
+    const unanswered = quizOrder
+        .map((origIdx, displayIdx) => ({ origIdx, displayIdx }))
+        .filter(({ origIdx }) => quizAnswers[origIdx] === undefined);
+
+    if (unanswered.length > 0) {
+        // Build list string using display order question numbers
+        const nums = unanswered.map(u => `Q${u.displayIdx + 1}`);
+        let label;
+        if (nums.length === 1) {
+            label = `<strong>${nums[0]}</strong> is not answered.`;
+        } else if (nums.length <= 5) {
+            label = nums.slice(0, -1).map(n => `<strong>${n}</strong>`).join(', ')
+                + ` and <strong>${nums[nums.length - 1]}</strong> are not answered.`;
+        } else {
+            label = `<strong>${nums.length} questions</strong> are not answered `
+                + `(${nums.slice(0, 4).join(', ')}…).`;
+        }
+        const listEl = document.getElementById('qcmUnansweredList');
+        if (listEl) listEl.innerHTML = label;
+        const bd = document.getElementById('quizConfirmBackdrop');
+        if (bd) bd.classList.add('open');
         return;
     }
+    doSubmitQuiz();
+}
+
+function confirmSubmitQuiz() {
+    closeQuizConfirmModal();
+    doSubmitQuiz();
+}
+
+function closeQuizConfirmModal() {
+    const bd = document.getElementById('quizConfirmBackdrop');
+    if (bd) bd.classList.remove('open');
+}
+
+function doSubmitQuiz() {
     quizSubmitted = true;
     renderQuizUI();
-    
     const correct = quizData.filter((q, i) => quizAnswers[i] === q.correct).length;
     const percentage = Math.round((correct / quizData.length) * 100);
     showToast(`Quiz complete! You scored ${percentage}%`, percentage >= 70 ? 'success' : 'warning');

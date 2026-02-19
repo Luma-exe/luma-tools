@@ -872,7 +872,8 @@ void register_stats_routes(httplib::Server& svr) {
         try { body = json::parse(req.body); } catch (...) {
             res.status = 400; res.set_content(R"({"error":"Invalid JSON"})", "application/json"); return;
         }
-        ToolConfig cfg = get_tool_config(tool_id); // load existing or default
+        ToolConfig old_cfg = get_tool_config(tool_id); // snapshot before changes
+        ToolConfig cfg = old_cfg;
         cfg.tool_id        = tool_id;
         if (body.contains("enabled"))        cfg.enabled        = body["enabled"].get<bool>();
         if (body.contains("rate_limit_min")) cfg.rate_limit_min = body["rate_limit_min"].get<int>();
@@ -880,6 +881,20 @@ void register_stats_routes(httplib::Server& svr) {
         if (body.contains("max_text_chars")) cfg.max_text_chars = body["max_text_chars"].get<int>();
         if (body.contains("note"))           cfg.note           = body["note"].get<string>();
         set_tool_config(cfg);
+
+        // Build a diff description for Discord
+        string changes;
+        if (cfg.enabled        != old_cfg.enabled)        changes += (cfg.enabled ? "✅ Enabled" : "❌ Disabled") + string("\n");
+        if (cfg.rate_limit_min != old_cfg.rate_limit_min) changes += "Rate limit: " + to_string(old_cfg.rate_limit_min) + " → " + to_string(cfg.rate_limit_min) + " req/min\n";
+        if (cfg.max_file_mb    != old_cfg.max_file_mb)    changes += "Max file: " + to_string(old_cfg.max_file_mb) + " → " + to_string(cfg.max_file_mb) + " MB\n";
+        if (cfg.max_text_chars != old_cfg.max_text_chars) changes += "Max chars: " + to_string(old_cfg.max_text_chars) + " → " + to_string(cfg.max_text_chars) + "\n";
+        if (cfg.note           != old_cfg.note)           changes += "Note: \"" + cfg.note + "\"\n";
+        if (changes.empty()) changes = "(no changes)";
+
+        discord_log("⚙️ Admin — Tool Config Updated",
+            "**Tool:** `" + tool_id + "`\n**From IP:** " + req.remote_addr + "\n\n" + changes,
+            0xF59E0B  /* amber */);
+
         res.set_content(R"({"ok":true})", "application/json");
     });
 }

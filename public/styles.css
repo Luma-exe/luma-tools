@@ -1534,6 +1534,14 @@ body {
 .nav-category.search-hidden { display: none; }
 .nav-item.search-hidden { display: none; }
 
+/* Greyed-out disabled tool in sidebar — set data-disabled="true" on the nav item */
+.nav-item[data-disabled="true"] {
+    opacity: 0.38;
+    cursor: not-allowed;
+    pointer-events: auto;
+}
+.nav-item[data-disabled="true"]:hover { background: none; color: var(--text-secondary); }
+/* keep legacy class selector working too */
 .nav-item.nav-disabled {
     opacity: 0.38;
     cursor: not-allowed;
@@ -1545,21 +1553,21 @@ body {
 .disabled-tool-backdrop {
     display: none;
     position: fixed; inset: 0; z-index: 3000;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     align-items: center; justify-content: center;
 }
 .disabled-tool-backdrop.open { display: flex; }
 .disabled-tool-modal {
     background: var(--bg-secondary);
-    border: 1px solid var(--glass-border);
+    border: 1px solid rgba(239,68,68,0.3);
     border-radius: var(--radius-md);
     padding: 32px 28px 24px;
     max-width: 380px;
     width: 90%;
     text-align: center;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(239,68,68,0.15);
     animation: dtm-in 0.18s ease;
 }
 @keyframes dtm-in {
@@ -1593,6 +1601,83 @@ body {
     transition: background 0.2s;
 }
 .disabled-tool-modal .dtm-close:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+
+/* Quiz partial-submit confirm modal */
+.quiz-confirm-backdrop {
+    display: none;
+    position: fixed; inset: 0; z-index: 2500;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+}
+.quiz-confirm-backdrop.open { display: flex; }
+.quiz-confirm-modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 28px 24px 22px;
+    max-width: 400px;
+    width: 92%;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    animation: dtm-in 0.18s ease;
+}
+.quiz-confirm-modal .qcm-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.25);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px;
+    font-size: 1.1rem; color: #fbbf24;
+}
+.quiz-confirm-modal h3 {
+    font-size: 0.95rem; font-weight: 700;
+    color: var(--text-primary); margin: 0 0 8px; text-align: center;
+}
+.quiz-confirm-modal .qcm-body {
+    font-size: 0.82rem; color: var(--text-secondary);
+    line-height: 1.55; margin: 0 0 16px; text-align: center;
+}
+.quiz-confirm-modal .qcm-unanswered {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.6;
+}
+.quiz-confirm-modal .qcm-unanswered strong {
+    color: #fbbf24;
+}
+.quiz-confirm-modal .qcm-actions {
+    display: flex; gap: 10px;
+}
+.quiz-confirm-modal .qcm-cancel {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    font-size: 0.82rem; cursor: pointer;
+    transition: background 0.2s;
+}
+.quiz-confirm-modal .qcm-cancel:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.quiz-confirm-modal .qcm-submit {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: var(--radius-sm);
+    background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.3);
+    color: #fbbf24;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    transition: background 0.2s;
+}
+.quiz-confirm-modal .qcm-submit:hover { background: rgba(245,158,11,0.25); }
 
 /* ─── Tool Location Badge ─────────────────────────────────────────────────── */
 .tool-location-badge {
