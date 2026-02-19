@@ -287,6 +287,16 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "png";
 
+        // Allowlist to prevent unexpected formats/paths
+        static const set<string> ALLOWED_IMG_FMT = {
+            "png","jpg","jpeg","webp","bmp","tiff","tif","gif","avif","ico"
+        };
+        if (ALLOWED_IMG_FMT.find(format) == ALLOWED_IMG_FMT.end()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Unsupported output format: " + format}}).dump(), "application/json");
+            return;
+        }
+
         discord_log_tool("Image Convert", file.filename + " -> " + format, req.remote_addr);
 
         string jid = generate_job_id();
@@ -294,7 +304,16 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string out_ext = "." + format;
         string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
 
-        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " " + escape_arg(output_path);
+        // Build codec flags per format
+        string codec_flags;
+        if (format == "avif") {
+            // AV1 encoder; -cpu-used 6 trades quality for much faster encoding
+            codec_flags = "-c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 6 -pix_fmt yuv420p";
+        }
+
+        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path);
+        if (!codec_flags.empty()) cmd += " " + codec_flags;
+        cmd += " " + escape_arg(output_path);
         cout << "[Luma Tools] Image convert: " << cmd << endl;
         int code;
         exec_command(cmd, code);

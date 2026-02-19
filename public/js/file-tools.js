@@ -446,7 +446,7 @@ function showProcessing(toolId, show) {
     if (btn) btn.disabled = show;
 }
 
-const IMAGE_EXTS = /\.(png|jpe?g|webp|gif|bmp|tiff?|ico|avif)$/i;
+const IMAGE_EXTS = /\.(png|jpe?g|webp|gif|bmp|tiff?|ico|avif|heic|heif)$/i;
 const VIDEO_EXTS = /\.(mp4|webm|mov|avi|mkv|ogv|ogg)$/i;
 
 function showResult(toolId, blob, filename, jobId = null) {
@@ -974,7 +974,7 @@ function detectFileCategory(file) {
 
     // GIF gets its own category (gif-to-video tool etc.)
     if (/\.gif$/.test(name) || type === 'image/gif') return 'gif';
-    if (type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|tiff?|ico|svg)$/.test(name)) return 'image';
+    if (type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|tiff?|ico|svg|avif|heic|heif)$/.test(name)) return 'image';
     if (type.startsWith('video/') || /\.(mp4|webm|avi|mov|mkv|flv|wmv)$/.test(name)) return 'video';
     if (type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|aac|m4a|wma|opus)$/.test(name)) return 'audio';
     if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';

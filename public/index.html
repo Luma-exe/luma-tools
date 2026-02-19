@@ -592,7 +592,7 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-compress" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF &mdash; Max 50 MB</small></div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
                         <input type="file" class="upload-input" accept="image/*">
                     </div>
                     <div class="file-preview hidden" data-tool="image-compress">
@@ -621,7 +621,7 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-resize" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF &mdash; Max 50 MB</small></div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
                         <input type="file" class="upload-input" accept="image/*">
                     </div>
                     <div class="file-preview hidden" data-tool="image-resize">
@@ -650,11 +650,11 @@
             <div class="tool-panel" id="tool-image-convert">
                 <div class="tool-header">
                     <h2><i class="fas fa-exchange-alt"></i> Image Convert</h2>
-                    <p>Convert between PNG, JPEG, WebP, BMP, TIFF, ICO and more</p>
+                    <p>Convert between PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, ICO and more</p>
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-convert" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, ICO, GIF &mdash; Max 50 MB</small></div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, ICO, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
                         <input type="file" class="upload-input" accept="image/*">
                     </div>
                     <div class="file-preview hidden" data-tool="image-convert">
@@ -667,6 +667,8 @@
                             <button class="fmt-btn active" data-fmt="png" onclick="selectOutputFmt(this)">PNG</button>
                             <button class="fmt-btn" data-fmt="jpg" onclick="selectOutputFmt(this)">JPEG</button>
                             <button class="fmt-btn" data-fmt="webp" onclick="selectOutputFmt(this)">WebP</button>
+                            <button class="fmt-btn" data-fmt="avif" onclick="selectOutputFmt(this)">AVIF</button>
+                            <button class="fmt-btn" data-fmt="gif" onclick="selectOutputFmt(this)">GIF</button>
                             <button class="fmt-btn" data-fmt="bmp" onclick="selectOutputFmt(this)">BMP</button>
                             <button class="fmt-btn" data-fmt="tiff" onclick="selectOutputFmt(this)">TIFF</button>
                             <button class="fmt-btn" data-fmt="ico" onclick="selectOutputFmt(this)">ICO</button>
@@ -689,7 +691,7 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-watermark" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP &mdash; Max 50 MB</small></div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
                         <input type="file" class="upload-input" accept="image/*">
                     </div>
                     <div class="file-preview hidden" data-tool="image-watermark">
@@ -1568,7 +1570,7 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-crop" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP &mdash; Max 50 MB</small></div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
                         <input type="file" class="upload-input" accept="image/*">
                     </div>
                     <div class="file-preview hidden" data-tool="image-crop">
@@ -1642,7 +1644,7 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-bg-remove" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP &mdash; Max 50 MB</small></div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
                         <input type="file" class="upload-input" accept="image/*">
                     </div>
                     <div class="file-preview hidden" data-tool="image-bg-remove">

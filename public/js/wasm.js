@@ -98,7 +98,7 @@ function mimeFromExt(filename) {
     const map = {
         'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
         'webp': 'image/webp', 'bmp': 'image/bmp', 'tiff': 'image/tiff',
-        'ico': 'image/x-icon', 'gif': 'image/gif',
+        'ico': 'image/x-icon', 'gif': 'image/gif', 'avif': 'image/avif',
         'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'flac': 'audio/flac',
         'ogg': 'audio/ogg', 'aac': 'audio/aac', 'm4a': 'audio/mp4',
         'mp4': 'video/mp4', 'webm': 'video/webm',
@@ -142,6 +142,8 @@ const WASM_TOOLS = {
     },
     'image-convert': (file, opts) => {
         const fmt = opts.format || 'png';
+        // AVIF needs libaom-av1 which is not in the ffmpeg.wasm bundle — fall back to server
+        if (fmt === 'avif') return null;
         return { args: ['-i', '__INPUT__', 'output.' + fmt], output: 'output.' + fmt };
     },
     'image-crop': (file, opts) => {
