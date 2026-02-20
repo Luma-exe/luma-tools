@@ -1,13 +1,25 @@
+<div align="center">
+  <img src="public/icon-512.png" width="96" /><br/><br/>
 
-# Luma Tools — All-in-One Browser Toolkit
+  <h1>Luma Tools</h1>
 
-A powerful, modern toolkit with a C++17 backend and a clean glassmorphism UI.  
-Download from 10+ platforms and process files with 50+ built-in tools — most running entirely in your browser.
+  <b>An all-in-one browser toolkit built with C++ &amp; FFmpeg</b><br/><br/>
 
-![C++](https://img.shields.io/badge/Backend-C%2B%2B17-blue?logo=cplusplus)
-![yt-dlp](https://img.shields.io/badge/Engine-yt--dlp-red)
-![FFmpeg](https://img.shields.io/badge/Processing-FFmpeg-green)
-![License](https://img.shields.io/badge/License-BSL--1.1-yellow)
+  Download from 10+ platforms &nbsp;·&nbsp; 50+ file processing tools &nbsp;·&nbsp; AI study features &nbsp;·&nbsp; Runs in your browser
+
+  <br/><br/>
+
+  [![Live](https://img.shields.io/badge/LIVE-tools.lumaplayground.com-1a73e8?style=flat-square)](https://tools.lumaplayground.com)
+  &nbsp;
+  ![Version](https://img.shields.io/badge/VERSION-0.1.0-7c3aed?style=flat-square)
+  &nbsp;
+  ![C++](https://img.shields.io/badge/C%2B%2B-17-0057a8?style=flat-square&logo=cplusplus&logoColor=white)
+  &nbsp;
+  ![Tools](https://img.shields.io/badge/TOOLS-50%2B-16a34a?style=flat-square)
+  &nbsp;
+  ![License](https://img.shields.io/badge/LICENSE-BSL--1.1-ca8a04?style=flat-square)
+
+</div>
 
 ---
 
