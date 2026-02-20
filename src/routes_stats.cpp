@@ -694,7 +694,13 @@ void register_stats_routes(httplib::Server& svr) {
         string body = req.body;
         string pw;
         auto pos = body.find("password=");
-        if (pos != string::npos) pw = url_decode(body.substr(pos + 9));
+        if (pos != string::npos) {
+            string raw = body.substr(pos + 9);
+            // Stop at the first '&' before decoding to ignore extra POST fields
+            auto amp = raw.find('&');
+            if (amp != string::npos) raw = raw.substr(0, amp);
+            pw = url_decode(raw);
+        }
         if (pw == stats_password()) {
             res.set_header("Set-Cookie", "stats_auth=" + stats_password() + "; Path=/; HttpOnly");
             res.set_header("Location", "/stats");

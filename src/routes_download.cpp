@@ -316,6 +316,13 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 } else {
                     string height = quality;
                     height.erase(std::remove(height.begin(), height.end(), 'p'), height.end());
+                    // Validate height is digits-only to prevent yt-dlp filter injection
+                    if (height.empty() || !std::all_of(height.begin(), height.end(), ::isdigit)) {
+                        unregister_active_download(client_ip);
+                        res.status = 400;
+                        res.set_content(json({{"error","Invalid quality parameter"}}).dump(), "application/json");
+                        return;
+                    }
                     cmd += "-f \"bv*[height<=" + height + "]+ba/b[height<=" + height + "]\" " + mp4_audio;
                 }
             }

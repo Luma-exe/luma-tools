@@ -174,7 +174,8 @@ static string extract_text_from_upload(
             text = ss.str();
         }
     } else if (file_ext == ".docx") {
-        string cmd = "pandoc -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
+        string pandoc_exe = g_pandoc_path.empty() ? "pandoc" : g_pandoc_path;
+        string cmd = escape_arg(pandoc_exe) + " -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
         int code; exec_command(cmd, code);
         if (fs::exists(txt_path)) {
             ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
@@ -213,6 +214,8 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         if (req.has_file("quality")) {
             try { quality = std::stoi(req.get_file_value("quality").content); } catch (...) {}
         }
+        if (quality < 1)   quality = 1;
+        if (quality > 100) quality = 100;
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -274,22 +277,41 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             }
         }
 
-        string width = req.has_file("width") ? req.get_file_value("width").content : "";
-        string height = req.has_file("height") ? req.get_file_value("height").content : "";
+        string width_raw  = req.has_file("width")  ? req.get_file_value("width").content  : "";
+        string height_raw = req.has_file("height") ? req.get_file_value("height").content : "";
 
-        if (width.empty() && height.empty()) {
+        if (width_raw.empty() && height_raw.empty()) {
             res.status = 400;
             res.set_content(json({{"error", "Width or height required"}}).dump(), "application/json");
             return;
         }
 
+        // Parse as integers to prevent FFmpeg filter injection (e.g. "scale=injected:value")
+        int w_val = -1, h_val = -1;
+        if (!width_raw.empty()) {
+            try { w_val = std::stoi(width_raw); } catch (...) { w_val = -2; }
+        }
+        if (!height_raw.empty()) {
+            try { h_val = std::stoi(height_raw); } catch (...) { h_val = -2; }
+        }
+        if (w_val == -2 || h_val == -2 || w_val == 0 || h_val == 0) {
+            res.status = 400;
+            res.set_content(json({{"error", "Width and height must be positive integers"}}).dump(), "application/json");
+            return;
+        }
+        if (w_val > 16000 || h_val > 16000) {
+            res.status = 400;
+            res.set_content(json({{"error", "Dimensions too large (max 16000px)"}}).dump(), "application/json");
+            return;
+        }
+        // -1 means ffmpeg auto-scales that dimension (maintain aspect ratio)
+        string sw = (w_val < 0) ? "-1" : to_string(w_val);
+        string sh = (h_val < 0) ? "-1" : to_string(h_val);
+
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
         string output_path = get_processing_dir() + "/" + jid + "_out" + ext;
-
-        string sw = width.empty() ? "-1" : width;
-        string sh = height.empty() ? "-1" : height;
         string filter = "scale=" + sw + ":" + sh;
 
         string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " -vf " + escape_arg(filter) + " " + escape_arg(output_path);
@@ -1132,6 +1154,8 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         auto file = req.get_file_value("file");
         int fps = 15; if (req.has_file("fps")) try { fps = std::stoi(req.get_file_value("fps").content); } catch (...) {}
         int width = 480; if (req.has_file("width")) try { width = std::stoi(req.get_file_value("width").content); } catch (...) {}
+        if (fps < 1)      fps   = 1;    if (fps > 60)     fps   = 60;
+        if (width < 64)   width = 64;   if (width > 3840) width = 3840;
 
         discord_log_tool("Video to GIF", file.filename, req.remote_addr);
         string jid = generate_job_id();
@@ -1513,6 +1537,8 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         string method = "auto";
 
         if (req.has_file("method")) method = req.get_file_value("method").content;
+        // Clamp unknown methods to "auto" to avoid ambiguous silent failure
+        if (method != "auto" && method != "white" && method != "black") method = "auto";
 
         discord_log_tool("Background Remover", file.filename + " (" + method + ")", req.remote_addr);
 
@@ -1924,6 +1950,11 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         if (wm_text.empty()) {
             res.status = 400;
             res.set_content(json({{"error", "Watermark text is required"}}).dump(), "application/json");
+            return;
+        }
+        if (wm_text.size() > 200) {
+            res.status = 400;
+            res.set_content(json({{"error", "Watermark text too long (max 200 characters)"}}).dump(), "application/json");
             return;
         }
 
@@ -2499,6 +2530,8 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             res.set_content(json({{"error", "No notes provided"}}).dump(), "application/json");
             return;
         }
+        // Cap notes size to stay within token limits and prevent excessive API cost
+        if (current_notes.size() > 16000) current_notes = current_notes.substr(0, 16000);
 
         // Parse feedback
         json feedback;
@@ -2709,6 +2742,8 @@ IMPORTANT RULES:
         if (req.has_file("difficulty")) {
             difficulty = req.get_file_value("difficulty").content;
         }
+        // Clamp unknown difficulty values to "medium"
+        if (difficulty != "easy" && difficulty != "medium" && difficulty != "hard") difficulty = "medium";
         count = std::min(std::max(count, 5), 20);
 
         string text;
@@ -2865,6 +2900,15 @@ IMPORTANT RULES:
                 return;
             }
 
+            // Validate DOI format to prevent curl command injection
+            // DOIs start with "10." and must not contain shell metacharacters
+            if (doi.size() > 256 || doi.find("10.") != 0 ||
+                doi.find_first_of(" \"'`$;&|\\!^~{}\r\n") != string::npos) {
+                res.status = 400;
+                res.set_content(json({{"error", "Invalid DOI format"}}).dump(), "application/json");
+                return;
+            }
+
             // Fetch DOI metadata from doi.org
             string proc = get_processing_dir();
             string jid = generate_job_id();
@@ -2872,8 +2916,9 @@ IMPORTANT RULES:
             
             string accept_file = proc + "/" + jid + "_accept.txt";
             { ofstream fa(accept_file); fa << "Accept: application/vnd.citationstyles.csl+json"; }
+            string doi_url = "https://doi.org/" + doi;
             string curl_cmd = "curl -s -L -H @" + escape_arg(accept_file) +
-                              " https://doi.org/" + doi +
+                              " " + escape_arg(doi_url) +
                               " -o " + escape_arg(resp_file);
             int rc; exec_command(curl_cmd, rc);
             
@@ -2903,7 +2948,7 @@ IMPORTANT RULES:
                     metadata["doi"] = doi;
                 } catch (...) {}
             }
-            try { fs::remove(resp_file); } catch (...) {}
+            try { fs::remove(resp_file); fs::remove(accept_file); } catch (...) {}
         } else if (source_type == "url") {
             string url = req.has_file("url") ? req.get_file_value("url").content : "";
             if (url.empty()) {
@@ -3331,6 +3376,15 @@ IMPORTANT RULES:
                 if (fs::is_regular_file(e)) { has_files = true; ++file_count; }
             }
         } catch (...) {}
+
+        // Sanity-check extracted file count to prevent zip-bomb DoS
+        constexpr uintmax_t MAX_EXTRACT_FILES = 2000;
+        if (file_count > MAX_EXTRACT_FILES) {
+            try { fs::remove(input_path); fs::remove_all(extract_dir); } catch (...) {}
+            res.status = 400;
+            res.set_content(json({{"error", "Archive contains too many files (max 2000). Use a smaller archive."}}).dump(), "application/json");
+            return;
+        }
 
         if (!has_files) {
             try { fs::remove(input_path); fs::remove_all(extract_dir); } catch (...) {}

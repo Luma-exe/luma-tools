@@ -388,7 +388,21 @@ string generate_download_id() {
 
 void update_download_status(const string& id, const json& status) {
     lock_guard<mutex> lock(downloads_mutex);
+
+    // Track insertion order for eviction (prevent unbounded memory growth).
+    static std::deque<string> dl_order;
+    if (!download_status_map.count(id)) {
+        dl_order.push_back(id);
+    }
+
     download_status_map[id] = status;
+
+    constexpr size_t MAX_DOWNLOADS = 500;
+    while (dl_order.size() > MAX_DOWNLOADS) {
+        string oldest = dl_order.front();
+        download_status_map.erase(oldest);
+        dl_order.pop_front();
+    }
 }
 
 json get_download_status(const string& id) {
