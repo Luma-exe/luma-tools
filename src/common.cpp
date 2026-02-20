@@ -3,6 +3,7 @@
  */
 
 #include "common.h"
+#include <deque>
 
 // ─── Global variable definitions ────────────────────────────────────────────
 
@@ -414,9 +415,25 @@ string generate_job_id() {
 
 void update_job(const string& id, const json& status, const string& result_path) {
     lock_guard<mutex> lock(jobs_mutex);
-    job_status_map[id] = status;
 
+    // Track insertion order so we can evict the oldest entries when the maps grow too large.
+    static std::deque<string> job_order;
+    if (!job_status_map.count(id)) {
+        job_order.push_back(id);
+    }
+
+    job_status_map[id] = status;
     if (!result_path.empty()) job_results_map[id] = result_path;
+
+    // Evict oldest entries if maps exceed the cap (prevents unbounded memory growth).
+    constexpr size_t MAX_JOBS = 500;
+    while (job_order.size() > MAX_JOBS) {
+        string oldest = job_order.front();   // copy by value before pop
+        job_status_map.erase(oldest);
+        job_results_map.erase(oldest);
+        job_raw_text_map.erase(oldest);
+        job_order.pop_front();
+    }
 }
 
 json get_job(const string& id) {

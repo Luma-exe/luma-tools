@@ -465,6 +465,14 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
 
+        // Allowlist: prevent path traversal and unknown format injection
+        static const set<string> ALLOWED_AUDIO_FMT = {"mp3","aac","m4a","wav","flac","ogg","wma"};
+        if (ALLOWED_AUDIO_FMT.find(format) == ALLOWED_AUDIO_FMT.end()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Unsupported audio format: " + format}}).dump(), "application/json");
+            return;
+        }
+
         discord_log_tool("Audio Convert", file.filename + " -> " + format, req.remote_addr);
 
         string jid = generate_job_id();
@@ -569,6 +577,19 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             return;
         }
 
+        // Validate timestamps: only digits, colons, and periods allowed (prevent injection)
+        auto is_valid_timestamp = [](const string& ts) {
+            return !ts.empty() && ts.size() <= 20 &&
+                   std::all_of(ts.begin(), ts.end(), [](char c) {
+                       return std::isdigit((unsigned char)c) || c == ':' || c == '.';
+                   });
+        };
+        if (!is_valid_timestamp(start) || !is_valid_timestamp(end)) {
+            res.status = 400;
+            res.set_content(json({{"error", "Invalid timestamp format"}}).dump(), "application/json");
+            return;
+        }
+
         discord_log_tool("Video Trim (" + mode + ")", file.filename + " [" + start + " -> " + end + "]", req.remote_addr);
 
         string jid = generate_job_id();
@@ -625,6 +646,14 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp4";
 
+        // Allowlist: prevent path traversal and unknown format injection
+        static const set<string> ALLOWED_VIDEO_FMT = {"mp4","webm","mkv","avi","mov","gif"};
+        if (ALLOWED_VIDEO_FMT.find(format) == ALLOWED_VIDEO_FMT.end()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Unsupported video format: " + format}}).dump(), "application/json");
+            return;
+        }
+
         discord_log_tool("Video Convert", file.filename + " -> " + format, req.remote_addr);
 
         string jid = generate_job_id();
@@ -675,6 +704,14 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
+
+        // Allowlist: prevent path traversal and unknown format injection
+        static const set<string> ALLOWED_EXTRACT_FMT = {"mp3","aac","m4a","wav","flac","ogg"};
+        if (ALLOWED_EXTRACT_FMT.find(format) == ALLOWED_EXTRACT_FMT.end()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Unsupported audio format: " + format}}).dump(), "application/json");
+            return;
+        }
 
         discord_log_tool("Extract Audio", file.filename + " -> " + format, req.remote_addr);
 
@@ -886,6 +923,14 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         auto file = req.get_file_value("file");
         string level = req.has_file("level") ? req.get_file_value("level").content : "ebook";
 
+        // Allowlist: prevent GhostScript option injection via -dPDFSETTINGS=/...
+        static const set<string> ALLOWED_PDF_LEVELS = {"screen","ebook","printer","prepress","default"};
+        if (ALLOWED_PDF_LEVELS.find(level) == ALLOWED_PDF_LEVELS.end()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Invalid PDF quality level. Use: screen, ebook, printer, prepress, or default."}}).dump(), "application/json");
+            return;
+        }
+
         discord_log_tool("PDF Compress", file.filename + " (" + level + ")", req.remote_addr);
 
         string jid = generate_job_id();
@@ -929,6 +974,11 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         if (count_val < 2) {
             res.status = 400;
             res.set_content(json({{"error", "At least 2 PDF files required"}}).dump(), "application/json");
+            return;
+        }
+        if (count_val > 50) {
+            res.status = 400;
+            res.set_content(json({{"error", "Too many files. Maximum is 50 PDFs per merge."}}).dump(), "application/json");
             return;
         }
 
@@ -996,7 +1046,22 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
 
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "png";
-        string dpi = req.has_file("dpi") ? req.get_file_value("dpi").content : "200";
+        string dpi    = req.has_file("dpi")    ? req.get_file_value("dpi").content    : "200";
+
+        // Allowlist for format; parse dpi as integer (prevent GhostScript injection)
+        static const set<string> ALLOWED_PDF2IMG_FMT = {"png","jpg","jpeg","tiff","tif"};
+        if (ALLOWED_PDF2IMG_FMT.find(format) == ALLOWED_PDF2IMG_FMT.end()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Unsupported image format. Use: png, jpg, tiff."}}).dump(), "application/json");
+            return;
+        }
+        {
+            int dpi_val = 200;
+            try { dpi_val = std::stoi(dpi); } catch (...) {}
+            if (dpi_val < 72)  dpi_val = 72;
+            if (dpi_val > 600) dpi_val = 600;
+            dpi = to_string(dpi_val);
+        }
 
         discord_log_tool("PDF to Images", file.filename + " (" + format + ", " + dpi + " DPI)", req.remote_addr);
 
@@ -1190,6 +1255,15 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
         string timestamp = req.has_file("timestamp") ? req.get_file_value("timestamp").content : "00:00:00";
+        // Validate timestamp: only digits, colons, and periods allowed (prevent injection)
+        if (timestamp.empty() || timestamp.size() > 20 ||
+            !std::all_of(timestamp.begin(), timestamp.end(), [](char c) {
+                return std::isdigit((unsigned char)c) || c == ':' || c == '.';
+            })) {
+            res.status = 400;
+            res.set_content(json({{"error", "Invalid timestamp format"}}).dump(), "application/json");
+            return;
+        }
         discord_log_tool("Frame Extract", file.filename + " @ " + timestamp, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -1255,6 +1329,13 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
         string format = req.has_file("format") ? req.get_file_value("format").content : "srt";
+        // Allowlist: prevent path traversal
+        static const set<string> ALLOWED_SUB_FMT = {"srt","vtt","ass","ssa"};
+        if (ALLOWED_SUB_FMT.find(format) == ALLOWED_SUB_FMT.end()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Unsupported subtitle format: " + format}}).dump(), "application/json");
+            return;
+        }
         discord_log_tool("Subtitle Extract", file.filename, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
@@ -1367,16 +1448,20 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             }
         }
 
-        string x_s = req.has_file("x") ? req.get_file_value("x").content : "0";
-        string y_s = req.has_file("y") ? req.get_file_value("y").content : "0";
-        string w_s = req.has_file("w") ? req.get_file_value("w").content : "";
-        string h_s = req.has_file("h") ? req.get_file_value("h").content : "";
+        // Parse crop params as integers to prevent filter injection
+        int x_v = 0, y_v = 0, w_v = 0, h_v = 0;
+        if (req.has_file("x")) try { x_v = std::stoi(req.get_file_value("x").content); } catch (...) {}
+        if (req.has_file("y")) try { y_v = std::stoi(req.get_file_value("y").content); } catch (...) {}
+        if (req.has_file("w")) try { w_v = std::stoi(req.get_file_value("w").content); } catch (...) {}
+        if (req.has_file("h")) try { h_v = std::stoi(req.get_file_value("h").content); } catch (...) {}
 
-        if (w_s.empty() || h_s.empty()) {
+        if (w_v <= 0 || h_v <= 0) {
             res.status = 400;
-            res.set_content(json({{"error", "Crop dimensions required"}}).dump(), "application/json");
+            res.set_content(json({{"error", "Crop dimensions required (width and height must be positive integers)"}}).dump(), "application/json");
             return;
         }
+        if (x_v < 0) x_v = 0;
+        if (y_v < 0) y_v = 0;
 
         discord_log_tool("Image Crop", file.filename, req.remote_addr);
 
@@ -1385,9 +1470,9 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         string ext = fs::path(file.filename).extension().string();
         string output_path = get_processing_dir() + "/" + jid + "_cropped" + ext;
 
-        // ffmpeg crop filter: crop=w:h:x:y
+        // ffmpeg crop filter: crop=w:h:x:y  — use integer strings (safe from injection)
         string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
-            + " -vf crop=" + w_s + ":" + h_s + ":" + x_s + ":" + y_s
+            + " -vf crop=" + to_string(w_v) + ":" + to_string(h_v) + ":" + to_string(x_v) + ":" + to_string(y_v)
             + " " + escape_arg(output_path);
         cout << "[Luma Tools] Image crop: " << cmd << endl;
         int code;
@@ -1548,6 +1633,7 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
 
         if (req.has_file("count")) try { count_val = std::stoi(req.get_file_value("count").content); } catch (...) {}
         if (count_val < 1) { res.status = 400; res.set_content(json({{"error","At least 1 image required"}}).dump(),"application/json"); return; }
+        if (count_val > 50) { res.status = 400; res.set_content(json({{"error","Too many images. Maximum is 50 per conversion."}}).dump(),"application/json"); return; }
         discord_log_tool("Images to PDF", to_string(count_val) + " images", req.remote_addr);
         string jid = generate_job_id();
         string proc_dir = get_processing_dir();
@@ -1699,6 +1785,21 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             res.set_content(json({{"error", "End time is required"}}).dump(), "application/json");
             return;
         }
+
+        // Validate timestamps: only digits, colons, and periods allowed (prevent injection)
+        {
+            auto is_valid_ts = [](const string& ts) {
+                return !ts.empty() && ts.size() <= 20 &&
+                       std::all_of(ts.begin(), ts.end(), [](char c) {
+                           return std::isdigit((unsigned char)c) || c == ':' || c == '.';
+                       });
+            };
+            if (!is_valid_ts(start) || !is_valid_ts(end)) {
+                res.status = 400;
+                res.set_content(json({{"error", "Invalid timestamp format"}}).dump(), "application/json");
+                return;
+            }
+        }
         discord_log_tool("Audio Trim (" + mode + ")", file.filename + " [" + start + " -> " + end + "]", req.remote_addr);
 
         string jid = generate_job_id();
@@ -1801,6 +1902,25 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         string wm_opacity = req.has_file("opacity")  ? req.get_file_value("opacity").content  : "0.6";
         string wm_pos     = req.has_file("position") ? req.get_file_value("position").content : "bottom-right";
 
+        // Parse/clamp fontsize to prevent FFmpeg filter injection
+        {
+            int fs_val = 36;
+            try { fs_val = std::stoi(wm_font_sz); } catch (...) {}
+            if (fs_val < 8)   fs_val = 8;
+            if (fs_val > 200) fs_val = 200;
+            wm_font_sz = to_string(fs_val);
+        }
+        // Validate color: allow only alphanumeric chars and '#' (CSS names + hex codes)
+        {
+            bool color_ok = !wm_color.empty() && std::all_of(wm_color.begin(), wm_color.end(),
+                [](char c){ return std::isalnum((unsigned char)c) || c == '#'; });
+            if (!color_ok) {
+                res.status = 400;
+                res.set_content(json({{"error", "Invalid color value. Use a color name (white, black...) or hex (#RRGGBB)."}}).dump(), "application/json");
+                return;
+            }
+        }
+
         if (wm_text.empty()) {
             res.status = 400;
             res.set_content(json({{"error", "Watermark text is required"}}).dump(), "application/json");
@@ -1831,8 +1951,8 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         if (op < 0) op = 0; if (op > 1) op = 1;
         int alpha = (int)(op * 255);
         char alpha_hex[5]; snprintf(alpha_hex, sizeof(alpha_hex), "%02X", alpha);
-        // Convert color name to RRGGBBAA for drawtext
-        string color_str = wm_color + "@" + wm_opacity;
+        // Convert color name to RRGGBBAA for drawtext (use clamped op value, not raw user input)
+        string color_str = wm_color + "@" + to_string(op);
 
         discord_log_tool("Image Watermark", file.filename, req.remote_addr);
 
@@ -3014,6 +3134,14 @@ IMPORTANT RULES:
         if (video_id.empty() || video_id.size() != 11) {
             res.status = 400;
             res.set_content(json({{"error", "Invalid video ID"}}).dump(), "application/json");
+            return;
+        }
+        // Validate characters: YouTube IDs are alphanumeric, dash, or underscore only.
+        // A `"` or shell metacharacter would break exec_command's outer double-quote wrapper.
+        if (!std::all_of(video_id.begin(), video_id.end(),
+                [](char c){ return std::isalnum((unsigned char)c) || c == '-' || c == '_'; })) {
+            res.status = 400;
+            res.set_content(json({{"error", "Invalid video ID characters"}}).dump(), "application/json");
             return;
         }
 
