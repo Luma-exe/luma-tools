@@ -3,7 +3,7 @@
 
   <h1>Luma Tools</h1>
 
-  <b>An all-in-one browser toolkit built with C++ &amp; FFmpeg</b><br/><br/>
+  <b>A free, open source toolkit for students, creators and developers</b><br/><br/>
 
   Download from 10+ platforms &nbsp;·&nbsp; 50+ file processing tools &nbsp;·&nbsp; AI study features &nbsp;·&nbsp; Runs in your browser
 
