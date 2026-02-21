@@ -17,20 +17,16 @@ static sqlite3* g_db = nullptr;
 
 // === Internal helpers ========================================================
 
+// Returns an absolute path to stats.db anchored to the process working directory
+// (i.e. the project root, same level as downloads/ and processing/).
+// MUST NOT be inside processing/ — that directory is cleaned on every restart.
 static string stats_db_path() {
-    string proc = get_processing_dir();
-    fs::path p(proc);
-    auto parent = p.parent_path();
-    if (parent.empty() || !fs::exists(parent)) parent = p;
-    return (parent / "stats.db").string();
+    // Resolve to absolute so the path is stable regardless of later chdir calls.
+    return fs::absolute("stats.db").string();
 }
 
 static string stats_jsonl_path() {
-    string proc = get_processing_dir();
-    fs::path p(proc);
-    auto parent = p.parent_path();
-    if (parent.empty() || !fs::exists(parent)) parent = p;
-    return (parent / "stats.jsonl").string();
+    return fs::absolute("stats.jsonl").string();
 }
 
 static int64_t now_unix() {
@@ -426,32 +422,14 @@ vector<pair<string,int>> stat_events(int64_t from_unix, int64_t to_unix) {
 
 // === Time helpers ============================================================
 
-static int64_t timezone_offset_seconds() {
-    time_t epoch = 0;
-    struct tm utc_tm {};
-#ifdef _WIN32
-    gmtime_s(&utc_tm, &epoch);
-#else
-    gmtime_r(&epoch, &utc_tm);
-#endif
-    return (int64_t)mktime(&utc_tm);
-}
-
 int64_t stat_today_start() {
-    auto now = std::chrono::system_clock::now();
-    auto t   = std::chrono::system_clock::to_time_t(now);
-    struct tm gmt {};
-#ifdef _WIN32
-    gmtime_s(&gmt, &t);
-#else
-    gmtime_r(&t, &gmt);
-#endif
-    gmt.tm_hour = 0; gmt.tm_min = 0; gmt.tm_sec = 0;
-    return (int64_t)mktime(&gmt) - timezone_offset_seconds();
+    // Truncate the current UTC unix timestamp to the day boundary (00:00:00 UTC).
+    // Using pure integer arithmetic avoids any local-timezone contamination from mktime().
+    return (now_unix() / 86400LL) * 86400LL;
 }
 
 int64_t stat_days_ago(int n) {
-    return stat_today_start() - (int64_t)n * 86400;
+    return stat_today_start() - (int64_t)n * 86400LL;
 }
 
 // === Daily digest ============================================================

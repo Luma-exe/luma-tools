@@ -309,6 +309,36 @@ int main() {
         res.set_header("Cross-Origin-Opener-Policy", "same-origin");
         res.set_header("Cross-Origin-Embedder-Policy", "credentialless");
 
+        // ── Extract real client IP ──────────────────────────────────────────────
+        // Behind a reverse proxy (Caddy/nginx), req.remote_addr is always 127.0.0.1.
+        // X-Forwarded-For contains the real client IP set by the proxy.
+        string real_ip = req.remote_addr;
+        if (req.has_header("X-Forwarded-For")) {
+            string xff = req.get_header_value("X-Forwarded-For");
+            // Take only the first (leftmost) address — the original client.
+            auto comma = xff.find(',');
+            if (comma != string::npos) xff = xff.substr(0, comma);
+            // Trim whitespace
+            auto s = xff.find_first_not_of(" \t");
+            if (s != string::npos) xff = xff.substr(s);
+            auto e = xff.find_last_not_of(" \t\r\n");
+            if (e != string::npos) xff = xff.substr(0, e + 1);
+            if (!xff.empty()) real_ip = xff;
+        }
+        if (real_ip == "::1") real_ip = "127.0.0.1";
+
+        // ── Record a visitor entry for every page/tool GET request ─────────────
+        // Only record for non-localhost IPs so dev traffic isn't counted.
+        // stat_unique_visitors() uses COUNT(DISTINCT vh) so duplicate records
+        // from the same IP in the same session count as exactly 1 unique visitor.
+        if (req.method == "GET" &&
+            real_ip != "127.0.0.1" && real_ip != "::1" && !real_ip.empty() &&
+            req.path.find("/api/") != 0 &&
+            req.path != "/favicon.svg" &&
+            req.path.rfind("/downloads/", 0) != 0) {
+            stat_record("visitor", "page", true, real_ip);
+        }
+
         if (req.path.find("/api/tools/") == 0 && req.method == "POST") {
             // Extract tool id from path: /api/tools/<tool-id>
             string tool_id = req.path.substr(11); // after "/api/tools/"
@@ -323,7 +353,7 @@ int main() {
             }
 
             auto now = std::time(nullptr);
-            auto ip  = req.remote_addr;
+            auto ip  = real_ip;  // use resolved real IP for rate limiting
             std::lock_guard<std::mutex> lk(g_rate_mutex);
 
             // Global rate limit: 30 requests per 60 seconds per IP
@@ -371,6 +401,9 @@ int main() {
             auto cutoff = fs::file_time_type::clock::now() - std::chrono::minutes(30);
             for (auto& entry : fs::directory_iterator(proc_dir)) {
                 if (!entry.is_regular_file()) continue;
+                // Never delete database or migration files — these must survive restarts.
+                auto ext = entry.path().extension().string();
+                if (ext == ".db" || ext == ".jsonl" || ext == ".migrated") continue;
                 auto mtime = fs::last_write_time(entry.path());
                 if (mtime < cutoff) {
                     fs::remove(entry.path());
