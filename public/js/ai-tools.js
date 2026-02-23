@@ -1160,3 +1160,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// ── LumaPlanner deep-link integration ─────────────────────────────────────
+// Allows luma-planner to open a specific tool and pre-fill content via URL params.
+// Usage: ?tool=ai-flashcards&mode=paste&text=URL-encoded-content
+//        ?tool=ai-study-notes&mode=ai&text=URL-encoded-task-context
+// mode=paste → opens the paste textarea
+// mode=ai    → same as paste but text is an AI generation prompt
+// ──────────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const tool   = params.get('tool');   // 'ai-study-notes' | 'ai-flashcards' | 'ai-quiz'
+    const mode   = params.get('mode');   // 'ai' | 'paste'
+    const text   = params.get('text');   // pre-filled content
+
+    if (!tool) return;
+
+    // Switch to the requested tool (switchTool is defined in ui.js)
+    if (typeof switchTool === 'function') switchTool(tool);
+
+    // After a short tick to let the panel activate, set input mode + content
+    setTimeout(() => {
+        const prefillMap = {
+            'ai-study-notes': { toggle: 'toggleStudyNotesInput', inputId: 'study-notes-text-input' },
+            'ai-flashcards':  { toggle: 'toggleFlashcardsInput',  inputId: 'flashcards-text-input'  },
+            'ai-quiz':        { toggle: 'toggleQuizInput',         inputId: 'quiz-text-input'        },
+        };
+
+        const cfg = prefillMap[tool];
+        if (!cfg) return;
+
+        if (mode === 'paste' || mode === 'ai') {
+            const toggleFn = window[cfg.toggle];
+            if (typeof toggleFn === 'function') toggleFn('paste');
+        }
+
+        if (text) {
+            const el = document.getElementById(cfg.inputId);
+            if (el) el.value = text;
+        }
+    }, 250);
+});
