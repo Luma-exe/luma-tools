@@ -1162,54 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── LumaPlanner deep-link integration ─────────────────────────────────────
-// Hash format: #toolId/mode/encodedText
-//   toolId  → 'ai-study-notes' | 'ai-flashcards' | 'ai-quiz'
-//   mode    → 'ai' | 'paste'
-//   text    → encodeURIComponent'd task context (optional)
-// Tool navigation (switchTool) is handled by ui.js reading the same hash.
-// This handler only handles pre-filling the textarea mode and content.
+// Handled entirely by pwa.js (last script) via sessionStorage set in go.html.
+// Tool switch + textarea prefill both live there so they always run after
+// switchTool('landing') has fired and all tool panels are initialised.
 // ──────────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    // Primary source: sessionStorage set by /go.html (bypasses SW cache entirely)
-    // Fallback: hash segments #toolId/mode/encodedText
-    let tool = '', mode = '', text = '';
-    try {
-        const stored = sessionStorage.getItem('lt_deeplink');
-        if (stored) {
-            const d = JSON.parse(stored);
-            tool = d.tool || '';
-            mode = d.mode || '';
-            text = d.text || '';
-            sessionStorage.removeItem('lt_deeplink');
-        }
-    } catch (e) {}
-    if (!tool) {
-        const parts = location.hash.replace('#', '').split('/');
-        tool = parts[0] || '';
-        mode = parts[1] || '';
-        text = parts[2] ? decodeURIComponent(parts[2]) : '';
-    }
-
-    if (!tool || !mode) return;
-
-    setTimeout(() => {
-        const prefillMap = {
-            'ai-study-notes': { toggle: 'toggleStudyNotesInput', inputId: 'study-notes-text-input' },
-            'ai-flashcards':  { toggle: 'toggleFlashcardsInput',  inputId: 'flashcards-text-input'  },
-            'ai-quiz':        { toggle: 'toggleQuizInput',         inputId: 'quiz-text-input'        },
-        };
-
-        const cfg = prefillMap[tool];
-        if (!cfg) return;
-
-        if (mode === 'paste' || mode === 'ai') {
-            const toggleFn = window[cfg.toggle];
-            if (typeof toggleFn === 'function') toggleFn('paste');
-        }
-
-        if (text) {
-            const el = document.getElementById(cfg.inputId);
-            if (el) el.value = text;
-        }
-    }, 300);
-});

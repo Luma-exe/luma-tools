@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v5'; // bumped: force fresh fetch after pwa.js deep-link fix
+const CACHE_NAME = 'lumatools-v6'; // bumped: force fresh fetch — last-write-wins deep-link fix
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

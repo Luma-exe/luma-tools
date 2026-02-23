@@ -145,11 +145,41 @@ document.addEventListener('DOMContentLoaded', () => {
     initGlobalDrop();
     initInstallPrompt();
 
-    // Only go to landing if there's no deep-link hash (e.g. from luma-planner)
-    const _deepLinkTool = location.hash.replace('#', '').split('/')[0].trim();
-    if (!_deepLinkTool || !document.getElementById('tool-' + _deepLinkTool)) {
-        switchTool('landing');
-    }
+    // Always start on landing, then immediately override if luma-planner sent a deep-link.
+    // This 'last write wins' approach is immune to script load order and SW caching.
+    switchTool('landing');
+
+    setTimeout(function () {
+        try {
+            var dl = sessionStorage.getItem('lt_deeplink');
+            if (!dl) return;
+            var d = JSON.parse(dl);
+            sessionStorage.removeItem('lt_deeplink');
+            var tool = d.tool || '';
+            var mode = d.mode || '';
+            var text  = d.text  || '';
+            if (!tool) return;
+            switchTool(tool);
+            // Prefill the paste textarea after the panel is active
+            setTimeout(function () {
+                var pm = {
+                    'ai-study-notes': { toggle: 'toggleStudyNotesInput', inputId: 'study-notes-text-input' },
+                    'ai-flashcards':  { toggle: 'toggleFlashcardsInput',  inputId: 'flashcards-text-input'  },
+                    'ai-quiz':        { toggle: 'toggleQuizInput',         inputId: 'quiz-text-input'        },
+                };
+                var cfg = pm[tool];
+                if (!cfg) return;
+                if (mode === 'paste' || mode === 'ai') {
+                    var fn = window[cfg.toggle];
+                    if (typeof fn === 'function') fn('paste');
+                }
+                if (text) {
+                    var el = document.getElementById(cfg.inputId);
+                    if (el) { el.value = text; el.dispatchEvent(new Event('input')); }
+                }
+            }, 300);
+        } catch (e) {}
+    }, 50);
 
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
