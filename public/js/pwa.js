@@ -172,6 +172,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (mode === 'paste' || mode === 'ai') {
                     var fn = window[cfg.toggle];
                     if (typeof fn === 'function') fn('paste');
+                    // Activate the Paste Text preset button visually
+                    var modeGridMap = {
+                        'ai-study-notes': 'study-notes-input-mode',
+                        'ai-flashcards':  'flashcards-input-mode',
+                        'ai-quiz':        'quiz-input-mode',
+                    };
+                    var gridKey = modeGridMap[tool];
+                    if (gridKey) {
+                        var grid = document.querySelector('.preset-grid[data-tool="' + gridKey + '"]');
+                        if (grid) {
+                            var pasteBtn = grid.querySelector('[data-val="paste"]');
+                            if (pasteBtn && typeof window.selectPreset === 'function') window.selectPreset(pasteBtn);
+                        }
+                    }
                 }
                 if (text) {
                     var el = document.getElementById(cfg.inputId);
