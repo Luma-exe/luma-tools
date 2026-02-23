@@ -145,7 +145,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initGlobalDrop();
     initInstallPrompt();
 
-    switchTool('landing');
+    // Only go to landing if there's no deep-link hash (e.g. from luma-planner)
+    const _deepLinkTool = location.hash.replace('#', '').split('/')[0].trim();
+    if (!_deepLinkTool || !document.getElementById('tool-' + _deepLinkTool)) {
+        switchTool('landing');
+    }
 
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
