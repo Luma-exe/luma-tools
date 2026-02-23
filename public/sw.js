@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v4'; // bumped: force fresh fetch so COOP/COEP headers are present
+const CACHE_NAME = 'lumatools-v5'; // bumped: force fresh fetch after pwa.js deep-link fix
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

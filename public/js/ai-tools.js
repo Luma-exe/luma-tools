@@ -1170,13 +1170,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // This handler only handles pre-filling the textarea mode and content.
 // ──────────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    const raw = location.hash.replace('#', '');
-    if (!raw) return;
-
-    const parts = raw.split('/');
-    const tool  = parts[0] || '';
-    const mode  = parts[1] || '';
-    const text  = parts[2] ? decodeURIComponent(parts[2]) : '';
+    // Primary source: sessionStorage set by /go.html (bypasses SW cache entirely)
+    // Fallback: hash segments #toolId/mode/encodedText
+    let tool = '', mode = '', text = '';
+    try {
+        const stored = sessionStorage.getItem('lt_deeplink');
+        if (stored) {
+            const d = JSON.parse(stored);
+            tool = d.tool || '';
+            mode = d.mode || '';
+            text = d.text || '';
+            sessionStorage.removeItem('lt_deeplink');
+        }
+    } catch (e) {}
+    if (!tool) {
+        const parts = location.hash.replace('#', '').split('/');
+        tool = parts[0] || '';
+        mode = parts[1] || '';
+        text = parts[2] ? decodeURIComponent(parts[2]) : '';
+    }
 
     if (!tool || !mode) return;
 
