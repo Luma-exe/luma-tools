@@ -319,7 +319,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFavs();
 
     // ─ Deep-link: restore tool from URL hash ─
-    const hash = location.hash.replace('#', '').trim();
+    // Hash format may include extra data: #toolId/mode/encodedText — only use the tool id part.
+    const hashRaw = location.hash.replace('#', '').trim();
+    const hash = hashRaw.split('/')[0];
     if (hash && document.getElementById('tool-' + hash)) {
         switchTool(hash);
     }
@@ -329,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle browser back/forward
     window.addEventListener('popstate', (e) => {
-        const toolId = e.state?.tool || 'landing';
+        const toolId = (e.state?.tool || hashRaw).split('/')[0] || 'landing';
         if (document.getElementById('tool-' + toolId)) switchTool(toolId);
     });
 

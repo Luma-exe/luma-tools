@@ -1162,22 +1162,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── LumaPlanner deep-link integration ─────────────────────────────────────
-// luma-planner opens a specific tool via the URL hash (handled by ui.js) and
-// passes pre-fill content via query params: ?mode=paste|ai&text=URL-encoded
-// mode=paste → opens the paste textarea with any provided text
-// mode=ai    → same as paste but text is an AI generation prompt
+// Hash format: #toolId/mode/encodedText
+//   toolId  → 'ai-study-notes' | 'ai-flashcards' | 'ai-quiz'
+//   mode    → 'ai' | 'paste'
+//   text    → encodeURIComponent'd task context (optional)
+// Tool navigation (switchTool) is handled by ui.js reading the same hash.
+// This handler only handles pre-filling the textarea mode and content.
 // ──────────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    // Tool navigation is handled by ui.js reading location.hash (runs before this handler).
-    // We only need to pre-fill the input mode and content.
-    const tool   = location.hash.replace('#', '').trim();
-    const params = new URLSearchParams(window.location.search);
-    const mode   = params.get('mode');   // 'ai' | 'paste'
-    const text   = params.get('text');   // pre-filled content
+    const raw = location.hash.replace('#', '');
+    if (!raw) return;
 
-    if (!tool || (!mode && !text)) return;
+    const parts = raw.split('/');
+    const tool  = parts[0] || '';
+    const mode  = parts[1] || '';
+    const text  = parts[2] ? decodeURIComponent(parts[2]) : '';
 
-    // Short delay to let switchTool (called by ui.js above) fully activate the panel
+    if (!tool || !mode) return;
+
     setTimeout(() => {
         const prefillMap = {
             'ai-study-notes': { toggle: 'toggleStudyNotesInput', inputId: 'study-notes-text-input' },
