@@ -52,11 +52,17 @@
   </div>
   <script>
     (function () {
-      var p      = new URLSearchParams(location.search);
-      var tool   = p.get('tool')   || '';
-      var mode   = p.get('mode')   || '';
-      var text   = p.get('text')   || '';
-      var msgKey = p.get('msgKey') || '';
+      var p    = new URLSearchParams(location.search);
+      var tool = p.get('tool') || '';
+      var mode = p.get('mode') || '';
+
+      // Text is passed in the hash fragment (client-side only, no server length limit).
+      // Fallback: legacy ?text= query param for compatibility.
+      var text = '';
+      if (location.hash.length > 1) {
+        try { text = decodeURIComponent(location.hash.slice(1)); } catch(e) {}
+      }
+      if (!text) text = p.get('text') || '';
 
       var statusEl = document.getElementById('status-msg');
       var barEl    = document.getElementById('bar');
@@ -75,43 +81,18 @@
         return labels[id] || 'Luma Tools';
       }
 
-      function proceed(finalText) {
-        setStatus('Opening ' + toolLabel(tool) + '…', 90);
-        if (tool && (mode || finalText)) {
-          sessionStorage.setItem('lt_deeplink', JSON.stringify({ tool: tool, mode: mode, text: finalText }));
+      setStatus(text ? 'Preparing AI generation…' : 'Opening tool…', 60);
+
+      setTimeout(function () {
+        if (tool && (mode || text)) {
+          sessionStorage.setItem('lt_deeplink', JSON.stringify({ tool: tool, mode: mode, text: text }));
         }
+        setStatus('Opening ' + toolLabel(tool) + '…', 90);
         setTimeout(function () {
           setStatus('Starting AI generation…', 100);
           location.replace(tool ? '/#' + tool : '/');
         }, 150);
-      }
-
-      // Large-payload path: text was sent via postMessage to avoid URL length limits.
-      if (msgKey && window.opener) {
-        setStatus('Receiving your assignment from Luma Planner…', 20);
-        barEl.style.width = '20%';
-
-        var fallback = setTimeout(function () { proceed(''); }, 8000);
-        window.addEventListener('message', function handler(e) {
-          // Accept messages from the planner origin only
-          if (e.origin !== 'https://planner.lumaplayground.com') return;
-          if (e.data && e.data.type === 'luma:payload' && e.data.key === msgKey) {
-            clearTimeout(fallback);
-            window.removeEventListener('message', handler);
-            setStatus('Content received — preparing AI…', 70);
-            proceed(e.data.text || '');
-          }
-        });
-        // Ask opener for the payload
-        window.opener.postMessage(
-          { type: 'luma:requestPayload', key: msgKey },
-          'https://planner.lumaplayground.com'
-        );
-      } else {
-        // Normal small-text path
-        setStatus(text ? 'Preparing AI generation…' : 'Opening tool…', 60);
-        setTimeout(function () { proceed(text); }, 400);
-      }
+      }, 300);
     })();
   </script>
 </body>
