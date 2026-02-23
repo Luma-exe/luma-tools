@@ -12,14 +12,40 @@
   <span>Opening tool…</span>
   <script>
     (function () {
-      var p = new URLSearchParams(location.search);
-      var tool = p.get('tool') || '';
-      var mode = p.get('mode') || '';
-      var text = p.get('text') || '';
-      if (tool && (mode || text)) {
-        sessionStorage.setItem('lt_deeplink', JSON.stringify({ tool: tool, mode: mode, text: text }));
+      var p      = new URLSearchParams(location.search);
+      var tool   = p.get('tool')   || '';
+      var mode   = p.get('mode')   || '';
+      var text   = p.get('text')   || '';
+      var msgKey = p.get('msgKey') || '';
+
+      function proceed(finalText) {
+        if (tool && (mode || finalText)) {
+          sessionStorage.setItem('lt_deeplink', JSON.stringify({ tool: tool, mode: mode, text: finalText }));
+        }
+        location.replace(tool ? '/#' + tool : '/');
       }
-      location.replace(tool ? '/#' + tool : '/');
+
+      // Large-payload path: text was sent via postMessage to avoid URL length limits.
+      if (msgKey && window.opener) {
+        var fallback = setTimeout(function () { proceed(''); }, 8000);
+        window.addEventListener('message', function handler(e) {
+          // Accept messages from the planner origin only
+          if (e.origin !== 'https://planner.lumaplayground.com') return;
+          if (e.data && e.data.type === 'luma:payload' && e.data.key === msgKey) {
+            clearTimeout(fallback);
+            window.removeEventListener('message', handler);
+            proceed(e.data.text || '');
+          }
+        });
+        // Ask opener for the payload
+        window.opener.postMessage(
+          { type: 'luma:requestPayload', key: msgKey },
+          'https://planner.lumaplayground.com'
+        );
+      } else {
+        // Normal small-text path
+        proceed(text);
+      }
     })();
   </script>
 </body>
