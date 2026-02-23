@@ -163,9 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Prefill the paste textarea after the panel is active
             setTimeout(function () {
                 var pm = {
-                    'ai-study-notes': { toggle: 'toggleStudyNotesInput', inputId: 'study-notes-text-input' },
-                    'ai-flashcards':  { toggle: 'toggleFlashcardsInput',  inputId: 'flashcards-text-input'  },
-                    'ai-quiz':        { toggle: 'toggleQuizInput',         inputId: 'quiz-text-input'        },
+                    'ai-study-notes': { toggle: 'toggleStudyNotesInput', inputId: 'study-notes-text-input', modeKey: 'study-notes-input-mode', submit: 'processStudyNotes' },
+                    'ai-flashcards':  { toggle: 'toggleFlashcardsInput',  inputId: 'flashcards-text-input',  modeKey: 'flashcards-input-mode',  submit: 'processFlashcards' },
+                    'ai-quiz':        { toggle: 'toggleQuizInput',         inputId: 'quiz-text-input',        modeKey: 'quiz-input-mode',        submit: 'processQuiz' },
                 };
                 var cfg = pm[tool];
                 if (!cfg) return;
@@ -173,25 +173,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     var fn = window[cfg.toggle];
                     if (typeof fn === 'function') fn('paste');
                     // Activate the Paste Text preset button visually
-                    var modeGridMap = {
-                        'ai-study-notes': 'study-notes-input-mode',
-                        'ai-flashcards':  'flashcards-input-mode',
-                        'ai-quiz':        'quiz-input-mode',
-                    };
-                    var gridKey = modeGridMap[tool];
-                    if (gridKey) {
-                        var grid = document.querySelector('.preset-grid[data-tool="' + gridKey + '"]');
-                        if (grid) {
-                            var pasteBtn = grid.querySelector('[data-val="paste"]');
-                            if (pasteBtn && typeof window.selectPreset === 'function') window.selectPreset(pasteBtn);
-                        }
+                    var grid = document.querySelector('.preset-grid[data-tool="' + cfg.modeKey + '"]');
+                    if (grid) {
+                        var pasteBtn = grid.querySelector('[data-val="paste"]');
+                        if (pasteBtn && typeof window.selectPreset === 'function') window.selectPreset(pasteBtn);
                     }
                 }
                 if (text) {
                     var el = document.getElementById(cfg.inputId);
                     if (el) { el.value = text; el.dispatchEvent(new Event('input')); }
+
+                    // Auto-generate when coming from Luma Planner with 'ai' mode
+                    if (mode === 'ai' && cfg.submit) {
+                        setTimeout(function () {
+                            var submitFn = window[cfg.submit];
+                            if (typeof submitFn === 'function') submitFn();
+                        }, 250);
+                    }
                 }
-            }, 300);
+            }, 600);
         } catch (e) {}
     }, 50);
 

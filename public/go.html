@@ -5,11 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Opening Luma Tools…</title>
   <style>
-    body { margin: 0; background: #0d0d14; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: Inter, sans-serif; color: #aaa; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d14;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; font-family: Inter, system-ui, sans-serif; color: #ccc;
+    }
+    .card {
+      text-align: center; padding: 2.5rem 2rem; max-width: 340px; width: 100%;
+    }
+    .logo { font-size: 2rem; margin-bottom: 1rem; }
+    .title {
+      font-size: 1.05rem; font-weight: 700; color: #fff;
+      margin-bottom: 0.4rem; letter-spacing: -0.01em;
+    }
+    #status-msg {
+      font-size: 0.82rem; color: #888; line-height: 1.5;
+      margin-bottom: 1.5rem; min-height: 2.5em;
+    }
+    .spinner {
+      width: 40px; height: 40px; margin: 0 auto;
+      border: 3px solid rgba(79,131,255,0.2);
+      border-top-color: #4f83ff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .bar-wrap {
+      height: 4px; background: rgba(255,255,255,0.07);
+      border-radius: 4px; overflow: hidden; margin-top: 1.5rem;
+    }
+    .bar-fill {
+      height: 100%; width: 0%; background: #4f83ff;
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
   </style>
 </head>
 <body>
-  <span>Opening tool…</span>
+  <div class="card">
+    <div class="logo">🧠</div>
+    <div class="title">Luma Tools</div>
+    <div id="status-msg">Loading your assignment…</div>
+    <div class="spinner"></div>
+    <div class="bar-wrap"><div class="bar-fill" id="bar"></div></div>
+  </div>
   <script>
     (function () {
       var p      = new URLSearchParams(location.search);
@@ -18,15 +58,39 @@
       var text   = p.get('text')   || '';
       var msgKey = p.get('msgKey') || '';
 
+      var statusEl = document.getElementById('status-msg');
+      var barEl    = document.getElementById('bar');
+
+      function setStatus(msg, pct) {
+        if (statusEl) statusEl.textContent = msg;
+        if (barEl && pct != null) barEl.style.width = pct + '%';
+      }
+
+      function toolLabel(id) {
+        var labels = {
+          'ai-study-notes': 'Study Notes',
+          'ai-flashcards':  'Flashcards',
+          'ai-quiz':        'Quiz',
+        };
+        return labels[id] || 'Luma Tools';
+      }
+
       function proceed(finalText) {
+        setStatus('Opening ' + toolLabel(tool) + '…', 90);
         if (tool && (mode || finalText)) {
           sessionStorage.setItem('lt_deeplink', JSON.stringify({ tool: tool, mode: mode, text: finalText }));
         }
-        location.replace(tool ? '/#' + tool : '/');
+        setTimeout(function () {
+          setStatus('Starting AI generation…', 100);
+          location.replace(tool ? '/#' + tool : '/');
+        }, 150);
       }
 
       // Large-payload path: text was sent via postMessage to avoid URL length limits.
       if (msgKey && window.opener) {
+        setStatus('Receiving your assignment from Luma Planner…', 20);
+        barEl.style.width = '20%';
+
         var fallback = setTimeout(function () { proceed(''); }, 8000);
         window.addEventListener('message', function handler(e) {
           // Accept messages from the planner origin only
@@ -34,6 +98,7 @@
           if (e.data && e.data.type === 'luma:payload' && e.data.key === msgKey) {
             clearTimeout(fallback);
             window.removeEventListener('message', handler);
+            setStatus('Content received — preparing AI…', 70);
             proceed(e.data.text || '');
           }
         });
@@ -44,7 +109,8 @@
         );
       } else {
         // Normal small-text path
-        proceed(text);
+        setStatus(text ? 'Preparing AI generation…' : 'Opening tool…', 60);
+        setTimeout(function () { proceed(text); }, 400);
       }
     })();
   </script>
