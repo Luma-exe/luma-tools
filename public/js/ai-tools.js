@@ -1162,24 +1162,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── LumaPlanner deep-link integration ─────────────────────────────────────
-// Allows luma-planner to open a specific tool and pre-fill content via URL params.
-// Usage: ?tool=ai-flashcards&mode=paste&text=URL-encoded-content
-//        ?tool=ai-study-notes&mode=ai&text=URL-encoded-task-context
-// mode=paste → opens the paste textarea
+// luma-planner opens a specific tool via the URL hash (handled by ui.js) and
+// passes pre-fill content via query params: ?mode=paste|ai&text=URL-encoded
+// mode=paste → opens the paste textarea with any provided text
 // mode=ai    → same as paste but text is an AI generation prompt
 // ──────────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    // Tool navigation is handled by ui.js reading location.hash (runs before this handler).
+    // We only need to pre-fill the input mode and content.
+    const tool   = location.hash.replace('#', '').trim();
     const params = new URLSearchParams(window.location.search);
-    const tool   = params.get('tool');   // 'ai-study-notes' | 'ai-flashcards' | 'ai-quiz'
     const mode   = params.get('mode');   // 'ai' | 'paste'
     const text   = params.get('text');   // pre-filled content
 
-    if (!tool) return;
+    if (!tool || (!mode && !text)) return;
 
-    // Switch to the requested tool (switchTool is defined in ui.js)
-    if (typeof switchTool === 'function') switchTool(tool);
-
-    // After a short tick to let the panel activate, set input mode + content
+    // Short delay to let switchTool (called by ui.js above) fully activate the panel
     setTimeout(() => {
         const prefillMap = {
             'ai-study-notes': { toggle: 'toggleStudyNotesInput', inputId: 'study-notes-text-input' },
@@ -1199,5 +1197,5 @@ document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById(cfg.inputId);
             if (el) el.value = text;
         }
-    }, 250);
+    }, 300);
 });
