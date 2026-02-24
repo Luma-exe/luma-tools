@@ -2,6 +2,31 @@
 // FILE UPLOAD HANDLING
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Track the math notation format chosen for the last study-notes generation
+// so the preview renderer can apply KaTeX correctly.
+let lastStudyNotesMath = 'dollar';
+
+// Show/hide the math notation option depending on output format
+function toggleStudyNotesMathOption(format) {
+    const el = document.getElementById('study-notes-math-option');
+    if (el) el.classList.toggle('hidden', format !== 'markdown');
+}
+
+// Render math in a DOM element using KaTeX auto-render (handles $, $$, \(, \[)
+function renderMathInEl(el) {
+    if (typeof renderMathInElement === 'function') {
+        renderMathInElement(el, {
+            delimiters: [
+                { left: '$$',   right: '$$',   display: true  },
+                { left: '$',    right: '$',    display: false },
+                { left: '\\[', right: '\\]', display: true  },
+                { left: '\\(', right: '\\)', display: false },
+            ],
+            throwOnError: false
+        });
+    }
+}
+
 function initUploadZones() {
     document.querySelectorAll('.upload-zone').forEach(zone => {
         const input = zone.querySelector('.upload-input');
@@ -307,6 +332,9 @@ async function processFileServer(toolId) {
         case 'ai-study-notes': {
             const fmtPill = document.querySelector('.preset-grid[data-tool="study-notes-format"] .preset-btn.active');
             formData.append('format', fmtPill?.dataset.val || 'markdown');
+            const mathPill = document.querySelector('.preset-grid[data-tool="study-notes-math"] .preset-btn.active');
+            lastStudyNotesMath = mathPill?.dataset.val || 'dollar';
+            formData.append('math', lastStudyNotesMath);
             break;
         }
         case 'redact': {
@@ -825,6 +853,7 @@ function showResult(toolId, blob, filename, jobId = null) {
                                 
                                 if (renderedView) {
                                     renderedView.innerHTML = parseMarkdown(improvedNotes);
+                                    if (lastStudyNotesMath !== 'none') renderMathInEl(renderedView);
                                 }
                                 if (rawView) {
                                     rawView.textContent = improvedNotes;
@@ -875,9 +904,10 @@ function showResult(toolId, blob, filename, jobId = null) {
                 toggleBar.appendChild(copyBtn);
                 pane.appendChild(toggleBar);
 
-                const renderedEl = document.createElement('div');
+                    const renderedEl = document.createElement('div');
                 renderedEl.className = 'notes-rendered';
                 renderedEl.innerHTML = parseMarkdown(text);
+                if (lastStudyNotesMath !== 'none') renderMathInEl(renderedEl);
 
                 const rawEl = document.createElement('pre');
                 rawEl.className = 'notes-raw hidden';
@@ -1194,6 +1224,9 @@ function processStudyNotes() {
     const toolId = 'ai-study-notes';
     const inputMode = document.querySelector('.preset-grid[data-tool="study-notes-input-mode"] .preset-btn.active')?.dataset.val || 'upload';
     const format = document.querySelector('.preset-grid[data-tool="study-notes-format"] .preset-btn.active')?.dataset.val || 'markdown';
+    const mathPill = document.querySelector('.preset-grid[data-tool="study-notes-math"] .preset-btn.active');
+    const mathFmt = mathPill?.dataset.val || 'dollar';
+    lastStudyNotesMath = mathFmt;
 
     if (inputMode === 'youtube') {
         const urlInput = document.getElementById('study-notes-youtube-url');
@@ -1220,6 +1253,7 @@ function processStudyNotes() {
             const formData = new FormData();
             formData.append('text', text);
             formData.append('format', format);
+            formData.append('math', mathFmt);
             return fetch('/api/tools/ai-study-notes', { method: 'POST', body: formData });
         })
         .then(r => r.json())
@@ -1253,6 +1287,7 @@ function processStudyNotes() {
         const formData = new FormData();
         formData.append('text', text);
         formData.append('format', format);
+        formData.append('math', mathFmt);
         
         fetch('/api/tools/ai-study-notes', { method: 'POST', body: formData })
             .then(r => r.json())

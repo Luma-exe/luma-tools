@@ -2268,6 +2268,7 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         }
         
         string format = req.has_file("format") ? req.get_file_value("format").content : "markdown";
+        string math_fmt = req.has_file("math") ? req.get_file_value("math").content : "dollar";
         string jid = generate_job_id();
         string proc = get_processing_dir();
         
@@ -2301,7 +2302,7 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
 
         update_job(jid, {{"status", "processing"}, {"progress", 10}, {"stage", has_text ? "Processing pasted text..." : "Extracting text from file..."}});
 
-        thread([jid, input_text, input_path, file_ext, format, proc, has_text, filename, ip, input_desc]() {
+        thread([jid, input_text, input_path, file_ext, format, math_fmt, proc, has_text, filename, ip, input_desc]() {
           string txt_path = proc + "/" + jid + "_text.txt";
           try {
             string text;
@@ -2442,8 +2443,18 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             update_job(jid, {{"status","processing"},{"progress",40},{"stage","Generating study notes with AI..."}});
 
             // ── Step 2: call Groq ────────────────────────────────────────────
+            string math_instruction;
+            if (format == "markdown") {
+                if (math_fmt == "latex") {
+                    math_instruction = " For mathematical notation, use LaTeX delimiters: \\(...\\) for inline math and \\[...\\] on its own line for display math. Never use $...$ or $$...$$ — always use \\(...\\) and \\[...\\] for all mathematical expressions.";
+                } else if (math_fmt == "dollar") {
+                    math_instruction = " For mathematical notation, use $...$ for inline math and $$...$$ on its own line for display math. Always use $...$ / $$...$$ for any mathematical notation — never put maths in plain text or code blocks.";
+                } else {
+                    math_instruction = " Do not use any special math notation delimiters — write all mathematical expressions in plain readable text.";
+                }
+            }
             string style_instruction = (format == "markdown")
-                ? "Format the output using Markdown optimised for Obsidian: use ## headings (no numbering), bullet points for details, **bold** key terms, inline math with $...$ for expressions and equations (e.g. $(\\forall x \\in \\mathbb{Z}), x > 4$) and block math with $$...$$ on its own line for multi-line derivations and worked solutions, `code blocks` only for programming code snippets, and > blockquotes for instructor emphasis or exam hints. Always use $...$ / $$...$$ for any mathematical notation — never put maths in plain text or code blocks."
+                ? "Format the output as clean Markdown optimised for Obsidian: use ## headings (no numbering), bullet points for details, **bold** key terms, `code blocks` only for programming code snippets, and > blockquotes for instructor emphasis or exam hints." + math_instruction
                 : "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points.";
 
             string system_prompt = "You are an expert academic tutor and note-taker. Extract and organise all crucial information from the provided university lecture content. "

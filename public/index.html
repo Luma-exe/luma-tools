@@ -42,6 +42,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/util.min.js" crossorigin="anonymous"></script>
     <!-- Audio waveform visualization -->
     <script src="https://unpkg.com/wavesurfer.js@7.6.0/dist/wavesurfer.min.js"></script>
+    <!-- KaTeX: math rendering for study notes preview -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
     <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1931,8 +1935,16 @@
                     <div class="tool-options">
                         <label class="option-label">Output format</label>
                         <div class="preset-grid" data-tool="study-notes-format" style="grid-template-columns:repeat(2,1fr)">
-                            <button class="preset-btn active" data-val="markdown" onclick="selectPreset(this)"><i class="fab fa-markdown"></i><span>Markdown</span><small>Obsidian ready</small></button>
-                            <button class="preset-btn" data-val="plain" onclick="selectPreset(this)"><i class="fas fa-align-left"></i><span>Plain Text</span><small>.txt file</small></button>
+                            <button class="preset-btn active" data-val="markdown" onclick="selectPreset(this); toggleStudyNotesMathOption('markdown')"><i class="fab fa-markdown"></i><span>Markdown</span><small>Obsidian ready</small></button>
+                            <button class="preset-btn" data-val="plain" onclick="selectPreset(this); toggleStudyNotesMathOption('plain')"><i class="fas fa-align-left"></i><span>Plain Text</span><small>.txt file</small></button>
+                        </div>
+                    </div>
+                    <div class="tool-options" id="study-notes-math-option">
+                        <label class="option-label">Math notation <span style="font-weight:400;opacity:0.6;font-size:0.85em">(rendered in preview &amp; output)</span></label>
+                        <div class="preset-grid" data-tool="study-notes-math" style="grid-template-columns:repeat(3,1fr)">
+                            <button class="preset-btn active" data-val="dollar" onclick="selectPreset(this)"><i class="fas fa-dollar-sign"></i><span>Standard</span><small>$&hellip;$ / $$&hellip;$$</small></button>
+                            <button class="preset-btn" data-val="latex" onclick="selectPreset(this)"><i class="fas fa-square-root-alt"></i><span>LaTeX</span><small>\(&hellip;\) / \[&hellip;\]</small></button>
+                            <button class="preset-btn" data-val="none" onclick="selectPreset(this)"><i class="fas fa-ban"></i><span>None</span><small>Plain text only</small></button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processStudyNotes()"><i class="fas fa-brain"></i> Generate Notes</button>

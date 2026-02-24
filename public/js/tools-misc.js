@@ -534,6 +534,7 @@ function renderMarkdownPreview() {
     if (!output) return;
     if (!input.trim()) { output.innerHTML = '<p class="text-muted">Preview will appear here...</p>'; return; }
     output.innerHTML = parseMarkdown(input);
+    if (typeof renderMathInEl === 'function') renderMathInEl(output);
 }
 
 function parseMarkdown(md) {
