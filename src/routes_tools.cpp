@@ -2443,7 +2443,7 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
 
             // ── Step 2: call Groq ────────────────────────────────────────────
             string style_instruction = (format == "markdown")
-                ? "Format the output using Markdown optimised for Obsidian: use ## headings (no numbering), bullet points for details, **bold** key terms, `code blocks` for all formulas/equations/code/worked solutions with complete variable definitions and units, and > blockquotes for instructor emphasis or exam hints."
+                ? "Format the output using Markdown optimised for Obsidian: use ## headings (no numbering), bullet points for details, **bold** key terms, inline math with $...$ for expressions and equations (e.g. $(\\forall x \\in \\mathbb{Z}), x > 4$) and block math with $$...$$ on its own line for multi-line derivations and worked solutions, `code blocks` only for programming code snippets, and > blockquotes for instructor emphasis or exam hints. Always use $...$ / $$...$$ for any mathematical notation — never put maths in plain text or code blocks."
                 : "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points.";
 
             string system_prompt = "You are an expert academic tutor and note-taker. Extract and organise all crucial information from the provided university lecture content. "
@@ -2543,37 +2543,72 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         
         auto gaps = feedback.value("gaps", json::array());
         auto tips = feedback.value("studyTips", json::array());
-        auto missed = feedback.value("missed", json::array());
+        auto missed = feedback.value("missed", json::array());  // array of {topic, importance} objects
+        auto keyConcepts = feedback.value("keyConcepts", json::array());
+        int overallScore = feedback.value("overallScore", 0);
 
-        // Build the improvement prompt
-        string gaps_list, tips_list, missed_list;
+        // Separate missed topics by importance level
+        string high_missed, medium_missed, low_missed;
+        for (const auto& m : missed) {
+            string topic = m.is_object() ? m.value("topic", "") : m.get<string>();
+            string imp   = m.is_object() ? m.value("importance", "medium") : "medium";
+            if (imp == "high")        high_missed   += "- " + topic + "\n";
+            else if (imp == "medium") medium_missed += "- " + topic + "\n";
+            else                      low_missed    += "- " + topic + "\n";
+        }
+
+        // High-priority concepts that ARE covered but may need expansion
+        string high_covered_weak;
+        for (const auto& c : keyConcepts) {
+            if (!c.is_object()) continue;
+            if (c.value("importance", "") == "high" && c.value("covered", false)) {
+                string excerpt = c.value("notes_excerpt", "");
+                // If the excerpt is very short the coverage is likely thin
+                if (excerpt.size() < 80) {
+                    high_covered_weak += "- " + c.value("topic", "") + "\n";
+                }
+            }
+        }
+
+        // Build gap/tips lists
+        string gaps_list, tips_list;
         for (const auto& g : gaps) gaps_list += "- " + g.get<string>() + "\n";
         for (const auto& t : tips) tips_list += "- " + t.get<string>() + "\n";
-        for (const auto& m : missed) missed_list += "- " + m.get<string>() + "\n";
 
-        string system_prompt = R"(You are an expert study notes editor. Your task is to improve the user's study notes based on specific feedback. 
+        string system_prompt = R"(You are an expert study notes editor. You are given study notes alongside a detailed AI coverage analysis. Your goal is to substantially improve the notes so that the coverage score increases — especially by fully addressing every missing or thin topic.
 
-IMPORTANT RULES:
-1. Keep the same overall structure and format (Markdown)
-2. ADD content for missing topics - don't just mention them, actually explain them
-3. Expand on weak areas with more detail and examples
-4. Maintain the user's writing style
-5. Do NOT remove existing good content
-6. Output ONLY the improved notes - no explanations or meta-commentary)";
+CRITICAL RULES:
+1. HIGH PRIORITY missing topics MUST be added with complete explanations, definitions, key properties, worked examples, and any relevant formulas or equations — do not just mention them
+2. MEDIUM PRIORITY missing topics must be added with a clear explanation and at least one example
+3. LOW PRIORITY missing topics should be added briefly if they fit the flow
+4. Expand weakly-covered high-priority topics with more depth, examples, and worked solutions
+5. Use $...$ for inline math and $$...$$ on its own line for block equations — never put maths in plain text
+6. Preserve ALL existing correct content — never remove or shorten material that is already there
+7. Keep the same Markdown structure (## headings, bullet points, **bold** key terms, > blockquotes for hints)
+8. Output ONLY the improved notes — absolutely no meta-commentary, preamble, or explanations outside the notes)";
 
-        string user_prompt = "Here are my current study notes:\n\n---\n" + current_notes + "\n---\n\n";
-        
-        if (!missed_list.empty()) {
-            user_prompt += "MISSING TOPICS (add these with proper explanations):\n" + missed_list + "\n";
+        string user_prompt = "CURRENT NOTES (Coverage Score: " + std::to_string(overallScore) + "/100):\n\n---\n" + current_notes + "\n---\n\n";
+
+        if (!high_missed.empty()) {
+            user_prompt += "\u26a0\ufe0f HIGH PRIORITY MISSING TOPICS — add these fully to significantly raise the score:\n" + high_missed + "\n";
+        }
+        if (!medium_missed.empty()) {
+            user_prompt += "MEDIUM PRIORITY MISSING TOPICS — add with clear explanations:\n" + medium_missed + "\n";
+        }
+        if (!low_missed.empty()) {
+            user_prompt += "LOW PRIORITY MISSING TOPICS — add briefly if relevant:\n" + low_missed + "\n";
+        }
+        if (!high_covered_weak.empty()) {
+            user_prompt += "HIGH PRIORITY TOPICS NEEDING MORE DEPTH (already in notes but coverage is thin):\n" + high_covered_weak + "\n";
         }
         if (!gaps_list.empty()) {
             user_prompt += "AREAS TO IMPROVE:\n" + gaps_list + "\n";
         }
         if (!tips_list.empty()) {
-            user_prompt += "SUGGESTIONS TO INCORPORATE:\n" + tips_list + "\n";
+            user_prompt += "IMPROVEMENT SUGGESTIONS:\n" + tips_list + "\n";
         }
-        
-        user_prompt += "\nPlease improve my notes by addressing the above feedback. Output only the improved notes in Markdown format.";
+
+        user_prompt += "\nRewrite and expand the notes to address all the feedback above. Prioritise the HIGH PRIORITY items — fully explaining each one will have the biggest impact on the score. Output only the improved notes in Markdown format.";
 
         // Call Groq API
         json payload = {

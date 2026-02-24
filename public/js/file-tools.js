@@ -777,8 +777,8 @@ function showResult(toolId, blob, filename, jobId = null) {
                             </div>
                         `;
                         
-                        // Store feedback data for improve feature
-                        panel.dataset.feedback = JSON.stringify({ gaps, studyTips, missed: missed.map(c => c.topic) });
+                        // Store feedback data for improve feature (include full objects with importance)
+                        panel.dataset.feedback = JSON.stringify({ gaps, studyTips, missed, keyConcepts, overallScore: score });
                         panel.dataset.notesText = notesText;
                         panel.dataset.jobId = jobId;
                         
