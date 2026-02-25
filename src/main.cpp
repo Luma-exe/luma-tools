@@ -288,6 +288,26 @@ int main() {
     }
 
     // ── Serve static files ──────────────────────────────────────────────────
+    // sw.js and index.html must never be cached so updates are always picked up
+    svr.Get("/sw.js", [&](const httplib::Request&, httplib::Response& res) {
+        std::ifstream f(public_dir + "/sw.js", std::ios::binary);
+        if (f) {
+            std::ostringstream ss; ss << f.rdbuf();
+            res.set_content(ss.str(), "text/javascript");
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate");
+            res.set_header("Pragma", "no-cache");
+        } else { res.status = 404; }
+    });
+    svr.Get("/", [&](const httplib::Request&, httplib::Response& res) {
+        std::ifstream f(public_dir + "/index.html", std::ios::binary);
+        if (f) {
+            std::ostringstream ss; ss << f.rdbuf();
+            res.set_content(ss.str(), "text/html; charset=utf-8");
+            res.set_header("Cache-Control", "no-store, no-cache, must-revalidate");
+            res.set_header("Pragma", "no-cache");
+        } else { res.status = 404; }
+    });
+
     svr.set_mount_point("/", public_dir);
     svr.set_mount_point("/downloads", dl_dir);
 
