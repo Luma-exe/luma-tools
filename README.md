@@ -11,7 +11,7 @@
 
   [![Live](https://img.shields.io/badge/LIVE-tools.lumaplayground.com-1a73e8?style=flat-square)](https://tools.lumaplayground.com)
   &nbsp;
-  ![Version](https://img.shields.io/badge/VERSION-0.1.0-7c3aed?style=flat-square)
+  ![Version](https://img.shields.io/badge/VERSION-2.2.0-7c3aed?style=flat-square)
   &nbsp;
   ![C++](https://img.shields.io/badge/C%2B%2B-17-0057a8?style=flat-square&logo=cplusplus&logoColor=white)
   &nbsp;
@@ -99,16 +99,16 @@ Each tool is labelled **In your browser** (runs locally — nothing is sent to t
 | CSV / JSON Convert  | Server  | Convert CSV → JSON or JSON → CSV                              |
 
 #### AI *(requires `GROQ_API_KEY`)*
-| Tool                | Where   | Description                                                   |
-|---------------------|---------|---------------------------------------------------------------|
-| Study Notes         | Server  | Generate structured study notes from text or uploaded file    |
-| Improve Notes       | Server  | Rewrite and enhance existing notes with AI                    |
-| Flashcards          | Server  | Generate Q&A flashcard sets from any content                  |
-| Quiz Generator      | Server  | Create multiple-choice quizzes from any content               |
-| Paraphrase          | Server  | Rewrite text in different tones/styles                        |
-| Coverage Analysis   | Server  | Analyse how well notes cover a topic                          |
-| Mind Map            | Server  | Generate a mind-map structure from text                       |
-| YouTube Summary     | Server  | Summarise a YouTube video by transcript                       |
+| Tool                | Where   | Description                                                                          |
+|---------------------|---------|--------------------------------------------------------------------------------------|
+| Study Notes         | Server  | Generate comprehensive university-grade study notes via a 3-pass AI pipeline         |
+| Improve Notes       | Server  | Rewrite and expand existing notes based on AI coverage analysis feedback              |
+| Flashcards          | Server  | Generate Q&A flashcard sets from any content                                         |
+| Quiz Generator      | Server  | Create multiple-choice quizzes from any content                                      |
+| Paraphrase          | Server  | Rewrite text in different tones/styles                                               |
+| Coverage Analysis   | Server  | Analyse how well your notes cover the source material with a scored report           |
+| Mind Map            | Server  | Generate a mind-map structure from text                                              |
+| YouTube Summary     | Server  | Summarise a YouTube video by transcript                                              |
 
 #### Utility
 | Tool                | Where   | Description                                                   |
@@ -123,6 +123,38 @@ Each tool is labelled **In your browser** (runs locally — nothing is sent to t
 | Markdown Preview    | Browser | Live markdown editor with HTML export                         |
 | Difference Checker  | Browser | Line-by-line text/code diff (split or unified view)           |
 | Word Counter        | Browser | Count words, characters, sentences, paragraphs                |
+
+---
+
+## How AI Study Notes Works
+
+The Study Notes tool runs a **3-pass AI pipeline** to ensure notes are exhaustive and accurate — not just a surface summary.
+
+### Pass 1 — Content Checklist Extraction
+Before any notes are written, a fast model (`llama-3.1-8b-instant`) reads the full source material and extracts a **flat bullet checklist** of every topic, concept, formula, theorem, algorithm, worked example, and application present in the source. This becomes a binding contract: nothing on the list may be omitted.
+
+### Pass 2 — Structured Note Generation
+The main model (`llama-3.3-70b-versatile`, 8 192 token output limit) receives both the source text and the checklist. It is instructed to:
+- Address **every item on the checklist** — missing even one is treated as a failure
+- Re-work every worked example **step-by-step**, showing all intermediate algebra
+- Define **every variable** in every formula with units where applicable
+- Flag **exam hints** and common mistakes explicitly
+- Include practical applications and connections to other topics
+- Adapt to the detected subject area:
+  - **Mathematics** — adds a key formulas summary section, enforces full step-by-step algebra
+  - **Computer Science** — requires pseudocode, Big-O notation, edge case discussion
+  - **Science** — enforces unit definitions, lab/practical connections
+
+### Pass 3 — Auto-Refine
+After generation, a second `llama-3.3-70b-versatile` call compares the draft notes against the checklist and silently fills any remaining gaps. The refined output replaces the draft only if it is at least 60% as long as the original (preventing truncated rewrites). This step runs automatically — students never need to trigger it.
+
+### Math Notation
+The math format (MathJax `$...$` / `$$...$$` or LaTeX `\(...\)` / `\[...\]`) is respected across all three passes including the refine step, so notation is consistent throughout the output.
+
+### Copy to Obsidian
+The **Copy Text** button always normalises math notation to Obsidian-compatible `$...$` / `$$...$$` regardless of which format was used during generation, so notes paste correctly into Obsidian every time.
+
+> **Typical generation time:** 30–50 seconds for a full lecture (3 API calls in sequence). The progress bar shows which pass is running.
 
 ---
 
