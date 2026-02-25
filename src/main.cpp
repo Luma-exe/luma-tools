@@ -430,7 +430,7 @@ int main() {
     if (port_env) port = std::atoi(port_env);
 
     // Build version string for banner
-    string ver_line = "    Universal Media Toolkit v2.1";
+    string ver_line = "    Universal Media Toolkit v2.2.0";
 
     if (g_git_commit != "unknown") {
         ver_line += "  (" + g_git_branch + "@" + g_git_commit + ")";
