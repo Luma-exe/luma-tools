@@ -98,10 +98,10 @@ Each tool is labelled **In your browser** (runs locally — nothing is sent to t
 |---------------------|---------|---------------------------------------------------------------|
 | CSV / JSON Convert  | Server  | Convert CSV → JSON or JSON → CSV                              |
 
-#### AI *(requires `GROQ_API_KEY`)*
+#### AI *(requires at least one API key — see [Environment Variables](#environment-variables))*
 | Tool                | Where   | Description                                                                          |
 |---------------------|---------|--------------------------------------------------------------------------------------|
-| Study Notes         | Server  | Generate comprehensive university-grade study notes via a 3-pass AI pipeline         |
+| Study Notes         | Server  | Generate university-grade study notes via a 3-pass AI pipeline with subject detection |
 | Improve Notes       | Server  | Rewrite and expand existing notes based on AI coverage analysis feedback              |
 | Flashcards          | Server  | Generate Q&A flashcard sets from any content                                         |
 | Quiz Generator      | Server  | Create multiple-choice quizzes from any content                                      |
@@ -134,19 +134,55 @@ The Study Notes tool runs a **3-pass AI pipeline** to ensure notes are exhaustiv
 Before any notes are written, a fast model (`llama-3.1-8b-instant`) reads the full source material and extracts a **flat bullet checklist** of every topic, concept, formula, theorem, algorithm, worked example, and application present in the source. This becomes a binding contract: nothing on the list may be omitted.
 
 ### Pass 2 — Structured Note Generation
-The main model (`llama-3.3-70b-versatile`, 8 192 token output limit) receives both the source text and the checklist. It is instructed to:
+The main model receives both the source text and the checklist. The pipeline tries providers in order until one succeeds:
+
+**Model fallback chain (in order):**
+| # | Provider | Model |
+|---|----------|-------|
+| 1 | Groq | `llama-3.3-70b-versatile` *(primary)* |
+| 2 | Groq | `llama-3.3-70b-specdec` |
+| 3 | Groq | `deepseek-r1-distill-llama-70b` |
+| 4 | Groq | `qwen-qwq-32b` |
+| 5 | Groq | `deepseek-r1-distill-qwen-32b` |
+| 6 | Groq | `llama-3.1-8b-instant` |
+| 7 | Cerebras | `llama-3.3-70b` |
+| 8 | Gemini | `gemini-2.0-flash` |
+| 9 | Ollama | local `llama3.1:8b` *(last resort — blocked for Study Notes due to quality)* |
+
+Each provider has its own independent rate-limit bucket, so hitting a Groq limit doesn't break the tool — it simply moves to the next provider automatically. The active model is always displayed in the UI.
+
+The model is instructed to:
 - Address **every item on the checklist** — missing even one is treated as a failure
 - Re-work every worked example **step-by-step**, showing all intermediate algebra
 - Define **every variable** in every formula with units where applicable
+- Provide a **plain-English explanation before any formula or symbol**
+- Give an accurate **real-world analogy** for every concept (or explicitly state none exists rather than force a misleading one)
 - Flag **exam hints** and common mistakes explicitly
-- Include practical applications and connections to other topics
-- Adapt to the detected subject area:
-  - **Mathematics** — adds a key formulas summary section, enforces full step-by-step algebra
-  - **Computer Science** — requires pseudocode, Big-O notation, edge case discussion
-  - **Science** — enforces unit definitions, lab/practical connections
+- **Not rewrite sections that are already correct** — only add what is genuinely missing
+- If the source material contains an error or degenerate example data, fix it and note what was changed
+
+### Subject Detection and Prompt Adaptation
+The pipeline automatically detects the subject from keywords in the source text and applies tailored rules:
+
+| Subject | Detected by | Extra rules |
+|---------|-------------|-------------|
+| **Mathematics** | theorem, integral, vector, matrix, calculus… | Full working, Key Formulas section, exam hints, show equivalent forms |
+| **Computer Science** | algorithm, recursion, complexity, loop… | Pseudocode before code, runnable examples, Big-O, error handling |
+| **Science** | velocity, molecule, reaction, wavelength… | Units in every calculation, theory vs established, lab connections |
+| **Law** | plaintiff, statute, tort, jurisdiction… | Cases with facts+decision+significance, legislation quoted and explained, flag contested areas |
+| **Humanities** | ideology, discourse, historical, philosophical… | Concrete examples for every theory, strongest counterargument, facts vs interpretations labelled |
+
+**Manual override:** Add `Subject: Mathematics` (or `CS`, `Law`, `Science`, `Humanities`) on the first line of your source text to bypass auto-detection and guarantee the correct rules are applied.
 
 ### Pass 3 — Auto-Refine
-After generation, a second `llama-3.3-70b-versatile` call compares the draft notes against the checklist and silently fills any remaining gaps. The refined output replaces the draft only if it is at least 60% as long as the original (preventing truncated rewrites). This step runs automatically — students never need to trigger it.
+After generation, a second AI call compares the draft notes against the checklist and silently fills any remaining gaps. The refined output replaces the draft only if it is at least 60% as long as the original (preventing truncated rewrites). This step runs automatically — students never need to trigger it.
+
+### Depth Modes
+| Mode | Description | Targets |
+|------|-------------|----------|
+| **Simple** | Quick-scan cheat sheet for students who have already studied the topic | 1–3 sentence plain-English intro per concept, 1 worked example, summary table |
+| **Explain Simply** | Patient, ground-up explanation as if reading completely cold | Step-by-step with analogy before every concept, plain English throughout, 15-point self-check |
+| **In Depth** | Comprehensive university-level notes | Full paragraph intro, 2+ worked examples per concept, comparison tables, exam hints per concept |
 
 ### Math Notation
 The math format (MathJax `$...$` / `$$...$$` or LaTeX `\(...\)` / `\[...\]`) is respected across all three passes including the refine step, so notation is consistent throughout the output.
@@ -187,7 +223,9 @@ The **Copy Text** button always normalises math notation to Obsidian-compatible 
 | **Ghostscript** | PDF compress / merge / split      | [ghostscript.com](https://www.ghostscript.com/releases/gsdnld.html)    |
 | **Pandoc**      | Markdown to PDF                   | [pandoc.org](https://pandoc.org/installing.html)                        |
 | **ImageMagick** | SVG rasterisation (image-convert) | [imagemagick.org](https://imagemagick.org/script/download.php#windows) |
-| **Groq API key**| All AI tools                      | [console.groq.com](https://console.groq.com) — set `GROQ_API_KEY`      |
+| **Groq API key** | All AI tools (primary provider) | [console.groq.com](https://console.groq.com) — free tier, set `GROQ_API_KEY` |
+| **Cerebras API key** | AI fallback provider | [cloud.cerebras.ai](https://cloud.cerebras.ai) — free tier, set `CEREBRAS_API_KEY` |
+| **Gemini API key** | AI fallback provider | [aistudio.google.com](https://aistudio.google.com) — free tier, set `GEMINI_API_KEY` |
 
 > **SVG conversion note:** Image Convert uses Canvas in the browser for regular images. SVG files are sent to the server and rasterised via ImageMagick (`magick`), Inkscape, or `rsvg-convert` — whichever is found first. Without one of these installed, SVG conversion will fail with a clear error message.
 
@@ -266,14 +304,16 @@ Set the `STATS_PASSWORD` and `DISCORD_WEBHOOK_URL` environment variables before 
 ```powershell
 $env:STATS_PASSWORD      = "your-password"
 $env:DISCORD_WEBHOOK_URL = "your-webhook-url"
-$env:GROQ_API_KEY        = "your-groq-key"   # optional, enables AI tools
+$env:GROQ_API_KEY        = "your-groq-key"       # enables AI tools (primary)
+$env:CEREBRAS_API_KEY    = "your-cerebras-key"   # optional, AI fallback
+$env:GEMINI_API_KEY      = "your-gemini-key"     # optional, AI fallback
 .\run.bat
 ```
 
 **NSSM (Windows Service):**
 1. Open NSSM: `nssm edit LumaTools`
 2. Go to the **Environment** tab
-3. Add each variable on its own line: `STATS_PASSWORD=...`, `DISCORD_WEBHOOK_URL=...`, `GROQ_API_KEY=...`
+3. Add each variable on its own line: `STATS_PASSWORD=...`, `DISCORD_WEBHOOK_URL=...`, `GROQ_API_KEY=...`, `CEREBRAS_API_KEY=...`, `GEMINI_API_KEY=...`
 4. Click *Edit service* then restart: `nssm restart LumaTools`
 
 **Linux systemd:**
@@ -283,6 +323,8 @@ $env:GROQ_API_KEY        = "your-groq-key"   # optional, enables AI tools
 Environment="STATS_PASSWORD=your-password"
 Environment="DISCORD_WEBHOOK_URL=your-webhook-url"
 Environment="GROQ_API_KEY=your-groq-key"
+Environment="CEREBRAS_API_KEY=your-cerebras-key"
+Environment="GEMINI_API_KEY=your-gemini-key"
 ```
 Then `systemctl daemon-reload && systemctl restart luma-tools`.
 
@@ -450,7 +492,9 @@ luma-tools/
 | `PORT`                | `8080`   | Server listen port                                                       |
 | `STATS_PASSWORD`      | *(none)* | Password for `/stats` dashboard. **Disabled if not set.**                |
 | `DISCORD_WEBHOOK_URL` | *(none)* | Discord webhook for tool/download logs and daily digest.                 |
-| `GROQ_API_KEY`        | *(none)* | Groq API key. **All AI tools are disabled if not set.**                  |
+| `GROQ_API_KEY`        | *(none)* | Groq API key. Primary AI provider. **AI tools disabled if no provider key is set.** |
+| `CEREBRAS_API_KEY`    | *(none)* | Cerebras API key. Used as fallback when all Groq models are rate-limited. |
+| `GEMINI_API_KEY`      | *(none)* | Gemini API key. Used as fallback after Cerebras. Both are optional but recommended for reliability. |
 
 ---
 
