@@ -2572,7 +2572,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             // at the top of their source text to guarantee correct subject rules without relying on keyword detection.
             bool is_math = false, is_code = false, is_science = false, is_law = false, is_humanities = false;
             {
-                string pfx = tl.substr(0, min((size_t)400, tl.size()));
+                string pfx = tl.substr(0, tl.size() < 400 ? tl.size() : 400);
                 if      (pfx.find("subject: math") != string::npos || pfx.find("subject: calculus") != string::npos ||
                          pfx.find("subject: statistics") != string::npos || pfx.find("subject: linear algebra") != string::npos ||
                          pfx.find("subject: discrete math") != string::npos) {
