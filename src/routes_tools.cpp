@@ -2505,8 +2505,8 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
                 return;
             }
 
-            // Truncate to ~12 000 chars to stay within token limits
-            if (text.size() > 12000) text = text.substr(0, 12000) + "\n\n[... truncated ...]";
+            // Truncate to ~24 000 chars to stay within token limits
+            if (text.size() > 24000) text = text.substr(0, 24000) + "\n\n[... truncated ...]";
 
             // Store raw text in memory so the client can fetch it for comparison
             update_job_raw_text(jid, text);
@@ -2517,27 +2517,49 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             string math_instruction;
             if (format == "markdown") {
                 if (math_fmt == "latex") {
-                    math_instruction = " For mathematical notation, use LaTeX delimiters: \\(...\\) for inline math and \\[...\\] on its own line for display math. Never use $...$ or $$...$$ — always use \\(...\\) and \\[...\\] for all mathematical expressions.";
+                    math_instruction = " For mathematical notation, use LaTeX delimiters: \\(...\\) for inline math and \\[...\\] on its own line for display math. Never use $...$ or $$...$$ — always use \\(...\\) and \\[...\\] for all mathematical expressions. "
+                        "Greek letters: \\alpha, \\beta, \\gamma, \\theta, \\omega, \\pi; uppercase: \\Gamma, \\Delta, \\Omega. "
+                        "Subscripts/superscripts: x_i, x^2, x_i^2. Fractions: \\frac{a}{b}. Square roots: \\sqrt{x}, \\sqrt[3]{x}. "
+                        "Apply to ALL maths including set notation, equations, and formulas.";
                 } else if (math_fmt == "dollar") {
-                    math_instruction = " For mathematical notation, use $...$ for inline math and $$...$$ on its own line for display math. Always use $...$ / $$...$$ for any mathematical notation — never put maths in plain text or code blocks.";
+                    math_instruction = " For mathematical notation, use $...$ for inline math and $$...$$ on its own line for display/block math. "
+                        "EVERY mathematical expression — including set notation, simple equations, variables in isolation, and all formulas — must be wrapped in $ or $$. Never write maths in plain text or code blocks. "
+                        "Greek letters: \\alpha, \\beta, \\gamma, \\theta, \\omega, \\pi; uppercase: \\Gamma, \\Delta, \\Omega. "
+                        "Subscripts and superscripts: x_i, x^2, x_i^2. "
+                        "Fractions: \\frac{a+1}{b+1}. Square roots: \\sqrt{x^3}, \\sqrt[3]{\\frac{x}{y}}. "
+                        "For example, write $f(a) = a^2$ not f(a) = a^2.";
                 } else {
                     math_instruction = " Do not use any special math notation delimiters — write all mathematical expressions in plain readable text.";
                 }
             }
-            string style_instruction = (format == "markdown")
-                ? "Format the output as clean Markdown optimised for Obsidian: use ## headings (no numbering), bullet points for details, **bold** key terms, `code blocks` only for programming code snippets, and > blockquotes for instructor emphasis or exam hints." + math_instruction
-                : "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points.";
+            string style_instruction;
+            if (format == "markdown") {
+                style_instruction = "Format the output as clean Markdown optimised for Obsidian. "
+                    "Use ## headings (never numbered). Use bullet points for all details — never long paragraphs. "
+                    "Bold (**) every key term on first use. Use > blockquotes for instructor emphasis points and exam hints. "
+                    "Use `code blocks` only for actual programming code, never for maths." + math_instruction;
+            } else {
+                style_instruction = "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points.";
+            }
 
-            string system_prompt = "You are an expert academic tutor and note-taker. Extract and organise all crucial information from the provided university lecture content. "
-                "Structure notes with clear headings and bullet points. Preserve all formulas, equations, code examples, and worked solutions in full detail. "
-                "Include: key concepts with definitions, practical applications, real-world examples, step-by-step procedures, exam hints, and connections to other topics. "
-                "Ensure the notes are comprehensive enough that someone who has not attended the lecture can fully understand the material, "
-                "work through problems independently, and use the notes for study and exam review. "
-                "Maintain logical flow from basic concepts to applications. Include all supporting information: references, tools mentioned, and topic connections. "
+            string system_prompt = "You are an expert academic tutor producing thorough, university-level study notes. "
+                "Your notes must be long, detailed, and self-contained — a student who never attended the lecture must be able to fully understand the topic, "
+                "work through every example independently, and use these notes as their sole exam resource. "
+                "Rules you must follow: "
+                "(1) Cover EVERY heading, sub-topic, concept, definition, formula, and worked example present in the source — do not skip or condense anything. "
+                "(2) For each formula or equation, state what every variable represents and give the units where applicable. "
+                "(3) Re-work every example step-by-step, showing all intermediate algebra. "
+                "(4) For any topic where understanding a later section requires an earlier one, include a brief recap so the notes are self-sufficient. "
+                "(5) Include all practical applications, real-world examples, and connections to other course topics. "
+                "(6) Flag exam hints and common mistakes explicitly. "
+                "(7) Your response must be substantially longer than a summary — aim for depth over brevity. "
                 + style_instruction;
 
-            string user_prompt = "Please create detailed, comprehensive study notes from the following lecture content. "
-                "Extract every important concept, formula, example, and procedure — do not summarise or skip details:\n\n" + text;
+            string user_prompt = "Create thorough, in-depth study notes from the following lecture content. "
+                "Go through EVERY section systematically. Include every formula with full variable explanations, every worked example re-solved step-by-step, "
+                "every definition, every application, and every exam hint. "
+                "Do not summarise or condense — the notes should be comprehensive enough to fully replace attending the lecture. "
+                "This response should be long and detailed:\n\n" + text;
 
             json payload = {
                 {"model", "llama-3.3-70b-versatile"},
@@ -2545,8 +2567,8 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
                     {{"role","system"}, {"content", system_prompt}},
                     {{"role","user"},   {"content", user_prompt}}
                 })},
-                {"max_tokens", 2048},
-                {"temperature", 0.4}
+                {"max_tokens", 8192},
+                {"temperature", 0.3}
             };
 
             auto gr = call_groq(payload, proc, jid + "_sn");
