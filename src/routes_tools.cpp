@@ -2625,85 +2625,95 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             if (depth == "simple") {
                 depth_instruction =
                     "You are creating SIMPLE, concise study notes — a quick-scan cheat sheet for a student who has already studied the topic and just needs a fast refresher. "
-                    "Even though the notes are brief, you must still follow these rules for every formula and concept: "
-                    "(1) FORMULAS: Before showing any formula, write one plain-English sentence explaining what it does and why it matters. "
-                        "After the formula, list every symbol with a short plain-English label (e.g. 'r = distance to pivot'). "
-                        "Include one minimal worked example per key formula — every step shown, no skipping — followed by one sentence saying what the answer means. "
-                    "(2) CONCEPTS: Open each concept with a plain-English definition (one or two sentences max). "
-                        "Add a brief real-world analogy anchoring it to everyday experience. "
-                        "If the concept builds on a related one, include a one-line 'Remember: ...' reminder. "
-                    "(3) LANGUAGE: No jargon without an immediate bracket explanation. Short sentences. "
-                    "(4) FORMAT: Use bullet points and brief headers. Keep each section to 3-5 bullets. "
-                        "End with a compact summary table of key formulas and what each symbol means. "
-                    "Goal: a student returning after time away should be able to pick this up cold and immediately recall the topic.";
+                    "The notes are brief but every formula must still have a real worked example that is FULLY SOLVED with numbers — no placeholders, no stopping halfway.\n\n"
+                    "RULES YOU MUST FOLLOW:\n"
+                    "(1) ANALOGY FIRST: Before any formula or concept, write one sentence giving a real-world analogy. This must come before any symbols.\n"
+                    "(2) FORMULA RULE: Show the formula, then list every symbol with a plain-English label. Then show ONE worked example with real numbers, every arithmetic step written out, and one sentence at the end saying what the answer means.\n"
+                    "(3) EXAMPLE RULE — THIS IS THE MOST IMPORTANT RULE: Every example must be COMPLETELY FINISHED with actual numbers and arithmetic written out. "
+                        "NEVER write phrases like 'plug in the values' or 'substitute into the formula' and then stop. That is not a worked example. "
+                        "NEVER use '...' as a placeholder for actual numbers or equations. "
+                        "If no numbers are given in the source, invent simple ones and solve the full example yourself.\n"
+                    "(4) CONNECTIONS: If a concept builds on an earlier one, add one line: 'Remember: ...'.\n"
+                    "(5) FORMAT: Bullet points, brief headers, compact summary table at the end with formulas and symbol definitions.\n"
+                    "Goal: a student returning after time away picks this up cold and immediately recalls how to use everything.";
+
             } else if (depth == "eli6") {
                 depth_instruction =
                     "You are a patient, encouraging university tutor writing notes for a student with this exact background: "
-                    "they finished standard NSW high school mathematics (basic algebra, Pythagoras, SOHCAHTOA, basic coordinate geometry) "
+                    "they completed standard NSW high school mathematics (basic algebra, Pythagoras, SOHCAHTOA, basic coordinate geometry) "
                     "but have not touched any maths in almost 3 years and feel intimidated by university-level content. "
                     "You must write as if this student is reading the topic completely cold for the very first time. "
-                    "Never assume they remember anything — always remind them gently before using it. "
-                    "\n\nRULES FOR EVERY FORMULA:"
-                    "\n- Step 1: Before showing any symbols, write a plain-English paragraph explaining what the formula is trying to do and why anyone would care about it."
-                    "\n- Step 2: Show the formula."
-                    "\n- Step 3: Explain every single letter and symbol in plain English (e.g. 'r just means the distance from the pivot point to where the force acts')."
-                    "\n- Step 4: Show a fully worked example from start to finish. Show EVERY step even if it seems obvious. Write a short sentence before each step saying what you are about to do and why."
-                    "\n- Step 5: After the answer, write a plain-English sentence explaining what the answer actually means in real life or in the problem's context."
-                    "\n\nRULES FOR EVERY NEW CONCEPT:"
-                    "\n- Start with a plain-English explanation as if the student has never heard of this concept before."
-                    "\n- Give a real-world analogy connecting it to something from everyday life (shopping trolleys, shadows, pushing boxes, throwing a ball, etc.)."
-                    "\n- Then introduce the proper mathematical definition."
-                    "\n- Show fully worked examples (never set up a problem and then stop without solving it)."
-                    "\n- End with a one or two sentence plain-English summary of what the concept is."
-                    "\n\nRULES FOR LANGUAGE:"
-                    "\n- Never use university maths jargon without immediately explaining it in plain English in brackets."
-                    "\n- If you introduce a new word or symbol, treat it as though the student has never seen it before."
-                    "\n- Use everyday analogies and comparisons wherever possible."
-                    "\n- Short sentences are better than long ones."
-                    "\n- If you catch yourself writing something that assumes prior knowledge, stop and add an explanation."
-                    "\n\nRULES FOR CONNECTIONS:"
-                    "\n- Always explicitly connect new concepts back to things the student already knows from the notes."
-                    "\n- Use phrases like 'Remember how we said...' or 'This is similar to...' to build on earlier material."
-                    "\n\nRULES FOR WORKED EXAMPLES:"
-                    "\n- Never leave an example half-finished. Always solve fully."
-                    "\n- Show every step even if it seems too simple."
-                    "\n- Write a short sentence explaining what you are doing at each step and why."
-                    "\n- If a step uses a formula or rule, briefly remind the student what that formula is before using it."
-                    "\n- At the end of each example, write a plain-English sentence explaining what the answer means."
-                    "\n\nRULES FOR FORMATTING (Obsidian markdown):"
-                    "\n- Use clear headers and subheaders."
-                    "\n- Use blockquotes (>) for important reminders and tips."
-                    "\n- Bold key terms the first time they appear."
-                    "\n- Use tables to summarise and compare concepts."
-                    "\n- End each major topic with a summary table of key formulas (with plain-English symbol explanations) and a Key Takeaways section."
-                    "\n\nSELF-CHECK before finishing — ask yourself: Would someone who has not done maths in 3 years understand this cold? "
-                    "Is every formula explained in plain English before being shown? Is every worked example fully completed? "
-                    "Does every new concept connect back to something already known? If the answer to any of these is no, rewrite that section.";
+                    "Never assume they remember anything — always remind them gently.\n\n"
+
+                    "=== THE SINGLE MOST IMPORTANT RULE ===\n"
+                    "Every example that gets started MUST be completely finished with actual numbers and every arithmetic step written out. "
+                    "NEVER write 'plug in the values' or 'substitute into the formula' and then stop — that is NOT a worked example, it is an abandoned example. "
+                    "NEVER use '...' as a placeholder anywhere in an example. "
+                    "NEVER leave a calculation half-done. "
+                    "If no numbers are provided in the source material, INVENT simple, clean numbers yourself and solve the full example. "
+                    "A student who reads an unfinished example learns absolutely nothing. This rule overrides everything else.\n\n"
+
+                    "STRUCTURE FOR EVERY CONCEPT (follow this order strictly):\n"
+                    "Step 1 — ANALOGY: Before ANY symbols or formulas, write a plain-English paragraph explaining what this concept is in everyday terms. "
+                        "Use a real-world analogy (e.g. for cross product: 'imagine two arrows lying flat on a table — the cross product shoots a new arrow straight up through the table, perfectly perpendicular to both of them'; "
+                        "for normal vector: 'think of a flat table — the normal is the pole sticking straight up out of it, telling you which direction the surface faces'; "
+                        "for parametric equations: 'think of t like time — at t=0 you are at the start, as t increases you walk along the curve'). "
+                        "This analogy must come BEFORE any mathematics.\n"
+                    "Step 2 — PLAIN ENGLISH DEFINITION: Explain what the concept actually is, as if explaining to someone who has never heard of it.\n"
+                    "Step 3 — FORMULA: Show the formula. Then explain every single letter and symbol in plain English (e.g. 'r just means the distance from the pivot to where the force is applied').\n"
+                    "Step 4 — MEMORY TIP: If there is an easier way to remember or compute the formula (e.g. the 3x3 determinant grid method for cross products), explain it here.\n"
+                    "Step 5 — FULLY WORKED EXAMPLE: Show a complete numerical example. Write a short sentence before EACH arithmetic step saying what you are about to do and why. "
+                        "Show every multiplication, every subtraction, every simplification — no skipping. "
+                        "The example must go all the way from the starting numbers to the final answer with nothing omitted.\n"
+                    "Step 6 — MEANING: Write a plain-English sentence explaining what the answer actually means in real life or in the problem's context.\n"
+                    "Step 7 — CONNECTION: Use 'Remember how we said...' or 'This is similar to...' to link back to something already covered.\n\n"
+
+                    "LANGUAGE RULES:\n"
+                    "- Never use maths jargon without immediately explaining it in plain English in brackets.\n"
+                    "- Short sentences. Everyday analogies. Assume no prior knowledge.\n"
+                    "- If you catch yourself writing something that assumes background knowledge, stop and explain it first.\n\n"
+
+                    "FORMATTING (Obsidian markdown):\n"
+                    "- Clear headers and subheaders.\n"
+                    "- Blockquotes (>) for important reminders and tips.\n"
+                    "- Bold key terms the first time they appear.\n"
+                    "- Summary table at the end: formula | what each symbol means | one-line plain-English description.\n"
+                    "- Key Takeaways section at the end of each major topic.\n\n"
+
+                    "SELF-CHECK before finishing: Go through every example you wrote. Is it completely solved with real numbers and every step shown? "
+                    "Does every concept have an analogy before the symbols? Is every symbol defined? If any answer is no, fix it before outputting.";
+
             } else {
                 // indepth (default)
                 depth_instruction =
-                    "You are an expert academic tutor producing thorough, university-level study notes for a student who may not have a strong maths background. "
-                    "Your notes must be long, detailed, and self-contained — a student who never attended the lecture must be able to fully understand the topic, "
-                    "work through every example independently, and use these notes as their sole exam resource. "
-                    "\n\nRULES FOR EVERY FORMULA:"
-                    "\n(1) Before showing any formula, write a plain-English paragraph explaining what the formula is trying to do and why it matters."
-                    "\n(2) Show the formula."
-                    "\n(3) Define every variable and symbol in plain English with units where applicable."
-                    "\n(4) Show a fully worked example step-by-step. Never skip algebra steps. Write a brief sentence at each step explaining what is happening and why."
-                    "\n(5) After the answer, explain what it means in the context of the problem."
-                    "\n\nRULES FOR EVERY CONCEPT:"
-                    "\n(1) Open with a plain-English explanation — assume the student is encountering the idea for the first time."
-                    "\n(2) Give a real-world analogy connecting the concept to everyday experience."
-                    "\n(3) Introduce the formal mathematical definition."
-                    "\n(4) Show fully worked examples (every example fully solved — never set up without solving)."
-                    "\n(5) End with a concise plain-English summary of the concept."
-                    "\n\nADDITIONAL RULES:"
-                    "\n- Cover EVERY heading, sub-topic, concept, definition, formula, and worked example from the source — do not skip or condense anything."
-                    "\n- Explicitly connect new concepts back to earlier ones using phrases like 'Remember how we said...' or 'This is similar to...'."
-                    "\n- Flag exam hints and common mistakes explicitly."
-                    "\n- Never use jargon without immediately explaining it."
-                    "\n- Include a summary table of key formulas with plain-English symbol definitions, and a Key Takeaways section, at the end of each major topic."
-                    "\n- Your response must be substantially long — aim for depth and completeness over brevity.";
+                    "You are an expert academic tutor producing thorough, university-level study notes for a student who may not have a strong prior maths background. "
+                    "Your notes must be long, detailed, and completely self-contained.\n\n"
+
+                    "=== THE SINGLE MOST IMPORTANT RULE ===\n"
+                    "Every example that gets started MUST be completely finished with actual numbers and every algebra/arithmetic step written out. "
+                    "NEVER write 'plug in the values' or 'substitute into the formula' and then stop — that is an abandoned example, not a worked example. "
+                    "NEVER use '...' as a placeholder in an example — use real numbers. "
+                    "If no numbers are given in the source, invent clean numbers and solve the full example yourself. "
+                    "This rule overrides everything else.\n\n"
+
+                    "STRUCTURE FOR EVERY CONCEPT:\n"
+                    "(1) ANALOGY FIRST: Before any symbols, write a plain-English paragraph with a real-world analogy explaining what this concept is and why it matters.\n"
+                    "(2) PLAIN ENGLISH: Explain the concept clearly for someone encountering it for the first time.\n"
+                    "(3) FORMAL DEFINITION: Introduce the mathematical definition.\n"
+                    "(4) FORMULA: Show the formula. Define every variable and symbol with units where applicable. "
+                        "If there is an easier method to remember or calculate it (e.g. determinant grid for cross product), explain that method too.\n"
+                    "(5) FULLY WORKED EXAMPLE: Completely solved with every step of arithmetic/algebra shown and a brief sentence at each step. "
+                        "End with a plain-English sentence explaining what the answer means.\n"
+                    "(6) CONNECTIONS: Explicitly link back to earlier concepts with 'Remember how we said...' or 'This is similar to...'.\n"
+                    "(7) EXAM HINTS & COMMON MISTAKES: Flag anything students commonly get wrong.\n\n"
+
+                    "ADDITIONAL RULES:\n"
+                    "- Cover EVERY concept, formula, definition, and worked example from the source.\n"
+                    "- Never use jargon without explaining it.\n"
+                    "- Summary table of key formulas (with plain-English symbol definitions) and a Key Takeaways section at the end of each major topic.\n"
+                    "- Aim for depth and completeness. This should be long.\n\n"
+
+                    "SELF-CHECK: Before finishing, verify every example is completely solved with real numbers and every step shown. Fix anything that fails.";
             }
 
             string system_prompt = depth_instruction
@@ -2713,31 +2723,38 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             string user_prompt;
             if (!coverage_checklist.empty()) {
                 user_prompt = "SOURCE MATERIAL:\n" + text +
-                    "\n\n---\n\nMANDATORY COVERAGE CHECKLIST — every single item below MUST be fully addressed in the notes. "
-                    "Check each item off mentally as you write. Missing even one item is unacceptable:\n" +
+                    "\n\n---\n\nMANDATORY COVERAGE CHECKLIST — every single item below MUST be fully addressed. Missing any item is unacceptable:\n" +
                     coverage_checklist +
-                    "\n\n---\n\n" + (depth == "simple" ?
-                        "Create concise study notes covering every checklist item. For each formula: one plain-English sentence first, then the formula, then symbol definitions, then one minimal fully-solved example. Keep it brief but complete." :
+                    "\n\n---\n\nCRITICAL REMINDER: Every example must be COMPLETELY SOLVED with real numbers and every arithmetic step written out. "
+                    "NEVER write 'plug in the values' and stop. NEVER use '...' as a placeholder. If an example has no numbers, invent clean ones and solve it fully.\n\n" +
+                    (depth == "simple" ?
+                        "Create concise notes covering every checklist item. Real-world analogy before each concept. For each formula: one plain-English sentence, then the formula, then symbol definitions, then one minimal but FULLY SOLVED example with every step shown." :
                      depth == "eli6" ?
-                        "Create plain-English study notes explaining every checklist item as described in your instructions. "
-                        "Every formula explained in plain English before it is shown. Every symbol defined. Every example fully solved step-by-step with explanations. "
-                        "Real-world analogies throughout. Assume zero prior knowledge." :
-                        "Create thorough, in-depth study notes addressing EVERY checklist item. "
-                        "For each: plain-English explanation first, full formula with variable definitions, worked example solved step-by-step, real-world connections, exam hints. "
-                        "The notes must be long, detailed, and suitable as a complete exam revision resource.");
+                        "Create plain-English notes for every checklist item following all your instructions. "
+                        "Real-world analogy BEFORE any symbols for every concept. Every formula explained in plain English first, every symbol defined. "
+                        "EVERY example completely solved — actual numbers, every arithmetic step, a sentence at each step, plain-English meaning of the answer. "
+                        "Assume zero prior knowledge. Use the determinant grid method for cross products." :
+                        "Create thorough notes for every checklist item. Real-world analogy before each concept. "
+                        "Every formula: plain English first, all variables defined, FULLY worked example with every step. "
+                        "Exam hints, common mistakes, connections between topics, summary table at the end.");
             } else {
                 user_prompt = (depth == "simple" ?
-                    "Create concise study notes from the following content. For each formula: plain-English explanation first, then the formula, then symbol definitions, then one minimal fully-solved example. "
-                    "Cover every key concept and formula with brief real-world anchors. Keep it scannable:\n\n" :
+                    "Create concise study notes from the following content. "
+                    "CRITICAL: Every example must be completely solved with real numbers — never write 'plug in values' and stop, never use '...' as a placeholder. "
+                    "Real-world analogy before each concept. For each formula: plain-English sentence, formula, symbol definitions, one fully-solved minimal example:\n\n" :
                  depth == "eli6" ?
-                    "Create plain-English study notes from the following content following all the rules in your instructions. "
-                    "Every formula explained in plain English before it appears. Every symbol defined. Every example fully solved step-by-step with a sentence explaining each step. "
-                    "Real-world analogies for every concept. Connections back to things already covered. Assume the reader has not done maths in years and needs everything explained from scratch:\n\n" :
+                    "Create plain-English study notes from the following content, following all the rules in your instructions exactly. "
+                    "CRITICAL REMINDERS: (1) Real-world analogy BEFORE any formulas or symbols for every concept. "
+                    "(2) Every example must be COMPLETELY solved — actual numbers, every multiplication and subtraction written out, a sentence at each step, never stop at 'plug in the values'. "
+                    "(3) NEVER use '...' as a placeholder — use real numbers. "
+                    "(4) For cross products, explain and use the 3x3 determinant grid method as it is easier to remember. "
+                    "(5) Every symbol explained in plain English. Connections back to earlier concepts throughout. "
+                    "Assume the reader has not done maths in years:\n\n" :
                     "Create thorough, in-depth study notes from the following lecture content. "
-                    "Go through EVERY section systematically. For each concept: plain-English explanation first, real-world analogy, formal definition, fully worked examples step-by-step. "
-                    "For each formula: explain it in plain English before showing it, define every variable, show a fully worked example. "
-                    "Include exam hints, common mistakes, connections between topics, and a summary table at the end of each major section. "
-                    "Do not summarise or condense — the notes should be comprehensive enough to fully replace attending the lecture:\n\n")
+                    "CRITICAL: Every example must be completely solved — never write 'plug in values' and stop, never use '...' as a placeholder. If numbers are missing, invent them. "
+                    "For each concept: real-world analogy first, plain-English explanation, formal definition, fully worked example with every step shown. "
+                    "For each formula: plain English before showing it, all variables defined, memory tips (e.g. determinant grid for cross products), fully worked example. "
+                    "Exam hints, common mistakes, connections between topics, summary table at end of each major section:\n\n")
                     + text;
             }
 
