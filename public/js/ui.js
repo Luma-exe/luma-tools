@@ -382,42 +382,43 @@ function updateActiveAIModel(modelId) {
     }
 }
 
+// Ordered from most powerful → least powerful (matches execution chain)
 const AI_MODELS = {
     'llama-3.3-70b-versatile': {
-        badge: 'L3.3 70B', short: 'Llama 3.3 70B', tier: 'Primary', tpd: '100k/day',
-        desc: "Meta's most capable open model. Used first for best quality results."
+        badge: 'L3.3 70B', short: 'Llama 3.3 70B', tier: 'Step 1', provider: 'Groq', tpd: '100k tok/day',
+        desc: "Meta's most capable open model. Always tried first for best quality results."
     },
     'llama-3.3-70b-specdec': {
-        badge: 'L3.3 SD', short: 'Llama 3.3 70B (SD)', tier: 'Fallback 1', tpd: 'Separate quota',
-        desc: 'Same 70B model with speculative decoding. Used when the primary hits its quota.'
+        badge: 'L3.3 SD', short: 'Llama 3.3 70B · Spec Dec', tier: 'Step 2', provider: 'Groq', tpd: 'Separate quota',
+        desc: 'Same Llama 3.3 70B with speculative decoding. Separate rate-limit bucket to step 1.'
     },
     'deepseek-r1-distill-llama-70b': {
-        badge: 'R1 70B', short: 'DeepSeek R1 70B', tier: 'Fallback 2', tpd: 'Separate quota',
-        desc: 'DeepSeek R1 reasoning distilled on Llama 70B. Strong at complex structured tasks.'
+        badge: 'R1 70B', short: 'DeepSeek R1 · Llama 70B', tier: 'Step 3', provider: 'Groq', tpd: 'Separate quota',
+        desc: 'DeepSeek R1 reasoning distilled onto a 70B Llama base. Strong at complex structured tasks.'
     },
     'qwen-qwq-32b': {
-        badge: 'QwQ 32B', short: 'Qwen QwQ 32B', tier: 'Fallback 3', tpd: 'Separate quota',
-        desc: "Alibaba's reasoning model. Excellent at math and step-by-step problems."
+        badge: 'QwQ 32B', short: 'Qwen QwQ 32B', tier: 'Step 4', provider: 'Groq', tpd: 'Separate quota',
+        desc: "Alibaba's 32B reasoning model. Excellent at maths and step-by-step problems."
     },
     'deepseek-r1-distill-qwen-32b': {
-        badge: 'R1 32B', short: 'DeepSeek R1 32B', tier: 'Fallback 4', tpd: 'Separate quota',
+        badge: 'R1 32B', short: 'DeepSeek R1 · Qwen 32B', tier: 'Step 5', provider: 'Groq', tpd: 'Separate quota',
         desc: 'DeepSeek R1 reasoning on Qwen 32B. Good quality at 32B scale.'
     },
-    'llama-3.1-8b-instant': {
-        badge: 'L3.1 8B', short: 'Llama 3.1 8B', tier: 'Fallback 5', tpd: '500k/day',
-        desc: 'Fast & lightweight. Highest daily allowance. Used when larger models are exhausted.'
-    },
     'cerebras:llama-3.3-70b': {
-        badge: 'CBR 70B', short: 'Llama 3.3 70B (Cerebras)', tier: 'Fallback 6', tpd: '30 req/min',
-        desc: 'Same Llama 3.3 70B model running on Cerebras hardware. Separate rate limits to Groq.'
+        badge: 'CBR 70B', short: 'Llama 3.3 70B · Cerebras', tier: 'Step 6', provider: 'Cerebras', tpd: '30 req/min',
+        desc: 'Same Llama 3.3 70B running on Cerebras hardware. Entirely separate rate limits to Groq.'
     },
     'gemini:gemini-2.0-flash': {
-        badge: 'Gemini', short: 'Gemini 2.0 Flash', tier: 'Fallback 7', tpd: '1M tok/day',
-        desc: "Google's Gemini 2.0 Flash. Largest free daily quota of any provider."
+        badge: 'Gemini', short: 'Gemini 2.0 Flash', tier: 'Step 7', provider: 'Google', tpd: '1M tok/day',
+        desc: "Google's Gemini 2.0 Flash. Largest free daily quota of any provider in the chain."
+    },
+    'llama-3.1-8b-instant': {
+        badge: 'L3.1 8B', short: 'Llama 3.1 8B', tier: 'Step 8', provider: 'Groq', tpd: '500k tok/day',
+        desc: 'Small & fast fallback. Highest Groq daily allowance. Used only when all larger models are exhausted.'
     },
     'ollama:llama3.1:8b': {
-        badge: 'Local', short: 'Llama 3.1 8B (Local)', tier: 'Local Device', tpd: 'Unlimited',
-        desc: 'Runs locally on the server via Ollama. No API quota. Used only when all cloud models are exhausted.'
+        badge: 'Local', short: 'Llama 3.1 8B · Local', tier: 'Step 9', provider: 'Local', tpd: 'Unlimited',
+        desc: 'Last resort — runs locally via Ollama on the server. No API quota, but lowest quality.'
     }
 };
 
@@ -446,16 +447,31 @@ function showModelBadge(toolId, modelId) {
     const model = AI_MODELS[modelId];
     if (!model) return;
     badge.className = 'tool-model-badge';
-    const allModels = Object.entries(AI_MODELS).map(([id, m]) => `
-        <div class="tmb-model ${id === modelId ? 'active' : ''} ${id.startsWith('ollama:') ? 'tmb-local' : ''}">
+    const entries = Object.entries(AI_MODELS);
+    const allModels = entries.map(([id, m], i) => {
+        const isActive = id === modelId;
+        const isLocal = id.startsWith('ollama:');
+        const isCerebras = id.startsWith('cerebras:');
+        const isGemini = id.startsWith('gemini:');
+        let providerClass = '';
+        if (isCerebras) providerClass = 'tmb-provider-cerebras';
+        else if (isGemini) providerClass = 'tmb-provider-gemini';
+        else if (isLocal) providerClass = 'tmb-provider-local';
+        const connector = i < entries.length - 1
+            ? `<div class="tmb-chain-arrow"><span>↓</span><span class="tmb-chain-label">rate limited → next</span></div>`
+            : '';
+        return `
+        <div class="tmb-model ${isActive ? 'active' : ''} ${isLocal ? 'tmb-local' : ''} ${providerClass}">
             <div class="tmb-model-row">
                 <span class="tmb-tier">${m.tier}</span>
                 <span class="tmb-name">${m.short}</span>
+                <span class="tmb-provider-tag">${m.provider}</span>
             </div>
             <div class="tmb-meta"><span class="tmb-tpd">${m.tpd}</span></div>
             <div class="tmb-desc">${m.desc}</div>
-        </div>`).join('');
+        </div>${connector}`;
+    }).join('');
     const isLocal = modelId.startsWith('ollama:');
     const whyColor = isLocal ? '#4ade80' : '#fbbf24';
-    badge.innerHTML = `<i class="fas fa-robot"></i> ${model.badge}<div class="tmb-tooltip"><div class="tmb-header">AI Model Chain</div>${allModels}<div class="tmb-why" style="color:${whyColor}">Currently using <strong>${model.short}</strong> &mdash; ${model.tier}</div></div>`;
+    badge.innerHTML = `<i class="fas fa-robot"></i> ${model.badge}<div class="tmb-tooltip"><div class="tmb-header">AI Model Chain &mdash; most powerful first</div>${allModels}<div class="tmb-why" style="color:${whyColor}">Currently using <strong>${model.short}</strong> &mdash; ${model.tier}</div></div>`;
 }

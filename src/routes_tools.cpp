@@ -27,12 +27,12 @@ static std::string join(const std::vector<std::string>& v, const std::string& de
 
 // ── Groq model chain with automatic fallback ─────────────────────────────────
 static const vector<string> GROQ_MODEL_CHAIN = {
-    "llama-3.3-70b-versatile",
-    "llama-3.3-70b-specdec",
-    "deepseek-r1-distill-llama-70b",
-    "qwen-qwq-32b",
-    "deepseek-r1-distill-qwen-32b",
-    "llama-3.1-8b-instant"
+    "llama-3.3-70b-versatile",          // Step 1 – most powerful
+    "llama-3.3-70b-specdec",             // Step 2
+    "deepseek-r1-distill-llama-70b",     // Step 3
+    "qwen-qwq-32b",                      // Step 4
+    "deepseek-r1-distill-qwen-32b"       // Step 5
+    // Steps 6-8 are tried below via try_provider after Groq quota is exhausted
 };
 
 // ── Last-used AI model cache (updated on every successful AI call) ────────────
@@ -156,6 +156,10 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
     // ── Gemini fallback (gemini-2.0-flash via OpenAI-compat, 1M tok/day free) ─
     try_provider("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
                  g_gemini_key, "gemini-2.0-flash", "gemini:gemini-2.0-flash");
+
+    // ── Groq 8B fallback (small/fast, highest Groq daily quota, tried after big models) ─
+    try_provider("https://api.groq.com/openai/v1/chat/completions",
+                 g_groq_key, "llama-3.1-8b-instant", "llama-3.1-8b-instant");
 
     // ── Ollama local fallback (last resort, low quality) ─────────────────────
     if (!result.ok) {
