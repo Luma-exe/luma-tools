@@ -2634,7 +2634,12 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                         "NEVER use '...' as a placeholder for actual numbers or equations. "
                         "If no numbers are given in the source, invent simple ones and solve the full example yourself.\n"
                     "(4) CONNECTIONS: If a concept builds on an earlier one, add one line: 'Remember: ...'.\n"
-                    "(5) FORMAT: Bullet points, brief headers, compact summary table at the end with formulas and symbol definitions.\n"
+                    "(5) NEVER DROP SECTIONS: Include every topic from the source. If parametric equations are covered, they must appear. Never silently skip a section.\n"
+                    "(6) NON-TRIVIAL EXAMPLES: Choose numbers that produce a meaningful non-zero answer. NEVER use degenerate cases like two parallel vectors for a cross product or torque example — they teach nothing.\n"
+                    "(7) 3D TOPICS USE 3D EXAMPLES: If the subject is 3D vectors/geometry, use 3D examples. If you simplify to 2D, note it explicitly: 'Note: 2D example — in 3D you also have a z-component.'\n"
+                    "(8) CROSS PRODUCT: Always connect to dot product first: 'dot product gives a number; cross product gives a new perpendicular vector.' Warn about the j sign: 'The j component always gets a MINUS sign.'\n"
+                    "(9) PARAMETRIC EQUATIONS: Always connect them to the vector line equation — they are the same thing written differently. Explain t as 'like time'. Always expand r(t) = a + tp into separate x(t), y(t), z(t) equations with real numbers.\n"
+                    "(10) FORMAT: Bullet points, brief headers, compact summary table at the end with formulas and symbol definitions.\n"
                     "Goal: a student returning after time away picks this up cold and immediately recalls how to use everything.";
 
             } else if (depth == "eli6") {
@@ -2680,8 +2685,15 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Summary table at the end: formula | what each symbol means | one-line plain-English description.\n"
                     "- Key Takeaways section at the end of each major topic.\n\n"
 
+                    "ADDITIONAL SPECIFIC RULES:\n"
+                    "- NEVER DROP SECTIONS: If the source covers parametric equations, vector lines, torque, cross products, or any other topic, ALL must appear in the notes. Never silently omit a section.\n"
+                    "- NON-TRIVIAL EXAMPLES: Choose numbers that give a meaningful non-zero answer. NEVER pick degenerate cases (e.g. two parallel vectors for a torque/cross product example) — they give zero and teach nothing about how the concept works. For torque, use r along one axis and F along a different axis so the result is non-zero.\n"
+                    "- 3D TOPICS USE 3D EXAMPLES: If the topic is 3D geometry/vectors, examples must be 3D. If you simplify to 2D, explicitly note it: '> Note: this is a 2D example to keep things simple — in 3D you would also have a z-component.'\n"
+                    "- CROSS PRODUCT — TWO MANDATORY EXTRAS: (a) Before the formula, connect it to the dot product the student already knows: 'Remember the dot product? That took two vectors and gave you back a single number. The cross product is different — it gives you a brand new vector that shoots out perfectly perpendicular to both of them. Imagine two arrows lying flat on a table pointing in different directions. The cross product creates a third arrow that stabs straight up through the table at a right angle to both.' (b) After the determinant formula, always add this warning in a blockquote: '> ⚠️ Watch out — the j component always gets a MINUS sign in front of it. This trips up almost everyone. Double-check the sign on j every single time.'\n"
+                    "- PARAMETRIC EQUATIONS — ALWAYS INCLUDE AND CONNECT TO LINES: Parametric equations and the vector line equation are the same thing written differently — always show both and explain the connection. Explain t as 'like time — at t=0 you are standing at point A, as t increases you walk along the line in the direction of p'. Always expand r(t) = a + tp into the three separate equations x(t) = ..., y(t) = ..., z(t) = ..., with actual numbers substituted in and shown.\n\n"
                     "SELF-CHECK before finishing: Go through every example you wrote. Is it completely solved with real numbers and every step shown? "
-                    "Does every concept have an analogy before the symbols? Is every symbol defined? If any answer is no, fix it before outputting.";
+                    "Does every concept have an analogy before the symbols? Were any sections from the source dropped? Was the parametric equations section included? "
+                    "Is the j-sign warning present for the cross product? If any answer is no, fix it before outputting.";
 
             } else {
                 // indepth (default)
@@ -2713,7 +2725,13 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Summary table of key formulas (with plain-English symbol definitions) and a Key Takeaways section at the end of each major topic.\n"
                     "- Aim for depth and completeness. This should be long.\n\n"
 
-                    "SELF-CHECK: Before finishing, verify every example is completely solved with real numbers and every step shown. Fix anything that fails.";
+                    "ADDITIONAL SPECIFIC RULES:\n"
+                    "- NEVER DROP SECTIONS: Every topic in the source must be covered. If parametric equations, vector lines, torque, or cross products are in the source, they must all appear. Never silently skip a section.\n"
+                    "- NON-TRIVIAL EXAMPLES: Choose numbers that produce a meaningful non-zero answer. NEVER use degenerate cases (e.g. two parallel vectors for a torque or cross product example) — they give zero and teach nothing about how the concept works. For torque, use r and F pointing in different directions so the result is a non-zero vector.\n"
+                    "- 3D TOPICS USE 3D EXAMPLES: If the topic is 3D geometry/vectors, all examples must be 3D. If you simplify to 2D, add an explicit note: 'Note: 2D example for simplicity — in 3D you also have a z-component.'\n"
+                    "- CROSS PRODUCT — TWO MANDATORY EXTRAS: (a) Before the formula, compare to the dot product: 'The dot product takes two vectors and gives a number. The cross product takes two vectors and gives a new vector perpendicular to both — like two arrows on a table creating a third arrow stabbing straight up through it.' (b) After the determinant formula, add an explicit warning: '> ⚠️ The j component always gets a MINUS sign in front of it in the cross product — this is the most common calculation error.'\n"
+                    "- PARAMETRIC EQUATIONS — ALWAYS CONNECT TO VECTOR LINES: Show that parametric equations and the vector line equation r(t) = a + tp are the same thing. Explain t as 'like time'. Always expand into the three separate x(t), y(t), z(t) equations with actual numbers shown.\n\n"
+                    "SELF-CHECK: Before finishing, verify every example is completely solved with real numbers and every step shown. Were any sections from the source omitted? Is the parametric equations section present? Is the j-sign cross product warning included? Fix anything that fails.";
             }
 
             string system_prompt = depth_instruction
