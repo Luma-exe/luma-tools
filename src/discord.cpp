@@ -208,7 +208,9 @@ void discord_log_error(const string& context, const string& error, const string&
 
 void discord_log_server_start(int port, const string& version) {
     // Capture all globals by value so the probe thread is self-contained.
-    string cap_groq_key  = g_groq_key;
+    string cap_groq_key      = g_groq_key;
+    string cap_cerebras_key  = g_cerebras_key;
+    string cap_gemini_key    = g_gemini_key;
     string cap_ffmpeg    = g_ffmpeg_exe;
     string cap_ytdlp     = g_ytdlp_path;
     string cap_gs        = g_ghostscript_path;
@@ -223,11 +225,15 @@ void discord_log_server_start(int port, const string& version) {
     string cap_hostname  = g_hostname;
 
     thread([=, port = port, version = version]() {
-        // ── Probe each Groq model for token remaining (parallel) ──────────────
+        // ── Probe each Groq model for tokens remaining (parallel) ─────────────
+        // Listed in chain order: most powerful first
         static const vector<pair<string,string>> GROQ_PROBE_MODELS = {
-            {"llama-3.3-70b-versatile",          "Llama 3.3 70B"},
-            {"deepseek-r1-distill-llama-70b",     "DeepSeek R1 70B"},
-            {"llama-3.1-8b-instant",              "Llama 3.1 8B"},
+            {"llama-3.3-70b-versatile",          "Llama 3.3 70B (Step 1)"},
+            {"llama-3.3-70b-specdec",             "Llama 3.3 70B Spec Dec (Step 2)"},
+            {"deepseek-r1-distill-llama-70b",     "DeepSeek R1 · Llama 70B (Step 3)"},
+            {"qwen-qwq-32b",                      "Qwen QwQ 32B (Step 4)"},
+            {"deepseek-r1-distill-qwen-32b",      "DeepSeek R1 · Qwen 32B (Step 5)"},
+            {"llama-3.1-8b-instant",              "Llama 3.1 8B (Step 8)"},
         };
 
         map<string, int> tokens_map;  // model_id -> tokens_remaining (-1 = unknown)
@@ -310,19 +316,51 @@ void discord_log_server_start(int port, const string& version) {
         desc += (cap_rembg       ? "✅" : "❌") + string(" rembg\n");
         desc += (cap_ollama      ? "✅" : "❌") + string(" Ollama (local AI)");
 
-        // Groq AI model token remaining
-        if (!cap_groq_key.empty()) {
-            desc += "\n\n**🤖 AI Models (tokens remaining per minute)**\n";
-            for (const auto& entry : GROQ_PROBE_MODELS) {
+        // AI model statuses — chain order: Groq Steps 1-5 → Cerebras 6 → Gemini 7 → Groq 8B 8 → Ollama 9
+        if (!cap_groq_key.empty() || !cap_cerebras_key.empty() || !cap_gemini_key.empty()) {
+            desc += "\n\n**🤖 AI Models (tokens remaining / status)**\n";
+
+            // Groq models (Steps 1-5 and 8) — show probed token count
+            // Steps 1-5 appear before Cerebras/Gemini; Step 8 (8B) at end of Groq section
+            static const vector<pair<string,string>> GROQ_STEP_ORDER_MAIN = {
+                {"llama-3.3-70b-versatile",      "Llama 3.3 70B (Step 1 · Groq)"},
+                {"llama-3.3-70b-specdec",         "Llama 3.3 70B Spec Dec (Step 2 · Groq)"},
+                {"deepseek-r1-distill-llama-70b", "DeepSeek R1 · Llama 70B (Step 3 · Groq)"},
+                {"qwen-qwq-32b",                  "Qwen QwQ 32B (Step 4 · Groq)"},
+                {"deepseek-r1-distill-qwen-32b",  "DeepSeek R1 · Qwen 32B (Step 5 · Groq)"},
+            };
+            for (const auto& entry : GROQ_STEP_ORDER_MAIN) {
                 auto it = tokens_map.find(entry.first);
                 if (it != tokens_map.end())
-                    desc += "☁️ " + entry.second + " › `" + to_string(it->second) + "`\n";
+                    desc += "☁️ " + entry.second + " › `" + to_string(it->second) + " tok`\n";
                 else
                     desc += "☁️ " + entry.second + " › *probe failed*\n";
             }
-            desc += (cap_ollama ? "🏠 Ollama (local) › `Unlimited`" : "🏠 Ollama (local) › *not running*");
+
+            // Cerebras Step 6
+            desc += (!cap_cerebras_key.empty() ? "☁️" : "❌") +
+                    string(" Llama 3.3 70B (Step 6 · Cerebras) › ") +
+                    (!cap_cerebras_key.empty() ? "`key configured`" : "*no key*") + "\n";
+
+            // Gemini Step 7
+            desc += (!cap_gemini_key.empty() ? "☁️" : "❌") +
+                    string(" Gemini 2.0 Flash (Step 7 · Google) › ") +
+                    (!cap_gemini_key.empty() ? "`key configured`" : "*no key*") + "\n";
+
+            // Groq 8B Step 8
+            {
+                auto it = tokens_map.find("llama-3.1-8b-instant");
+                if (it != tokens_map.end())
+                    desc += "☁️ Llama 3.1 8B (Step 8 · Groq) › `" + to_string(it->second) + " tok`\n";
+                else
+                    desc += "☁️ Llama 3.1 8B (Step 8 · Groq) › *probe failed*\n";
+            }
+
+            // Ollama Step 9
+            desc += (cap_ollama ? "🏠 Llama 3.1 8B (Step 9 · Ollama) › `Unlimited`"
+                                : "🏠 Ollama (Step 9) › *not running*");
         } else {
-            desc += "\n\n❌ **Groq API key not set** — AI tools unavailable";
+            desc += "\n\n❌ **No AI API keys set** — cloud AI tools unavailable";
             if (cap_ollama) desc += "\n🏠 Ollama (local) › `Unlimited`";
         }
 
