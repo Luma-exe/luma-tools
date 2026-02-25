@@ -144,7 +144,7 @@ The main model receives both the source text and the checklist. The pipeline tri
 | 3 | Groq | `deepseek-r1-distill-llama-70b` |
 | 4 | Groq | `qwen-qwq-32b` |
 | 5 | Groq | `deepseek-r1-distill-qwen-32b` |
-| 6 | Cerebras | `llama-3.3-70b` |
+| 6 | Cerebras | `qwen-3-235b-a22b-instruct-2507` |
 | 7 | Gemini | `gemini-2.0-flash` |
 | 8 | Groq | `llama-3.1-8b-instant` *(small fallback, tried after larger models)* |
 | 9 | Ollama | local `llama3.1:8b` *(last resort — blocked for Study Notes due to quality)* |

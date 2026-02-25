@@ -404,9 +404,9 @@ const AI_MODELS = {
         badge: 'R1 32B', short: 'DeepSeek R1 · Qwen 32B', tier: 'Step 5', provider: 'Groq', tpd: 'Separate quota',
         desc: 'DeepSeek R1 reasoning on Qwen 32B. Good quality at 32B scale.'
     },
-    'cerebras:llama-3.3-70b': {
-        badge: 'CBR 70B', short: 'Llama 3.3 70B · Cerebras', tier: 'Step 6', provider: 'Cerebras', tpd: '30 req/min',
-        desc: 'Same Llama 3.3 70B running on Cerebras hardware. Entirely separate rate limits to Groq.'
+    'cerebras:qwen3-235b': {
+        badge: 'QW3 235B', short: 'Qwen 3 235B · Cerebras', tier: 'Step 6', provider: 'Cerebras', tpd: '30 req/min',
+        desc: "Alibaba's Qwen 3 235B running on Cerebras hardware. Separate rate limits to Groq — much larger model."
     },
     'gemini:gemini-2.0-flash': {
         badge: 'Gemini', short: 'Gemini 2.0 Flash', tier: 'Step 7', provider: 'Google', tpd: '1M tok/day',

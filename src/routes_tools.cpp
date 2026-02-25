@@ -149,9 +149,9 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
         try { fs::remove(p_pf); fs::remove(p_hf); fs::remove(p_rf); } catch (...) {}
     };
 
-    // ── Cerebras fallback (llama-3.3-70b, generous free quota) ───────────────
+    // ── Cerebras fallback (Qwen 3 235B, generous free quota) ──────────────────
     try_provider("https://api.cerebras.ai/v1/chat/completions",
-                 g_cerebras_key, "llama-3.3-70b", "cerebras:llama-3.3-70b");
+                 g_cerebras_key, "qwen-3-235b-a22b-instruct-2507", "cerebras:qwen3-235b");
 
     // ── Gemini fallback (gemini-2.0-flash via OpenAI-compat, 1M tok/day free) ─
     try_provider("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
