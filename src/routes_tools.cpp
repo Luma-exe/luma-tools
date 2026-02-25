@@ -2788,7 +2788,17 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Never use a symbol, keyword, term, or abbreviation without explaining what it means.\n"
                     "- Never drop sections from the source — every topic must appear in the notes.\n"
                     "- Never rewrite sections that are already working well. If a section already has clear explanations and fully worked examples, only add what is genuinely missing.\n"
-                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n\n"
+                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n"
+                    "- Never leave a heading or bullet point with no content underneath it — a heading with no explanation is worse than not mentioning the topic at all.\n"
+                    "- Never use two different names for the same concept across sections without explicitly noting the alternative — pick one term and use it everywhere throughout the document.\n"
+                    "- Never re-explain a concept that was already fully covered — reference the earlier section instead: 'as explained above in [section name]'.\n"
+                    "- Never force an analogy — if no accurate real-world analogy exists, say so and move on. A wrong analogy is worse than no analogy.\n"
+                    "- Never add padding — every sentence must explain a concept, demonstrate a concept, or connect a concept to something else. If a sentence does none of these, cut it.\n\n"
+
+                    "CONSISTENCY RULES:\n"
+                    "- Pick a structure and stick to it — if section 1 has a plain-English intro, a worked example, and a summary line then every other section must have the same things.\n"
+                    "- If a calculation produces a result in one section and that result is referenced later, the referenced value must be identical to the original.\n"
+                    "- When two concepts are easily confused, compare them directly — a side-by-side contrast or explicit paragraph, not just two separate explanations.\n\n"
 
                     "DEPTH TARGETS for Simple mode:\n"
                     "- 1 to 3 sentence plain-English intro per concept.\n"
@@ -2812,6 +2822,10 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Is every symbol, keyword, and abbreviation explained?\n"
                     "- Were any sections from the source silently dropped?\n"
                     "- Were any sections that were already complete and correct left alone?\n"
+                    "- Are there any headings or bullet points that promise content that is never delivered?\n"
+                    "- Are there any contradictions between sections — e.g. a calculation gives result X in one section but a different result when referenced later?\n"
+                    "- Does every calculation actually teach something important about the concept, or is it just numbers for the sake of having numbers?\n"
+                    "- Are there any concepts easily confused with each other that have not been directly compared?\n"
                     "Fix anything that fails before outputting.\n\n"
                     "Goal: a student returning after time away picks this up cold and immediately recalls how to use everything.";
 
@@ -2890,7 +2904,17 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Never skip steps in a calculation, proof, or code walkthrough even if they seem trivial.\n"
                     "- Never choose example data that makes the concept break down or gives a trivial or misleading result.\n"
                     "- Never rewrite sections that are already working well — only add what is genuinely missing.\n"
-                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n\n"
+                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n"
+                    "- Never leave a heading or bullet point with no content underneath it — a heading with no explanation is worse than not mentioning the topic at all.\n"
+                    "- Never use two different names for the same concept across sections without explicitly noting the alternative — pick one term and use it everywhere throughout the document.\n"
+                    "- Never re-explain a concept that was already fully covered earlier in the notes — reference the earlier section instead: 'as explained above in [section name]'.\n"
+                    "- Never force an analogy — if no accurate real-world analogy exists, say so and move on. A wrong or inaccurate analogy actively teaches the wrong mental model.\n"
+                    "- Never add padding — every sentence must explain a concept, demonstrate a concept, or connect a concept to something else. If a sentence does none of these, cut it.\n\n"
+
+                    "CONSISTENCY RULES:\n"
+                    "- Pick a structure and stick to it across the entire document — if one concept has a plain-English intro, a term table, a worked example, and a summary line then every concept must have those same components.\n"
+                    "- If a calculation produces a result in one section and that result is referenced in a later section, the referenced value must be identical to the original — contradictions between sections destroy trust.\n"
+                    "- When two concepts are easily confused, compare them directly in a table or an explicit side-by-side paragraph — do not just explain both separately and hope the student notices the difference.\n\n"
 
                     "ONE FINAL RULE — DO NOT FIX WHAT IS NOT BROKEN:\n"
                     "If a section of notes already has clear plain-English explanations and fully worked examples, do not rewrite it. "
@@ -2913,6 +2937,10 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "(11) Is the Cartesian line equation written in full standard form with a zero-component note where needed?\n"
                     "(12) Was the meaning of a,b,c in the plane equation explained as the normal vector?\n"
                     "(13) Have I avoided deleting or replacing worked examples that were already complete and correct?\n"
+                    "(14) Are there any headings or bullet points that promise content that is never delivered?\n"
+                    "(15) Are there any contradictions between sections — e.g. a calculation produces result X in one section but a different value when referenced in another?\n"
+                    "(16) Does every calculation actually teach something important about the concept, or is it just numbers for the sake of having numbers?\n"
+                    "(17) Are there any concepts easily confused with each other that have not been directly compared in a table or explicit contrast paragraph?\n"
                     "If any answer is no, fix that section before finishing.";
 
             } else {
@@ -2982,7 +3010,17 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Never skip steps in a calculation, proof, code walkthrough, or legal analysis even if they seem trivial.\n"
                     "- Never choose example data that makes the concept break down or gives a trivial or misleading result.\n"
                     "- Never rewrite sections that are already working well — only add what is genuinely missing.\n"
-                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n\n"
+                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n"
+                    "- Never leave a heading or bullet point with no content underneath it — a heading with no explanation is worse than not mentioning the topic at all.\n"
+                    "- Never use two different names for the same concept across sections without explicitly noting the alternative — pick one term and use it everywhere throughout the document.\n"
+                    "- Never re-explain a concept that was already fully covered earlier in the notes — reference the earlier section instead: 'as established in the [section name] section above'.\n"
+                    "- Never force an analogy — if no accurate real-world analogy exists, say so and move on. A wrong or inaccurate analogy actively teaches the wrong mental model and is worse than no analogy.\n"
+                    "- Never add padding — every sentence must explain a concept, demonstrate a concept, or connect a concept to something else. If a sentence does none of these, cut it.\n\n"
+
+                    "CONSISTENCY RULES:\n"
+                    "- Pick a structure and stick to it across the entire document — if concept A has a plain-English intro, a formal definition, a term table, a worked example, and a one-sentence summary then every concept must have those same components.\n"
+                    "- If a calculation produces a result in one section and that result is referenced in a later section, both must agree exactly — contradictions between sections destroy the student's trust in the notes.\n"
+                    "- When two concepts are easily confused, compare them directly in a dedicated table or an explicit side-by-side paragraph stating exactly how they differ and when to use each — do not just explain both separately and hope the student notices the difference.\n\n"
 
                     "ONE FINAL RULE — DO NOT FIX WHAT IS NOT BROKEN:\n"
                     "If a section of notes already has clear plain-English explanations and fully worked examples, do not rewrite it. "
@@ -3011,6 +3049,10 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "(13) Is the parametric equations section present with a 3D example connected to the vector line equation?\n"
                     "(14) Is the Cartesian line in full standard form with a zero-component note where needed?\n"
                     "(15) Was the meaning of a,b,c in the plane equation explained as the normal vector components?\n"
+                    "(16) Are there any headings or bullet points that promise content that is never delivered?\n"
+                    "(17) Are there any contradictions between sections — e.g. a calculation in section 1 gives result X but a later section references the same calculation with a different result?\n"
+                    "(18) Does every calculation actually teach something important about the concept, or is it just numbers included for the sake of having numbers?\n"
+                    "(19) Are there any concepts easily confused with each other that have not been directly compared in a table or explicit contrast paragraph?\n"
                     "Fix everything that fails before outputting.";
             }
 
@@ -3245,7 +3287,15 @@ CRITICAL RULES:
 5. Use $...$ for inline math and $$...$$ on its own line for block equations — never put maths in plain text
 6. Preserve ALL existing correct content — never remove or shorten material that is already there
 7. Keep the same Markdown structure (## headings, bullet points, **bold** key terms, > blockquotes for hints)
-8. Output ONLY the improved notes — absolutely no meta-commentary, preamble, or explanations outside the notes)";
+8. Output ONLY the improved notes — absolutely no meta-commentary, preamble, or explanations outside the notes
+9. NEVER leave a heading or bullet point with no content underneath it — every section heading must have a full explanation and at least one worked example or demonstration
+10. NEVER introduce a term, symbol, or abbreviation without immediately explaining it in plain English
+11. EVERY example must be completely finished with real numbers and every arithmetic step shown — never write 'plug in the values' and stop
+12. If the source introduces example data in one section, use the SAME numbers if that example is referenced in any other section — contradictions between sections destroy trust
+13. Pick one name for each concept and use it consistently throughout — never switch between alternative names without explicitly noting the alternative
+14. Do NOT repeat a full explanation that already appears elsewhere — reference the earlier section instead
+15. Do NOT force an analogy — if no accurate real-world analogy exists, omit it rather than use a misleading one
+16. Do NOT add padding — every sentence must explain, demonstrate, or connect a concept; cut any sentence that does none of these)";
 
         string user_prompt = "CURRENT NOTES (Coverage Score: " + std::to_string(overallScore) + "/100):\n\n---\n" + current_notes + "\n---\n\n";
 
