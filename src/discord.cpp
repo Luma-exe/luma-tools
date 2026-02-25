@@ -178,12 +178,17 @@ void discord_log_ai_tool(const string& tool_name, const string& filename, const 
     stat_record("tool", tool_name, true, ip);
     string display = MASK_FILENAMES ? mask_filename(filename) : filename;
 
-    // Friendly model label
+    // Friendly model label — matches 9-step chain (most powerful first)
     string model_label = model;
-    if (model == "llama-3.3-70b-versatile")           model_label = "Llama 3.3 70B (Primary)";
-    else if (model == "deepseek-r1-distill-llama-70b") model_label = "DeepSeek R1 70B (Fallback 1)";
-    else if (model == "llama-3.1-8b-instant")          model_label = "Llama 3.1 8B (Fallback 2)";
-    else if (model.rfind("ollama:", 0) == 0)            model_label = "Local: " + model.substr(7) + " (Fallback 3)";
+    if      (model == "llama-3.3-70b-versatile")           model_label = "Llama 3.3 70B (Step 1 · Groq)";
+    else if (model == "llama-3.3-70b-specdec")             model_label = "Llama 3.3 70B Spec Dec (Step 2 · Groq)";
+    else if (model == "deepseek-r1-distill-llama-70b")     model_label = "DeepSeek R1 · Llama 70B (Step 3 · Groq)";
+    else if (model == "qwen-qwq-32b")                      model_label = "Qwen QwQ 32B (Step 4 · Groq)";
+    else if (model == "deepseek-r1-distill-qwen-32b")      model_label = "DeepSeek R1 · Qwen 32B (Step 5 · Groq)";
+    else if (model == "cerebras:llama-3.3-70b")            model_label = "Llama 3.3 70B (Step 6 · Cerebras)";
+    else if (model == "gemini:gemini-2.0-flash")            model_label = "Gemini 2.0 Flash (Step 7 · Google)";
+    else if (model == "llama-3.1-8b-instant")              model_label = "Llama 3.1 8B (Step 8 · Groq)";
+    else if (model.rfind("ollama:", 0) == 0)               model_label = "Local: " + model.substr(7) + " (Step 9 · Ollama)";
 
     string desc = "🤖 **Tool** › `" + tool_name + "`\n"
                   "📄 **File** › `" + display + "`\n"

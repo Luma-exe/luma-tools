@@ -139,14 +139,14 @@ The main model receives both the source text and the checklist. The pipeline tri
 **Model fallback chain (in order):**
 | # | Provider | Model |
 |---|----------|-------|
-| 1 | Groq | `llama-3.3-70b-versatile` *(primary)* |
+| 1 | Groq | `llama-3.3-70b-versatile` *(most powerful — tried first)* |
 | 2 | Groq | `llama-3.3-70b-specdec` |
 | 3 | Groq | `deepseek-r1-distill-llama-70b` |
 | 4 | Groq | `qwen-qwq-32b` |
 | 5 | Groq | `deepseek-r1-distill-qwen-32b` |
-| 6 | Groq | `llama-3.1-8b-instant` |
-| 7 | Cerebras | `llama-3.3-70b` |
-| 8 | Gemini | `gemini-2.0-flash` |
+| 6 | Cerebras | `llama-3.3-70b` |
+| 7 | Gemini | `gemini-2.0-flash` |
+| 8 | Groq | `llama-3.1-8b-instant` *(small fallback, tried after larger models)* |
 | 9 | Ollama | local `llama3.1:8b` *(last resort — blocked for Study Notes due to quality)* |
 
 Each provider has its own independent rate-limit bucket, so hitting a Groq limit doesn't break the tool — it simply moves to the next provider automatically. The active model is always displayed in the UI.

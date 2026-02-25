@@ -1726,18 +1726,21 @@ body {
 .tool-model-badge:hover { background: rgba(250, 204, 21, 0.18); }
 .tool-model-badge > i { font-size: 0.6rem; }
 .tmb-tooltip {
-    display: none; position: absolute; top: calc(100% + 8px); right: 0;
+    display: none; position: absolute; top: 100%; right: 0;
     width: 330px; background: var(--bg-secondary);
     border: 1px solid var(--glass-border); border-radius: var(--radius-md);
-    padding: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    padding: 8px 12px 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     z-index: 1000; text-align: left; cursor: default;
     box-sizing: border-box; white-space: normal;
+    /* 8px padding-top bridges the visual gap — no physical gap so mouse
+       can slide from badge onto tooltip without triggering a hide */
 }
 .tmb-no-model {
     font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;
     white-space: normal; word-wrap: break-word;
 }
-.tool-model-badge:hover .tmb-tooltip { display: block; }
+.tool-model-badge:hover .tmb-tooltip,
+.tool-model-badge .tmb-tooltip:hover { display: block; }
 .tmb-header {
     font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.05em; color: var(--text-muted);
