@@ -2679,6 +2679,15 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             if (!coverage_checklist.empty() && notes.size() > 500) {
                 update_job(jid, {{"status","processing"},{"progress",78},{"stage","Refining and filling gaps..."}});
 
+                string refine_math_rule;
+                if (format == "markdown") {
+                    if (math_fmt == "dollar") {
+                        refine_math_rule = "\n6. Math notation: use $...$ for inline and $$...$$ on its own line for display — never \\(...\\) or \\[...\\].";
+                    } else if (math_fmt == "latex") {
+                        refine_math_rule = "\n6. Math notation: use \\(...\\) for inline and \\[...\\] for display — never $...$ or $$...$$. Preserve the existing notation.";
+                    }
+                }
+
                 string refine_system =
                     "You are an expert study notes editor. You receive a coverage checklist and a draft of study notes. "
                     "Your ONLY job is to identify checklist items that are missing or only briefly mentioned in the notes, "
@@ -2688,7 +2697,8 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "2. Add full explanations, worked steps, and variable definitions for every missing item.\n"
                     "3. Keep the same Markdown structure (## headings, bullet points, **bold** terms, > blockquotes).\n"
                     "4. Output ONLY the improved notes — no commentary, no preamble, no meta-text.\n"
-                    "5. If the notes already fully cover all checklist items, return them unchanged.";
+                    "5. If the notes already fully cover all checklist items, return them unchanged."
+                    + refine_math_rule;
 
                 string refine_user =
                     "COVERAGE CHECKLIST (every item must be in the notes):\n" + coverage_checklist +

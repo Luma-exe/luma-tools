@@ -583,13 +583,28 @@ function showResult(toolId, blob, filename, jobId = null) {
             const pane = document.createElement('div');
             pane.className = 'notes-preview-pane';
 
-            // Helper: copy button
-            const makeCopyBtn = (getText) => {
+            // Helper: normalise LaTeX \(...\) / \[...\] → Obsidian $...$ / $$$...$$$ so
+            // copied notes always paste correctly into Obsidian regardless of which
+            // math format the AI used during generation.
+            const normalizeObsidianMath = (content) => {
+                // Display math: \[...\]  →  $$\n...\n$$
+                content = content.replace(/\\\[([\s\S]*?)\\\]/g, (_, m) => '$$\n' + m.trim() + '\n$$');
+                // Inline math: \(...\)  →  $...$
+                content = content.replace(/\\\(([\s\S]*?)\\\)/g, (_, m) => '$' + m + '$');
+                return content;
+            };
+
+            // Helper: copy button — always copies the *current* raw content (reflects
+            // any AI improvements) and normalises math notation for Obsidian.
+            const makeCopyBtn = (getEl) => {
                 const btn = document.createElement('button');
                 btn.className = 'notes-toggle-btn notes-copy-btn';
                 btn.innerHTML = '<i class="fas fa-copy"></i> Copy Text';
                 btn.addEventListener('click', () => {
-                    navigator.clipboard.writeText(getText()).then(() => {
+                    // getEl() returns the live pre element (keeps content fresh after improve)
+                    const el = typeof getEl === 'function' ? getEl() : getEl;
+                    const content = normalizeObsidianMath(el.textContent || '');
+                    navigator.clipboard.writeText(content).then(() => {
                         btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
                         setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy Text'; }, 2000);
                     }).catch(() => showToast('Copy failed', 'error'));
@@ -887,6 +902,12 @@ function showResult(toolId, blob, filename, jobId = null) {
             };
 
             if (isMarkdown) {
+                // Declare rawEl up-front so the copy/compare closures always read
+                // the *current* content (which changes when notes are improved).
+                const rawEl = document.createElement('pre');
+                rawEl.className = 'notes-raw hidden';
+                rawEl.textContent = text;
+
                 // Toggle bar with view buttons + copy + compare pushed right
                 const toggleBar = document.createElement('div');
                 toggleBar.className = 'notes-preview-toggle';
@@ -900,18 +921,15 @@ function showResult(toolId, blob, filename, jobId = null) {
 
                 const compareBtn = makeCompareBtn(text);
                 if (compareBtn) toggleBar.appendChild(compareBtn);
-                const copyBtn = makeCopyBtn(() => text);
+                // Pass a getter so copy always reads the live element, not the stale closure
+                const copyBtn = makeCopyBtn(() => rawEl);
                 toggleBar.appendChild(copyBtn);
                 pane.appendChild(toggleBar);
 
-                    const renderedEl = document.createElement('div');
+                const renderedEl = document.createElement('div');
                 renderedEl.className = 'notes-rendered';
                 renderedEl.innerHTML = parseMarkdown(text);
                 if (lastStudyNotesMath !== 'none') renderMathInEl(renderedEl);
-
-                const rawEl = document.createElement('pre');
-                rawEl.className = 'notes-raw hidden';
-                rawEl.textContent = text;
 
                 pane.appendChild(renderedEl);
                 pane.appendChild(rawEl);
@@ -941,14 +959,14 @@ function showResult(toolId, blob, filename, jobId = null) {
 
                 const compareBtn = makeCompareBtn(text);
                 if (compareBtn) toggleBar.appendChild(compareBtn);
-                const copyBtn = makeCopyBtn(() => text);
+                const rawElPlain = document.createElement('pre');
+                rawElPlain.className = 'notes-raw';
+                rawElPlain.textContent = text;
+                const copyBtn = makeCopyBtn(() => rawElPlain);
                 toggleBar.appendChild(copyBtn);
                 pane.appendChild(toggleBar);
 
-                const rawEl = document.createElement('pre');
-                rawEl.className = 'notes-raw';
-                rawEl.textContent = text;
-                pane.appendChild(rawEl);
+                pane.appendChild(rawElPlain);
             }
 
             result.appendChild(pane);
