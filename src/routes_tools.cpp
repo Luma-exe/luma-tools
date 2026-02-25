@@ -1008,6 +1008,20 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     if (first != string::npos && last != string::npos && last > first)
                         content = content.substr(first, last - first + 1);
                 }
+                // Fix invalid JSON escape sequences that AI sometimes generates:
+                // \' is not valid in JSON (apostrophes don't need escaping) but AI
+                // models occasionally emit it, causing parse_error.101
+                {
+                    string fixed; fixed.reserve(content.size());
+                    for (size_t i = 0; i < content.size(); ++i) {
+                        if (content[i] == '\\' && i + 1 < content.size() && content[i+1] == '\'') {
+                            fixed += '\''; ++i; // drop the backslash, keep the apostrophe
+                        } else {
+                            fixed += content[i];
+                        }
+                    }
+                    content = std::move(fixed);
+                }
                 result = json::parse(content);
                 result["model_used"] = gr.model_used;
                 ok = true;
