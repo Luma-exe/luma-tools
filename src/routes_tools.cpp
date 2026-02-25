@@ -2568,28 +2568,54 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                 string r = s; for (char& c : r) c = (char)::tolower((unsigned char)c); return r;
             };
             string tl = text_lower(text);
-            bool is_math = (tl.find("theorem") != string::npos || tl.find("integral") != string::npos ||
-                            tl.find("derivative") != string::npos || tl.find("matrix") != string::npos ||
-                            tl.find("vector") != string::npos || tl.find("calculus") != string::npos ||
-                            tl.find("algebra") != string::npos || tl.find("probability") != string::npos ||
-                            tl.find("equation") != string::npos || tl.find("proof") != string::npos);
-            bool is_code = (tl.find("function") != string::npos || tl.find("algorithm") != string::npos ||
-                            tl.find("array") != string::npos || tl.find("class ") != string::npos ||
-                            tl.find("loop") != string::npos || tl.find("recursion") != string::npos ||
-                            tl.find("complexity") != string::npos);
-            bool is_science = (tl.find("velocity") != string::npos || tl.find("acceleration") != string::npos ||
-                               tl.find("molecule") != string::npos || tl.find("reaction") != string::npos ||
-                               tl.find("wavelength") != string::npos || tl.find("entropy") != string::npos);
-
-            bool is_law = (tl.find("plaintiff") != string::npos || tl.find("defendant") != string::npos ||
-                            tl.find("statute") != string::npos || tl.find("tort") != string::npos ||
-                            tl.find("contract") != string::npos || tl.find("jurisdiction") != string::npos ||
-                            tl.find("legislation") != string::npos || tl.find("judicial") != string::npos ||
-                            tl.find("breach") != string::npos || tl.find("damages") != string::npos);
-            bool is_humanities = (tl.find("ideology") != string::npos || tl.find("discourse") != string::npos ||
-                                  tl.find("narrative") != string::npos || tl.find("philosophical") != string::npos ||
-                                  tl.find("sociological") != string::npos || tl.find("historical") != string::npos ||
-                                  tl.find("political theory") != string::npos || tl.find("cultural") != string::npos);
+            // Manual subject override — student can add "Subject: Mathematics" (or CS, Law, Science, Humanities)
+            // at the top of their source text to guarantee correct subject rules without relying on keyword detection.
+            bool is_math = false, is_code = false, is_science = false, is_law = false, is_humanities = false;
+            {
+                string pfx = tl.substr(0, min((size_t)400, tl.size()));
+                if      (pfx.find("subject: math") != string::npos || pfx.find("subject: calculus") != string::npos ||
+                         pfx.find("subject: statistics") != string::npos || pfx.find("subject: linear algebra") != string::npos ||
+                         pfx.find("subject: discrete math") != string::npos) {
+                    is_math = true;
+                } else if (pfx.find("subject: computer science") != string::npos || pfx.find("subject: programming") != string::npos ||
+                           pfx.find("subject: cs") != string::npos || pfx.find("subject: software") != string::npos ||
+                           pfx.find("subject: algorithms") != string::npos || pfx.find("subject: data structures") != string::npos) {
+                    is_code = true;
+                } else if (pfx.find("subject: physics") != string::npos || pfx.find("subject: chemistry") != string::npos ||
+                           pfx.find("subject: biology") != string::npos || pfx.find("subject: science") != string::npos) {
+                    is_science = true;
+                } else if (pfx.find("subject: law") != string::npos || pfx.find("subject: legal") != string::npos ||
+                           pfx.find("subject: contract law") != string::npos || pfx.find("subject: tort") != string::npos) {
+                    is_law = true;
+                } else if (pfx.find("subject: humanities") != string::npos || pfx.find("subject: history") != string::npos ||
+                           pfx.find("subject: philosophy") != string::npos || pfx.find("subject: sociology") != string::npos ||
+                           pfx.find("subject: politics") != string::npos || pfx.find("subject: economics") != string::npos) {
+                    is_humanities = true;
+                } else {
+                    // Auto-detect from keywords in full text
+                    is_math = (tl.find("theorem") != string::npos || tl.find("integral") != string::npos ||
+                                tl.find("derivative") != string::npos || tl.find("matrix") != string::npos ||
+                                tl.find("vector") != string::npos || tl.find("calculus") != string::npos ||
+                                tl.find("algebra") != string::npos || tl.find("probability") != string::npos ||
+                                tl.find("equation") != string::npos || tl.find("proof") != string::npos);
+                    is_code = (tl.find("function") != string::npos || tl.find("algorithm") != string::npos ||
+                                tl.find("array") != string::npos || tl.find("class ") != string::npos ||
+                                tl.find("loop") != string::npos || tl.find("recursion") != string::npos ||
+                                tl.find("complexity") != string::npos);
+                    is_science = (tl.find("velocity") != string::npos || tl.find("acceleration") != string::npos ||
+                                   tl.find("molecule") != string::npos || tl.find("reaction") != string::npos ||
+                                   tl.find("wavelength") != string::npos || tl.find("entropy") != string::npos);
+                    is_law = (tl.find("plaintiff") != string::npos || tl.find("defendant") != string::npos ||
+                                tl.find("statute") != string::npos || tl.find("tort") != string::npos ||
+                                tl.find("contract") != string::npos || tl.find("jurisdiction") != string::npos ||
+                                tl.find("legislation") != string::npos || tl.find("judicial") != string::npos ||
+                                tl.find("breach") != string::npos || tl.find("damages") != string::npos);
+                    is_humanities = (tl.find("ideology") != string::npos || tl.find("discourse") != string::npos ||
+                                      tl.find("narrative") != string::npos || tl.find("philosophical") != string::npos ||
+                                      tl.find("sociological") != string::npos || tl.find("historical") != string::npos ||
+                                      tl.find("political theory") != string::npos || tl.find("cultural") != string::npos);
+                }
+            }
 
             string subject_rules;
             if (is_math) {
@@ -2612,7 +2638,8 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Every algorithm must include pseudocode or working code.\n"
                     "- State time and space complexity using Big-O notation and explain what it means in plain English.\n"
                     "- Show what happens when things go wrong as well as when they work — common errors, edge cases, and how to handle them.\n"
-                    "- Connect code concepts to real software that students actually use — browsers, apps, games, search engines.\n";
+                    "- Connect code concepts to real software that students actually use — browsers, apps, games, search engines.\n"
+                    "- For algorithm concepts, show pseudocode first to explain the logic clearly, then show the runnable code. Always trace through the pseudocode step-by-step with a small concrete example before showing the code.\n";
             } else if (is_science) {
                 subject_rules =
                     "\n\nSUBJECT-SPECIFIC RULES — Science:\n"
@@ -2630,7 +2657,8 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- When cases are used as examples, always briefly explain: the facts, the decision, and why it matters.\n"
                     "- Flag when the law is unsettled, contested, or varies by jurisdiction.\n"
                     "- Connect legal concepts to everyday situations students would recognise.\n"
-                    "- Define every legal term in plain English immediately after introducing it.\n";
+                    "- Define every legal term in plain English immediately after introducing it.\n"
+                    "- When a legal rule comes from legislation rather than case law, quote the relevant section of the Act, explain what it means in plain English, then show how it applies to a realistic hypothetical scenario.\n";
             } else if (is_humanities) {
                 subject_rules =
                     "\n\nSUBJECT-SPECIFIC RULES — Humanities and Social Sciences:\n"
@@ -2718,7 +2746,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
                     "STRUCTURE FOR EVERY CONCEPT (condensed for cheat-sheet style):\n"
                     "(1) ONE-LINE PLAIN ENGLISH INTRODUCTION: What is this in everyday terms? Before any symbols.\n"
-                    "(2) REAL-WORLD ANALOGY: One sentence connecting the concept to something familiar. The analogy must be accurate — it must actually reflect how the concept works. If no accurate analogy exists, omit it rather than force a bad one. After the analogy, add one phrase explicitly stating how it maps to the concept.\n"
+                    "(2) REAL-WORLD ANALOGY: One sentence connecting the concept to something familiar. The analogy must be accurate — it must actually reflect how the concept works. If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one. After the analogy, add one phrase explicitly stating how it maps to the concept.\n"
                     "(3) FORMULA or DEFINITION: Show the formal content.\n"
                     "(4) EXPLAIN EVERY PART: List every symbol, variable, term, or keyword with a plain-English label. Nothing left unexplained.\n"
                     "(5) FULLY WORKED EXAMPLE: One complete example from start to finish with every arithmetic step shown and a plain-English sentence at the end explaining what the answer means.\n"
@@ -2742,7 +2770,14 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Never leave a worked example, code example, or case study half finished.\n"
                     "- Never use a symbol, keyword, term, or abbreviation without explaining what it means.\n"
                     "- Never drop sections from the source — every topic must appear in the notes.\n"
-                    "- Never rewrite sections that are already working well. If a section already has clear explanations and fully worked examples, only add what is genuinely missing.\n\n"
+                    "- Never rewrite sections that are already working well. If a section already has clear explanations and fully worked examples, only add what is genuinely missing.\n"
+                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n\n"
+
+                    "DEPTH TARGETS for Simple mode:\n"
+                    "- 1 to 3 sentence plain-English intro per concept.\n"
+                    "- Exactly 1 worked example per concept — brief but completely solved.\n"
+                    "- Summary table at the end of each topic.\n"
+                    "- If a single concept requires more than 2 fully worked examples to explain properly, split it into two sections and link them with an Obsidian [[link]].\n\n"
 
                     "MATHEMATICS-SPECIFIC RULES (apply if the topic is maths):\n"
                     "(6) NON-TRIVIAL EXAMPLES: Choose numbers that produce a meaningful non-zero answer. NEVER use degenerate cases like two parallel vectors for a cross product or torque example.\n"
@@ -2759,7 +2794,8 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Does every concept have a plain-English explanation before the technical content?\n"
                     "- Is every symbol, keyword, and abbreviation explained?\n"
                     "- Were any sections from the source silently dropped?\n"
-                    "- Is every analogy accurate and mapped explicitly to the concept?\n"
+                    "- Is every analogy accurate and explicitly mapped to the concept?\n"
+                    "- Could any analogy create a misconception or teach something wrong, even if it seems roughly accurate? If yes, replace it or explicitly tell the reader no accurate analogy exists.\n"
                     "- Were any sections that were already complete and correct left alone?\n"
                     "Fix anything that fails before outputting.\n\n"
                     "Goal: a student returning after time away picks this up cold and immediately recalls how to use everything.";
@@ -2791,7 +2827,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "Step 1 — PLAIN ENGLISH INTRODUCTION: Before ANY symbols or formulas, write a plain-English paragraph explaining what this concept is in simple everyday language. Pretend you are explaining it to someone who has never heard of it before.\n"
                     "Step 2 — REAL-WORLD ANALOGY: Connect the concept to something familiar from everyday life. "
                         "The analogy must be ACCURATE — it must actually reflect how the concept works, not just sound vaguely similar. "
-                        "If you cannot find an accurate analogy, say so rather than forcing a bad one. "
+                        "If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one. "
                         "Prefer analogies from everyday life anyone would recognise: cooking, sport, navigation, shopping, building things. "
                         "After giving the analogy, always explicitly state how it maps to the technical concept (e.g. 'In our analogy, the table is the plane, and the pole is the normal vector'). "
                         "Never use an analogy that could create a misconception about how the concept actually works. "
@@ -2814,7 +2850,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
                     "RULES FOR ANALOGIES:\n"
                     "- The analogy must be accurate — it must actually reflect how the concept works, not just sound vaguely similar.\n"
-                    "- If you cannot find an accurate analogy, say so rather than forcing a bad one.\n"
+                    "- If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one.\n"
                     "- After giving the analogy always explicitly state how it maps to the technical concept so the connection is clear.\n"
                     "- Never use an analogy that could create a misconception about how the concept actually works.\n\n"
 
@@ -2854,11 +2890,15 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Never skip steps in a calculation, proof, or code walkthrough even if they seem trivial.\n"
                     "- Never use an analogy that is inaccurate or that could create a misconception.\n"
                     "- Never choose example data that makes the concept break down or gives a trivial or misleading result.\n"
-                    "- Never rewrite sections that are already working well — only add what is genuinely missing.\n\n"
+                    "- Never rewrite sections that are already working well — only add what is genuinely missing.\n"
+                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n\n"
 
                     "ONE FINAL RULE — DO NOT FIX WHAT IS NOT BROKEN:\n"
                     "If a section of notes already has clear plain-English explanations, accurate analogies, and fully worked examples, do not rewrite it. "
                     "Only add what is genuinely missing. The goal is to improve the notes, not to replace good content with different content.\n\n"
+
+                    "LENGTH MANAGEMENT:\n"
+                    "If a single concept requires more than three fully worked examples to explain properly, split it into two separate sections and link them with an Obsidian [[link]]. Do not try to pack everything into one enormous block.\n\n"
 
                     "SELF-CHECK before finishing — fix anything that fails:\n"
                     "(1) If someone completely new to this subject read this cold, would they understand what is happening?\n"
@@ -2867,7 +2907,8 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "(4) Does every new concept explicitly connect back to something already covered?\n"
                     "(5) Is every symbol, keyword, term, and abbreviation explained?\n"
                     "(6) Are common mistakes and edge cases flagged?\n"
-                    "(7) Is every analogy accurate and does it genuinely help rather than mislead?\n"
+                    "(7) Is every analogy accurate and explicitly mapped to the concept?\n"
+                    "(7b) Could any analogy create a misconception or teach something wrong, even if it seems roughly accurate? If yes, replace it or explicitly tell the reader no accurate analogy exists.\n"
                     "(8) Does the cross product section OPEN with the dot-product comparison paragraph BEFORE any formula or symbol?\n"
                     "(9) Is the j-sign blockquote warning present immediately after the cross product determinant formula?\n"
                     "(10) Does every concept have an analogy before the symbols?\n"
@@ -2904,7 +2945,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "(2) REAL-WORLD ANALOGY: Connect the concept to something familiar from everyday life. "
                         "The analogy must be ACCURATE — it must actually reflect how the concept works, not just sound vaguely similar. "
                         "Prefer analogies from everyday life anyone would recognise: cooking, sport, navigation, shopping, building things. "
-                        "If you cannot find an accurate analogy, say so rather than forcing a bad one. "
+                        "If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one. "
                         "After giving the analogy, always explicitly state how it maps to the technical concept so the connection is clear. "
                         "Never use an analogy that could create a misconception about how the concept actually works.\n"
                     "(3) FORMAL DEFINITION: Introduce the mathematical definition, legal principle, code syntax, or formal statement.\n"
@@ -2918,7 +2959,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
                     "RULES FOR ANALOGIES:\n"
                     "- The analogy must be accurate — it must actually reflect how the concept works, not just sound vaguely similar.\n"
-                    "- If you cannot find an accurate analogy, say so rather than forcing a bad one.\n"
+                    "- If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one.\n"
                     "- After giving the analogy always explicitly state how it maps to the technical concept.\n"
                     "- Never use an analogy that could create a misconception about how the concept actually works.\n\n"
 
@@ -2957,11 +2998,20 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Never skip steps in a calculation, proof, code walkthrough, or legal analysis even if they seem trivial.\n"
                     "- Never use an analogy that is inaccurate or that could create a misconception.\n"
                     "- Never choose example data that makes the concept break down or gives a trivial or misleading result.\n"
-                    "- Never rewrite sections that are already working well — only add what is genuinely missing.\n\n"
+                    "- Never rewrite sections that are already working well — only add what is genuinely missing.\n"
+                    "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n\n"
 
                     "ONE FINAL RULE — DO NOT FIX WHAT IS NOT BROKEN:\n"
                     "If a section of notes already has clear plain-English explanations, accurate analogies, and fully worked examples, do not rewrite it. "
                     "Only add what is genuinely missing. The goal is to improve the notes, not to replace good content with different content.\n\n"
+
+                    "DEPTH TARGETS for In Depth mode:\n"
+                    "- Full paragraph plain-English introduction per concept — not just one sentence.\n"
+                    "- At least 2 worked examples per concept where possible — one simpler, one more complex or using a different scenario.\n"
+                    "- Comparison table when two concepts are easily confused with each other.\n"
+                    "- Exam hints blockquote at the end of each concept.\n"
+                    "- Summary table at the end of each major topic.\n"
+                    "- If a single concept requires more than three fully worked examples to explain properly, split it into two separate sections and link them with an Obsidian [[link]].\n\n"
 
                     "SELF-CHECK before finishing — fix anything that fails:\n"
                     "(1) If someone completely new to this subject read this cold, would they understand what is happening?\n"
@@ -2971,7 +3021,8 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "(5) Is every symbol, keyword, term, and abbreviation explained?\n"
                     "(6) Are common mistakes and edge cases flagged?\n"
                     "(7) Would the plain-English explanations make sense to someone who has never studied this subject?\n"
-                    "(8) Is every analogy accurate and does it genuinely help rather than mislead?\n"
+                    "(8) Is every analogy accurate and explicitly mapped to the concept?\n"
+                    "(8b) Could any analogy create a misconception or teach something wrong, even if it seems roughly accurate? Replace it or explicitly tell the reader no accurate analogy exists.\n"
                     "(9) Have I avoided deleting or replacing worked examples that were already complete and correct?\n"
                     "(10) Does the cross product section open with the dot-product comparison paragraph BEFORE any formula?\n"
                     "(11) Is the j-sign blockquote warning present immediately after the cross product determinant formula?\n"
