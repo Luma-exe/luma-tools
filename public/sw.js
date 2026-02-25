@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v7'; // bumped: deploy updated go.html + pwa.js deep-link flow
+const CACHE_NAME = 'lumatools-v8'; // bumped: depth presets + coverage fix
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
