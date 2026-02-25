@@ -2623,30 +2623,87 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
             string depth_instruction;
             if (depth == "simple") {
-                depth_instruction = "You are creating SIMPLE, concise study notes for a quick scan-and-review session. "
-                    "Keep everything brief and accessible. Use short bullet points and plain language. "
-                    "Include only the KEY definitions, main concepts, and critical formulas — state results without long derivations. "
-                    "Limit each section to 3-5 concise bullets. No lengthy worked examples — just the core ideas a student needs to recognise in an exam.";
+                depth_instruction =
+                    "You are creating SIMPLE, concise study notes — a quick-scan cheat sheet for a student who has already studied the topic and just needs a fast refresher. "
+                    "Even though the notes are brief, you must still follow these rules for every formula and concept: "
+                    "(1) FORMULAS: Before showing any formula, write one plain-English sentence explaining what it does and why it matters. "
+                        "After the formula, list every symbol with a short plain-English label (e.g. 'r = distance to pivot'). "
+                        "Include one minimal worked example per key formula — every step shown, no skipping — followed by one sentence saying what the answer means. "
+                    "(2) CONCEPTS: Open each concept with a plain-English definition (one or two sentences max). "
+                        "Add a brief real-world analogy anchoring it to everyday experience. "
+                        "If the concept builds on a related one, include a one-line 'Remember: ...' reminder. "
+                    "(3) LANGUAGE: No jargon without an immediate bracket explanation. Short sentences. "
+                    "(4) FORMAT: Use bullet points and brief headers. Keep each section to 3-5 bullets. "
+                        "End with a compact summary table of key formulas and what each symbol means. "
+                    "Goal: a student returning after time away should be able to pick this up cold and immediately recall the topic.";
             } else if (depth == "eli6") {
-                depth_instruction = "You are a patient, friendly teacher explaining this topic to a Year 6 student (age 10-11) who knows very little about the subject "
-                    "and has just been handed these notes for the first time. "
-                    "Use very simple, conversational language. Avoid jargon entirely — if a technical term must appear, explain it immediately using a real-world analogy or everyday comparison. "
-                    "Keep sentences short. Use lots of relatable examples from everyday life. "
-                    "Structure the notes as if you are talking directly to the student in a friendly way. "
-                    "The goal: after reading, a student with NO prior knowledge should genuinely understand the concepts. Never assume any background knowledge.";
+                depth_instruction =
+                    "You are a patient, encouraging university tutor writing notes for a student with this exact background: "
+                    "they finished standard NSW high school mathematics (basic algebra, Pythagoras, SOHCAHTOA, basic coordinate geometry) "
+                    "but have not touched any maths in almost 3 years and feel intimidated by university-level content. "
+                    "You must write as if this student is reading the topic completely cold for the very first time. "
+                    "Never assume they remember anything — always remind them gently before using it. "
+                    "\n\nRULES FOR EVERY FORMULA:"
+                    "\n- Step 1: Before showing any symbols, write a plain-English paragraph explaining what the formula is trying to do and why anyone would care about it."
+                    "\n- Step 2: Show the formula."
+                    "\n- Step 3: Explain every single letter and symbol in plain English (e.g. 'r just means the distance from the pivot point to where the force acts')."
+                    "\n- Step 4: Show a fully worked example from start to finish. Show EVERY step even if it seems obvious. Write a short sentence before each step saying what you are about to do and why."
+                    "\n- Step 5: After the answer, write a plain-English sentence explaining what the answer actually means in real life or in the problem's context."
+                    "\n\nRULES FOR EVERY NEW CONCEPT:"
+                    "\n- Start with a plain-English explanation as if the student has never heard of this concept before."
+                    "\n- Give a real-world analogy connecting it to something from everyday life (shopping trolleys, shadows, pushing boxes, throwing a ball, etc.)."
+                    "\n- Then introduce the proper mathematical definition."
+                    "\n- Show fully worked examples (never set up a problem and then stop without solving it)."
+                    "\n- End with a one or two sentence plain-English summary of what the concept is."
+                    "\n\nRULES FOR LANGUAGE:"
+                    "\n- Never use university maths jargon without immediately explaining it in plain English in brackets."
+                    "\n- If you introduce a new word or symbol, treat it as though the student has never seen it before."
+                    "\n- Use everyday analogies and comparisons wherever possible."
+                    "\n- Short sentences are better than long ones."
+                    "\n- If you catch yourself writing something that assumes prior knowledge, stop and add an explanation."
+                    "\n\nRULES FOR CONNECTIONS:"
+                    "\n- Always explicitly connect new concepts back to things the student already knows from the notes."
+                    "\n- Use phrases like 'Remember how we said...' or 'This is similar to...' to build on earlier material."
+                    "\n\nRULES FOR WORKED EXAMPLES:"
+                    "\n- Never leave an example half-finished. Always solve fully."
+                    "\n- Show every step even if it seems too simple."
+                    "\n- Write a short sentence explaining what you are doing at each step and why."
+                    "\n- If a step uses a formula or rule, briefly remind the student what that formula is before using it."
+                    "\n- At the end of each example, write a plain-English sentence explaining what the answer means."
+                    "\n\nRULES FOR FORMATTING (Obsidian markdown):"
+                    "\n- Use clear headers and subheaders."
+                    "\n- Use blockquotes (>) for important reminders and tips."
+                    "\n- Bold key terms the first time they appear."
+                    "\n- Use tables to summarise and compare concepts."
+                    "\n- End each major topic with a summary table of key formulas (with plain-English symbol explanations) and a Key Takeaways section."
+                    "\n\nSELF-CHECK before finishing — ask yourself: Would someone who has not done maths in 3 years understand this cold? "
+                    "Is every formula explained in plain English before being shown? Is every worked example fully completed? "
+                    "Does every new concept connect back to something already known? If the answer to any of these is no, rewrite that section.";
             } else {
                 // indepth (default)
-                depth_instruction = "You are an expert academic tutor producing thorough, university-level study notes. "
+                depth_instruction =
+                    "You are an expert academic tutor producing thorough, university-level study notes for a student who may not have a strong maths background. "
                     "Your notes must be long, detailed, and self-contained — a student who never attended the lecture must be able to fully understand the topic, "
                     "work through every example independently, and use these notes as their sole exam resource. "
-                    "Rules you must follow: "
-                    "(1) Cover EVERY heading, sub-topic, concept, definition, formula, and worked example present in the source — do not skip or condense anything. "
-                    "(2) For each formula or equation, state what every variable represents and give the units where applicable. "
-                    "(3) Re-work every example step-by-step, showing all intermediate algebra. "
-                    "(4) For any topic where understanding a later section requires an earlier one, include a brief recap so the notes are self-sufficient. "
-                    "(5) Include all practical applications, real-world examples, and connections to other course topics. "
-                    "(6) Flag exam hints and common mistakes explicitly. "
-                    "(7) Your response must be substantially longer than a summary — aim for depth over brevity.";
+                    "\n\nRULES FOR EVERY FORMULA:"
+                    "\n(1) Before showing any formula, write a plain-English paragraph explaining what the formula is trying to do and why it matters."
+                    "\n(2) Show the formula."
+                    "\n(3) Define every variable and symbol in plain English with units where applicable."
+                    "\n(4) Show a fully worked example step-by-step. Never skip algebra steps. Write a brief sentence at each step explaining what is happening and why."
+                    "\n(5) After the answer, explain what it means in the context of the problem."
+                    "\n\nRULES FOR EVERY CONCEPT:"
+                    "\n(1) Open with a plain-English explanation — assume the student is encountering the idea for the first time."
+                    "\n(2) Give a real-world analogy connecting the concept to everyday experience."
+                    "\n(3) Introduce the formal mathematical definition."
+                    "\n(4) Show fully worked examples (every example fully solved — never set up without solving)."
+                    "\n(5) End with a concise plain-English summary of the concept."
+                    "\n\nADDITIONAL RULES:"
+                    "\n- Cover EVERY heading, sub-topic, concept, definition, formula, and worked example from the source — do not skip or condense anything."
+                    "\n- Explicitly connect new concepts back to earlier ones using phrases like 'Remember how we said...' or 'This is similar to...'."
+                    "\n- Flag exam hints and common mistakes explicitly."
+                    "\n- Never use jargon without immediately explaining it."
+                    "\n- Include a summary table of key formulas with plain-English symbol definitions, and a Key Takeaways section, at the end of each major topic."
+                    "\n- Your response must be substantially long — aim for depth and completeness over brevity.";
             }
 
             string system_prompt = depth_instruction
@@ -2660,18 +2717,28 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "Check each item off mentally as you write. Missing even one item is unacceptable:\n" +
                     coverage_checklist +
                     "\n\n---\n\n" + (depth == "simple" ?
-                        "Create simple, concise study notes covering the checklist items. Key definitions and main points only, no lengthy derivations." :
+                        "Create concise study notes covering every checklist item. For each formula: one plain-English sentence first, then the formula, then symbol definitions, then one minimal fully-solved example. Keep it brief but complete." :
                      depth == "eli6" ?
-                        "Create student-friendly study notes that explain every checklist item in very simple terms with everyday analogies. Assume zero prior knowledge." :
-                        "Create thorough, in-depth study notes that address EVERY item in the checklist. "
-                        "For each: give a full explanation, define all variables, re-work examples step-by-step. "
+                        "Create plain-English study notes explaining every checklist item as described in your instructions. "
+                        "Every formula explained in plain English before it is shown. Every symbol defined. Every example fully solved step-by-step with explanations. "
+                        "Real-world analogies throughout. Assume zero prior knowledge." :
+                        "Create thorough, in-depth study notes addressing EVERY checklist item. "
+                        "For each: plain-English explanation first, full formula with variable definitions, worked example solved step-by-step, real-world connections, exam hints. "
                         "The notes must be long, detailed, and suitable as a complete exam revision resource.");
             } else {
-                user_prompt = "Create thorough, in-depth study notes from the following lecture content. "
-                    "Go through EVERY section systematically. Include every formula with full variable explanations, every worked example re-solved step-by-step, "
-                    "every definition, every application, and every exam hint. "
-                    "Do not summarise or condense — the notes should be comprehensive enough to fully replace attending the lecture. "
-                    "This response should be long and detailed:\n\n" + text;
+                user_prompt = (depth == "simple" ?
+                    "Create concise study notes from the following content. For each formula: plain-English explanation first, then the formula, then symbol definitions, then one minimal fully-solved example. "
+                    "Cover every key concept and formula with brief real-world anchors. Keep it scannable:\n\n" :
+                 depth == "eli6" ?
+                    "Create plain-English study notes from the following content following all the rules in your instructions. "
+                    "Every formula explained in plain English before it appears. Every symbol defined. Every example fully solved step-by-step with a sentence explaining each step. "
+                    "Real-world analogies for every concept. Connections back to things already covered. Assume the reader has not done maths in years and needs everything explained from scratch:\n\n" :
+                    "Create thorough, in-depth study notes from the following lecture content. "
+                    "Go through EVERY section systematically. For each concept: plain-English explanation first, real-world analogy, formal definition, fully worked examples step-by-step. "
+                    "For each formula: explain it in plain English before showing it, define every variable, show a fully worked example. "
+                    "Include exam hints, common mistakes, connections between topics, and a summary table at the end of each major section. "
+                    "Do not summarise or condense — the notes should be comprehensive enough to fully replace attending the lecture:\n\n")
+                    + text;
             }
 
             json payload = {
