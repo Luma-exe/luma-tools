@@ -954,6 +954,13 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                 // Trim whitespace
                 while (!content.empty() && (content.front() == ' ' || content.front() == '\n')) content.erase(0, 1);
                 while (!content.empty() && (content.back() == ' ' || content.back() == '\n')) content.pop_back();
+                // If model added preamble text before the JSON object, extract just the JSON
+                if (!content.empty() && content.front() != '{') {
+                    size_t first = content.find('{');
+                    size_t last  = content.rfind('}');
+                    if (first != string::npos && last != string::npos && last > first)
+                        content = content.substr(first, last - first + 1);
+                }
                 result = json::parse(content);
                 result["model_used"] = gr.model_used;
                 ok = true;
@@ -2318,8 +2325,9 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             return;
         }
         
-        string format = req.has_file("format") ? req.get_file_value("format").content : "markdown";
-        string math_fmt = req.has_file("math") ? req.get_file_value("math").content : "dollar";
+        string format   = req.has_file("format") ? req.get_file_value("format").content : "markdown";
+        string math_fmt  = req.has_file("math")   ? req.get_file_value("math").content   : "dollar";
+        string depth     = req.has_file("depth")  ? req.get_file_value("depth").content  : "indepth";
         string jid = generate_job_id();
         string proc = get_processing_dir();
         
@@ -2373,7 +2381,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
         update_job(jid, {{"status", "processing"}, {"progress", 10}, {"stage", has_text ? "Processing pasted text..." : "Extracting text from file..."}});
 
-        thread([jid, input_text, input_path, file_ext, format, math_fmt, proc, has_text, filename, ip, input_desc]() {
+        thread([jid, input_text, input_path, file_ext, format, math_fmt, depth, proc, has_text, filename, ip, input_desc]() {
           string txt_path = proc + "/" + jid + "_text.txt";
           try {
             string text;
@@ -2613,19 +2621,37 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                 style_instruction = "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points.";
             }
 
-            string system_prompt = "You are an expert academic tutor producing thorough, university-level study notes. "
-                "Your notes must be long, detailed, and self-contained — a student who never attended the lecture must be able to fully understand the topic, "
-                "work through every example independently, and use these notes as their sole exam resource. "
-                "Rules you must follow: "
-                "(1) Cover EVERY heading, sub-topic, concept, definition, formula, and worked example present in the source — do not skip or condense anything. "
-                "(2) For each formula or equation, state what every variable represents and give the units where applicable. "
-                "(3) Re-work every example step-by-step, showing all intermediate algebra. "
-                "(4) For any topic where understanding a later section requires an earlier one, include a brief recap so the notes are self-sufficient. "
-                "(5) Include all practical applications, real-world examples, and connections to other course topics. "
-                "(6) Flag exam hints and common mistakes explicitly. "
-                "(7) Your response must be substantially longer than a summary — aim for depth over brevity. "
-                + subject_rules
-                + style_instruction;
+            string depth_instruction;
+            if (depth == "simple") {
+                depth_instruction = "You are creating SIMPLE, concise study notes for a quick scan-and-review session. "
+                    "Keep everything brief and accessible. Use short bullet points and plain language. "
+                    "Include only the KEY definitions, main concepts, and critical formulas — state results without long derivations. "
+                    "Limit each section to 3-5 concise bullets. No lengthy worked examples — just the core ideas a student needs to recognise in an exam.";
+            } else if (depth == "eli6") {
+                depth_instruction = "You are a patient, friendly teacher explaining this topic to a Year 6 student (age 10-11) who knows very little about the subject "
+                    "and has just been handed these notes for the first time. "
+                    "Use very simple, conversational language. Avoid jargon entirely — if a technical term must appear, explain it immediately using a real-world analogy or everyday comparison. "
+                    "Keep sentences short. Use lots of relatable examples from everyday life. "
+                    "Structure the notes as if you are talking directly to the student in a friendly way. "
+                    "The goal: after reading, a student with NO prior knowledge should genuinely understand the concepts. Never assume any background knowledge.";
+            } else {
+                // indepth (default)
+                depth_instruction = "You are an expert academic tutor producing thorough, university-level study notes. "
+                    "Your notes must be long, detailed, and self-contained — a student who never attended the lecture must be able to fully understand the topic, "
+                    "work through every example independently, and use these notes as their sole exam resource. "
+                    "Rules you must follow: "
+                    "(1) Cover EVERY heading, sub-topic, concept, definition, formula, and worked example present in the source — do not skip or condense anything. "
+                    "(2) For each formula or equation, state what every variable represents and give the units where applicable. "
+                    "(3) Re-work every example step-by-step, showing all intermediate algebra. "
+                    "(4) For any topic where understanding a later section requires an earlier one, include a brief recap so the notes are self-sufficient. "
+                    "(5) Include all practical applications, real-world examples, and connections to other course topics. "
+                    "(6) Flag exam hints and common mistakes explicitly. "
+                    "(7) Your response must be substantially longer than a summary — aim for depth over brevity.";
+            }
+
+            string system_prompt = depth_instruction
+                + " " + (depth == "indepth" ? subject_rules : "")
+                + " " + style_instruction;
 
             string user_prompt;
             if (!coverage_checklist.empty()) {
@@ -2633,9 +2659,13 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "\n\n---\n\nMANDATORY COVERAGE CHECKLIST — every single item below MUST be fully addressed in the notes. "
                     "Check each item off mentally as you write. Missing even one item is unacceptable:\n" +
                     coverage_checklist +
-                    "\n\n---\n\nCreate thorough, in-depth study notes that address EVERY item in the checklist. "
-                    "For each: give a full explanation, define all variables, re-work examples step-by-step. "
-                    "The notes must be long, detailed, and suitable as a complete exam revision resource.";
+                    "\n\n---\n\n" + (depth == "simple" ?
+                        "Create simple, concise study notes covering the checklist items. Key definitions and main points only, no lengthy derivations." :
+                     depth == "eli6" ?
+                        "Create student-friendly study notes that explain every checklist item in very simple terms with everyday analogies. Assume zero prior knowledge." :
+                        "Create thorough, in-depth study notes that address EVERY item in the checklist. "
+                        "For each: give a full explanation, define all variables, re-work examples step-by-step. "
+                        "The notes must be long, detailed, and suitable as a complete exam revision resource.");
             } else {
                 user_prompt = "Create thorough, in-depth study notes from the following lecture content. "
                     "Go through EVERY section systematically. Include every formula with full variable explanations, every worked example re-solved step-by-step, "
@@ -2676,7 +2706,8 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             }
 
             // ── Auto-refine pass: fill any gaps the main pass missed ──────────
-            if (!coverage_checklist.empty() && notes.size() > 500) {
+            // Skip refine for simple mode (it's intentionally concise) and eli6 (tone must not revert)
+            if (depth == "indepth" && !coverage_checklist.empty() && notes.size() > 500) {
                 update_job(jid, {{"status","processing"},{"progress",78},{"stage","Refining and filling gaps..."}});
 
                 string refine_math_rule;

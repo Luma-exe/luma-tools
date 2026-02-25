@@ -1250,6 +1250,7 @@ function processStudyNotes() {
     const format = document.querySelector('.preset-grid[data-tool="study-notes-format"] .preset-btn.active')?.dataset.val || 'markdown';
     const mathPill = document.querySelector('.preset-grid[data-tool="study-notes-math"] .preset-btn.active');
     const mathFmt = mathPill?.dataset.val || 'dollar';
+    const depth = document.querySelector('.preset-grid[data-tool="study-notes-depth"] .preset-btn.active')?.dataset.val || 'indepth';
     lastStudyNotesMath = mathFmt;
 
     if (inputMode === 'youtube') {
@@ -1278,6 +1279,7 @@ function processStudyNotes() {
             formData.append('text', text);
             formData.append('format', format);
             formData.append('math', mathFmt);
+            formData.append('depth', depth);
             return fetch('/api/tools/ai-study-notes', { method: 'POST', body: formData });
         })
         .then(r => r.json())
@@ -1312,6 +1314,7 @@ function processStudyNotes() {
         formData.append('text', text);
         formData.append('format', format);
         formData.append('math', mathFmt);
+        formData.append('depth', depth);
         
         fetch('/api/tools/ai-study-notes', { method: 'POST', body: formData })
             .then(r => r.json())
@@ -1342,6 +1345,7 @@ function processStudyNotes() {
         formData.append('filecount', String(files.length));
         formData.append('format', format);
         formData.append('math', mathFmt);
+        formData.append('depth', depth);
         fetch('/api/tools/ai-study-notes', { method: 'POST', body: formData })
             .then(r => r.json())
             .then(data => {
