@@ -501,6 +501,23 @@ function getFilenameFromResponse(res) {
     return null;
 }
 
+// Per-tool estimated AI generation time in seconds (used for the ETA display)
+const AI_ETA_ESTIMATES = {
+    'ai-study-notes':  60,
+    'ai-flashcards':   25,
+    'ai-quiz':         25,
+    'ai-paraphrase':   20,
+    'mind-map':        20,
+    'youtube-summary': 40,
+};
+const _aiEtaTimers = {};
+
+function _fmtTime(secs) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m > 0 ? `${m}:${String(s).padStart(2,'0')}` : `${s}s`;
+}
+
 function showProcessing(toolId, show) {
     const el = document.querySelector(`.processing-status[data-tool="${toolId}"]`);
 
@@ -511,6 +528,29 @@ function showProcessing(toolId, show) {
             if (procText) procText.textContent = procText.dataset.default || 'Processing...';
         }
     }
+
+    // AI ETA timer — start on show, clear on hide
+    if (_aiEtaTimers[toolId]) { clearInterval(_aiEtaTimers[toolId]); delete _aiEtaTimers[toolId]; }
+    const etaEl = el?.querySelector('.ai-eta');
+    if (etaEl) {
+        etaEl.textContent = '';
+        if (show && AI_ETA_ESTIMATES[toolId]) {
+            const est = AI_ETA_ESTIMATES[toolId];
+            let elapsed = 0;
+            const tick = () => {
+                elapsed++;
+                const remaining = Math.max(0, est - elapsed);
+                if (elapsed <= est) {
+                    etaEl.textContent = `${_fmtTime(elapsed)} · ~${_fmtTime(remaining)} left`;
+                } else {
+                    etaEl.textContent = `${_fmtTime(elapsed)} · almost done…`;
+                }
+            };
+            tick();
+            _aiEtaTimers[toolId] = setInterval(tick, 1000);
+        }
+    }
+
     const panel = document.getElementById('tool-' + toolId);
     const btn = panel?.querySelector('.process-btn');
 

@@ -1786,6 +1786,14 @@ body {
     padding-top: 7px; margin-top: 4px;
     border-top: 1px solid var(--glass-border);
 }
+
+/* AI ETA timer shown inside processing-status while generating */
+.processing-status .ai-eta {
+    display: inline-block; margin-left: 8px;
+    font-size: 0.72rem; color: var(--text-muted);
+    font-family: var(--font-mono); white-space: nowrap;
+    opacity: 0.85;
+}
 .tool-model-badge.tmb-error {
     background: rgba(239,68,68,0.1); color: #f87171;
     border-color: rgba(239,68,68,0.25);
