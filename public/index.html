@@ -1932,20 +1932,20 @@
                             <button class="preset-btn" data-val="plain" onclick="selectPreset(this); toggleStudyNotesMathOption('plain')"><i class="fas fa-align-left"></i><span>Plain Text</span><small>.txt file</small></button>
                         </div>
                     </div>
+                    <div class="tool-options">
+                        <label class="option-label">Note style</label>
+                        <div class="preset-grid" data-tool="study-notes-depth" style="grid-template-columns:repeat(3,1fr)">
+                            <button class="preset-btn" data-val="simple" onclick="selectPreset(this)" title="Short bullet-point summary. Key definitions and core formulas only &mdash; no lengthy derivations. Great for a quick pre-exam scan."><i class="fas fa-list-ul"></i><span>Simple</span><small>Quick review</small></button>
+                            <button class="preset-btn active" data-val="indepth" onclick="selectPreset(this)" title="Comprehensive university-level notes. Every concept explained fully, every formula derived, every example worked step-by-step. Best for deep study."><i class="fas fa-graduation-cap"></i><span>In-Depth</span><small>Full coverage</small></button>
+                            <button class="preset-btn" data-val="eli6" onclick="selectPreset(this)" title="Breaks everything down into simple, everyday terms &mdash; plain language, real-world analogies, no jargon. Perfect if the topic is unfamiliar."><i class="fas fa-child"></i><span>Explain Simply</span><small>No jargon</small></button>
+                        </div>
+                    </div>
                     <div class="tool-options" id="study-notes-math-option">
                         <label class="option-label">Math notation <span style="font-weight:400;opacity:0.6;font-size:0.85em">(rendered in preview &amp; output)</span></label>
                         <div class="preset-grid" data-tool="study-notes-math" style="grid-template-columns:repeat(3,1fr)">
                             <button class="preset-btn active" data-val="dollar" onclick="selectPreset(this)"><i class="fas fa-dollar-sign"></i><span>Standard</span><small>$&hellip;$ / $$&hellip;$$</small></button>
                             <button class="preset-btn" data-val="latex" onclick="selectPreset(this)"><i class="fas fa-square-root-alt"></i><span>LaTeX</span><small>\(&hellip;\) / \[&hellip;\]</small></button>
                             <button class="preset-btn" data-val="none" onclick="selectPreset(this)"><i class="fas fa-ban"></i><span>None</span><small>Plain text only</small></button>
-                        </div>
-                    </div>
-                    <div class="tool-options">
-                        <label class="option-label">Note style</label>
-                        <div class="preset-grid" data-tool="study-notes-depth" style="grid-template-columns:repeat(3,1fr)">
-                            <button class="preset-btn" data-val="simple" onclick="selectPreset(this)" title="Short bullet-point summary. Key definitions and core formulas only &mdash; no lengthy derivations. Great for a quick pre-exam scan."><i class="fas fa-list-ul"></i><span>Simple</span><small>Quick review</small></button>
-                            <button class="preset-btn active" data-val="indepth" onclick="selectPreset(this)" title="Comprehensive university-level notes. Every concept explained fully, every formula derived, every example worked step-by-step. Best for deep study."><i class="fas fa-graduation-cap"></i><span>In-Depth</span><small>Full coverage</small></button>
-                            <button class="preset-btn" data-val="eli6" onclick="selectPreset(this)" title="Explains the material like the reader is a Year 6 student with zero prior knowledge. Plain language, everyday analogies, no jargon."><i class="fas fa-child"></i><span>Explain Simply</span><small>Year 6 friendly</small></button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processStudyNotes()"><i class="fas fa-brain"></i> Generate Notes</button>
