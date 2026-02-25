@@ -892,8 +892,8 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         }
 
         // Truncate to fit API limits
-        if (source_text.size() > 6000) source_text = source_text.substr(0, 6000);
-        if (notes.size() > 6000) notes = notes.substr(0, 6000);
+        if (source_text.size() > 14000) source_text = source_text.substr(0, 14000);
+        if (notes.size() > 14000) notes = notes.substr(0, 14000);
 
         string proc = get_processing_dir();
         string rid = generate_job_id(); // request ID for temp files
@@ -920,7 +920,7 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, 
 }
 
 Focus on educational value. A concept is "covered" if its key information is present in the notes, even if worded differently.
-Return 8-15 key concepts. Be thorough but fair in your assessment.)";
+Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
         string user_prompt = "SOURCE MATERIAL:\n" + source_text + "\n\n---\n\nGENERATED NOTES:\n" + notes;
 
@@ -2511,7 +2511,78 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             // Store raw text in memory so the client can fetch it for comparison
             update_job_raw_text(jid, text);
 
-            update_job(jid, {{"status","processing"},{"progress",40},{"stage","Generating study notes with AI..."}});
+            // ── Subject detection ────────────────────────────────────────────
+            // Analyse source text to tailor the prompt for the subject area
+            auto text_lower = [](const string& s) {
+                string r = s; for (char& c : r) c = (char)::tolower((unsigned char)c); return r;
+            };
+            string tl = text_lower(text);
+            bool is_math = (tl.find("theorem") != string::npos || tl.find("integral") != string::npos ||
+                            tl.find("derivative") != string::npos || tl.find("matrix") != string::npos ||
+                            tl.find("vector") != string::npos || tl.find("calculus") != string::npos ||
+                            tl.find("algebra") != string::npos || tl.find("probability") != string::npos ||
+                            tl.find("equation") != string::npos || tl.find("proof") != string::npos);
+            bool is_code = (tl.find("function") != string::npos || tl.find("algorithm") != string::npos ||
+                            tl.find("array") != string::npos || tl.find("class ") != string::npos ||
+                            tl.find("loop") != string::npos || tl.find("recursion") != string::npos ||
+                            tl.find("complexity") != string::npos);
+            bool is_science = (tl.find("velocity") != string::npos || tl.find("acceleration") != string::npos ||
+                               tl.find("molecule") != string::npos || tl.find("reaction") != string::npos ||
+                               tl.find("wavelength") != string::npos || tl.find("entropy") != string::npos);
+
+            string subject_rules;
+            if (is_math) {
+                subject_rules = "SUBJECT-SPECIFIC (Mathematics): "
+                    "Every theorem must include its full statement and any conditions/constraints. "
+                    "Every formula must have ALL variables defined. "
+                    "Every worked example must be solved step-by-step showing all algebra. "
+                    "Include a 'Key Formulas' section summarising all formulas used. "
+                    "Add > blockquote exam hints for common mistakes (e.g. sign errors, domain restrictions). ";
+            } else if (is_code) {
+                subject_rules = "SUBJECT-SPECIFIC (Computer Science): "
+                    "Every algorithm must include pseudocode or code. "
+                    "State time and space complexity using Big-O notation. "
+                    "Trace through any data structure operations step-by-step with examples. "
+                    "Note edge cases and why they matter. ";
+            } else if (is_science) {
+                subject_rules = "SUBJECT-SPECIFIC (Science): "
+                    "Every equation must have all variables and units defined. "
+                    "Include diagrams described in text form where relevant. "
+                    "Show unit conversions in worked examples. "
+                    "Connect theory to practical/lab applications explicitly. ";
+            } else {
+                subject_rules = "SUBJECT-SPECIFIC: "
+                    "Define every key term precisely on first use. "
+                    "Include real-world examples that illustrate abstract concepts. "
+                    "Preserve any argument structures, frameworks, or models from the source. ";
+            }
+
+            // ── Pre-pass: extract exhaustive coverage checklist ──────────────
+            update_job(jid, {{"status","processing"},{"progress",30},{"stage","Building content checklist..."}});
+
+            string coverage_checklist;
+            {
+                json cl_payload = {
+                    {"model", "llama-3.1-8b-instant"},
+                    {"messages", json::array({
+                        {{"role","system"}, {"content",
+                            "You are an academic content analyst. Extract a complete bullet-point checklist of "
+                            "EVERY topic, concept, definition, formula, theorem, algorithm, worked example, property, "
+                            "and application present in the provided lecture material. "
+                            "Be completely exhaustive — nothing may be omitted. Include even minor sub-points. "
+                            "Output ONLY a flat bullet list, one item per line starting with '-'. No headings, no commentary."}},
+                        {{"role","user"}, {"content", "Extract a complete coverage checklist from this lecture:\n\n" + text}}
+                    })},
+                    {"max_tokens", 1500},
+                    {"temperature", 0.1}
+                };
+                auto cl_r = call_groq(cl_payload, proc, jid + "_checklist");
+                if (cl_r.ok && cl_r.response.contains("choices")) {
+                    coverage_checklist = cl_r.response["choices"][0]["message"]["content"].get<string>();
+                }
+            }
+
+            update_job(jid, {{"status","processing"},{"progress",50},{"stage","Generating study notes with AI..."}});
 
             // ── Step 2: call Groq ────────────────────────────────────────────
             string math_instruction;
@@ -2553,13 +2624,25 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
                 "(5) Include all practical applications, real-world examples, and connections to other course topics. "
                 "(6) Flag exam hints and common mistakes explicitly. "
                 "(7) Your response must be substantially longer than a summary — aim for depth over brevity. "
+                + subject_rules
                 + style_instruction;
 
-            string user_prompt = "Create thorough, in-depth study notes from the following lecture content. "
-                "Go through EVERY section systematically. Include every formula with full variable explanations, every worked example re-solved step-by-step, "
-                "every definition, every application, and every exam hint. "
-                "Do not summarise or condense — the notes should be comprehensive enough to fully replace attending the lecture. "
-                "This response should be long and detailed:\n\n" + text;
+            string user_prompt;
+            if (!coverage_checklist.empty()) {
+                user_prompt = "SOURCE MATERIAL:\n" + text +
+                    "\n\n---\n\nMANDATORY COVERAGE CHECKLIST — every single item below MUST be fully addressed in the notes. "
+                    "Check each item off mentally as you write. Missing even one item is unacceptable:\n" +
+                    coverage_checklist +
+                    "\n\n---\n\nCreate thorough, in-depth study notes that address EVERY item in the checklist. "
+                    "For each: give a full explanation, define all variables, re-work examples step-by-step. "
+                    "The notes must be long, detailed, and suitable as a complete exam revision resource.";
+            } else {
+                user_prompt = "Create thorough, in-depth study notes from the following lecture content. "
+                    "Go through EVERY section systematically. Include every formula with full variable explanations, every worked example re-solved step-by-step, "
+                    "every definition, every application, and every exam hint. "
+                    "Do not summarise or condense — the notes should be comprehensive enough to fully replace attending the lecture. "
+                    "This response should be long and detailed:\n\n" + text;
+            }
 
             json payload = {
                 {"model", "llama-3.3-70b-versatile"},
@@ -2590,6 +2673,47 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
                 if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
                 try { fs::remove(txt_path); } catch (...) {}
                 return;
+            }
+
+            // ── Auto-refine pass: fill any gaps the main pass missed ──────────
+            if (!coverage_checklist.empty() && notes.size() > 500) {
+                update_job(jid, {{"status","processing"},{"progress",78},{"stage","Refining and filling gaps..."}});
+
+                string refine_system =
+                    "You are an expert study notes editor. You receive a coverage checklist and a draft of study notes. "
+                    "Your ONLY job is to identify checklist items that are missing or only briefly mentioned in the notes, "
+                    "then output a complete revised version of the notes that fully addresses every gap.\n\n"
+                    "RULES:\n"
+                    "1. Preserve ALL existing correct content — never remove or shorten any existing section.\n"
+                    "2. Add full explanations, worked steps, and variable definitions for every missing item.\n"
+                    "3. Keep the same Markdown structure (## headings, bullet points, **bold** terms, > blockquotes).\n"
+                    "4. Output ONLY the improved notes — no commentary, no preamble, no meta-text.\n"
+                    "5. If the notes already fully cover all checklist items, return them unchanged.";
+
+                string refine_user =
+                    "COVERAGE CHECKLIST (every item must be in the notes):\n" + coverage_checklist +
+                    "\n\n---\n\nCURRENT NOTES:\n" + notes +
+                    "\n\n---\n\n"
+                    "Identify any checklist items missing or underdeveloped in the notes, then output the complete improved notes.";
+
+                json refine_payload = {
+                    {"model", "llama-3.3-70b-versatile"},
+                    {"messages", json::array({
+                        {{"role","system"}, {"content", refine_system}},
+                        {{"role","user"},   {"content", refine_user}}
+                    })},
+                    {"max_tokens", 8192},
+                    {"temperature", 0.2}
+                };
+
+                auto rr = call_groq(refine_payload, proc, jid + "_refine");
+                if (rr.ok && rr.response.contains("choices")) {
+                    string refined = rr.response["choices"][0]["message"]["content"].get<string>();
+                    // Accept refined output only if it's substantial (at least 60% of original length)
+                    if (refined.size() >= notes.size() * 6 / 10) {
+                        notes = refined;
+                    }
+                }
             }
 
             // ── Step 3: write output file ─────────────────────────────────────
