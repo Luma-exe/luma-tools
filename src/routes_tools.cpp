@@ -2801,6 +2801,16 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
             auto gr = call_groq(payload, proc, jid + "_sn");
 
+            // Reject local Ollama fallback for study notes — the 8B model cannot
+            // follow the complex prompt rules and produces unusable output.
+            // Better to show a clear "try again" error than silently bad notes.
+            if (gr.ok && gr.model_used.rfind("ollama:", 0) == 0) {
+                update_job(jid, {{"status","error"},{"error","All AI services are currently rate-limited. Please wait a moment and try again."}});
+                if (!input_path.empty()) try { fs::remove(input_path); } catch (...) {}
+                try { fs::remove(txt_path); } catch (...) {}
+                return;
+            }
+
             string notes;
             bool ai_ok = gr.ok;
             if (ai_ok) {
