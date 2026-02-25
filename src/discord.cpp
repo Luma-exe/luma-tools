@@ -185,7 +185,7 @@ void discord_log_ai_tool(const string& tool_name, const string& filename, const 
     else if (model == "deepseek-r1-distill-llama-70b")     model_label = "DeepSeek R1 · Llama 70B (Step 3 · Groq)";
     else if (model == "qwen-qwq-32b")                      model_label = "Qwen QwQ 32B (Step 4 · Groq)";
     else if (model == "deepseek-r1-distill-qwen-32b")      model_label = "DeepSeek R1 · Qwen 32B (Step 5 · Groq)";
-    else if (model == "cerebras:qwen3-235b")              model_label = "Qwen 3 235B (Step 6 · Cerebras)";
+    else if (model == "cerebras:gpt-oss-120b")             model_label = "GPT-OSS 120B (Step 6 · Cerebras)";
     else if (model == "gemini:gemini-2.0-flash")            model_label = "Gemini 2.0 Flash (Step 7 · Google)";
     else if (model == "llama-3.1-8b-instant")              model_label = "Llama 3.1 8B (Step 8 · Groq)";
     else if (model.rfind("ollama:", 0) == 0)               model_label = "Local: " + model.substr(7) + " (Step 9 · Ollama)";
@@ -339,7 +339,7 @@ void discord_log_server_start(int port, const string& version) {
 
             // Cerebras Step 6
             desc += (!cap_cerebras_key.empty() ? "☁️" : "❌") +
-                    string(" Qwen 3 235B (Step 6 · Cerebras) › ") +
+                    string(" GPT-OSS 120B (Step 6 · Cerebras) › ") +
                     (!cap_cerebras_key.empty() ? "`key configured`" : "*no key*") + "\n";
 
             // Gemini Step 7
