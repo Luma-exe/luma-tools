@@ -151,7 +151,7 @@ int main() {
         cerr << "[Luma Tools] WARNING: Pandoc not found. Markdown to PDF will be unavailable." << endl;
     }
 
-    // ── Groq key (for AI Study Notes) ────────────────────────────────────────
+    // ── AI API keys ───────────────────────────────────────────────────────────
     {
         const char* key = std::getenv("GROQ_API_KEY");
         if (key && key[0]) {
@@ -159,6 +159,20 @@ int main() {
             cout << "[Luma Tools] Groq API key loaded from environment." << endl;
         } else {
             cerr << "[Luma Tools] WARNING: GROQ_API_KEY not set. AI Study Notes will be unavailable." << endl;
+        }
+    }
+    {
+        const char* key = std::getenv("CEREBRAS_API_KEY");
+        if (key && key[0]) {
+            g_cerebras_key = key;
+            cout << "[Luma Tools] Cerebras API key loaded from environment." << endl;
+        }
+    }
+    {
+        const char* key = std::getenv("GEMINI_API_KEY");
+        if (key && key[0]) {
+            g_gemini_key = key;
+            cout << "[Luma Tools] Gemini API key loaded from environment." << endl;
         }
     }
 

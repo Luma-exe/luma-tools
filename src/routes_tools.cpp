@@ -28,7 +28,10 @@ static std::string join(const std::vector<std::string>& v, const std::string& de
 // ── Groq model chain with automatic fallback ─────────────────────────────────
 static const vector<string> GROQ_MODEL_CHAIN = {
     "llama-3.3-70b-versatile",
+    "llama-3.3-70b-specdec",
     "deepseek-r1-distill-llama-70b",
+    "qwen-qwq-32b",
+    "deepseek-r1-distill-qwen-32b",
     "llama-3.1-8b-instant"
 };
 
@@ -113,10 +116,50 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
             break;
         } catch (...) {}
     }
-    // ── Ollama local fallback ─────────────────────────────────────────────────
+    // ── Helper: try one external OpenAI-compatible provider ───────────────────
+    auto try_provider = [&](const string& endpoint, const string& api_key,
+                            const string& model_name, const string& model_id) {
+        if (result.ok || api_key.empty()) return;
+        string p_rf = proc + "/" + prefix + "_" + model_id + "_resp.json";
+        string p_pf = proc + "/" + prefix + "_" + model_id + "_pl.json";
+        string p_hf = proc + "/" + prefix + "_" + model_id + "_hdr.txt";
+        json p_payload = payload;
+        p_payload["model"] = model_name;
+        { ofstream f(p_hf); f << "Authorization: Bearer " << api_key << "\r\nContent-Type: application/json"; }
+        { ofstream f(p_pf); f << p_payload.dump(-1, ' ', false, json::error_handler_t::replace); }
+        string p_cmd = "curl -s --max-time 60 -X POST " + endpoint +
+                       " -H @" + escape_arg(p_hf) +
+                       " -d @" + escape_arg(p_pf) +
+                       " -o " + escape_arg(p_rf);
+        int p_rc; exec_command(p_cmd, p_rc);
+        if (fs::exists(p_rf) && fs::file_size(p_rf) > 0) {
+            try {
+                std::ifstream f(p_rf); std::ostringstream ss; ss << f.rdbuf();
+                auto rj = json::parse(ss.str());
+                if (rj.contains("choices") && !rj["choices"].empty()) {
+                    result.response = rj;
+                    result.model_used = model_id;
+                    result.ok = true;
+                    if (rj.contains("usage") && rj["usage"].is_object())
+                        result.tokens_used = rj["usage"].value("total_tokens", 0);
+                    { lock_guard<mutex> lk(g_model_cache_mutex); g_last_used_model = model_id; }
+                }
+            } catch (...) {}
+        }
+        try { fs::remove(p_pf); fs::remove(p_hf); fs::remove(p_rf); } catch (...) {}
+    };
+
+    // ── Cerebras fallback (llama-3.3-70b, generous free quota) ───────────────
+    try_provider("https://api.cerebras.ai/v1/chat/completions",
+                 g_cerebras_key, "llama-3.3-70b", "cerebras:llama-3.3-70b");
+
+    // ── Gemini fallback (gemini-2.0-flash via OpenAI-compat, 1M tok/day free) ─
+    try_provider("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+                 g_gemini_key, "gemini-2.0-flash", "gemini:gemini-2.0-flash");
+
+    // ── Ollama local fallback (last resort, low quality) ─────────────────────
     if (!result.ok) {
         string ollama_rf = proc + "/" + prefix + "_ollama_resp.json";
-        // Build Ollama-compat payload (messages array stays the same)
         json ol_payload = payload;
         ol_payload["model"] = "llama3.1:8b";
         string ol_pf = proc + "/" + prefix + "_ollama_pl.json";

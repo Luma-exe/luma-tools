@@ -387,17 +387,37 @@ const AI_MODELS = {
         badge: 'L3.3 70B', short: 'Llama 3.3 70B', tier: 'Primary', tpd: '100k/day',
         desc: "Meta's most capable open model. Used first for best quality results."
     },
+    'llama-3.3-70b-specdec': {
+        badge: 'L3.3 SD', short: 'Llama 3.3 70B (SD)', tier: 'Fallback 1', tpd: 'Separate quota',
+        desc: 'Same 70B model with speculative decoding. Used when the primary hits its quota.'
+    },
     'deepseek-r1-distill-llama-70b': {
-        badge: 'R1 70B', short: 'DeepSeek R1 70B', tier: 'Fallback 1', tpd: 'Separate quota',
-        desc: 'DeepSeek R1 reasoning distilled on Llama 70B. Used when primary hits daily limits.'
+        badge: 'R1 70B', short: 'DeepSeek R1 70B', tier: 'Fallback 2', tpd: 'Separate quota',
+        desc: 'DeepSeek R1 reasoning distilled on Llama 70B. Strong at complex structured tasks.'
+    },
+    'qwen-qwq-32b': {
+        badge: 'QwQ 32B', short: 'Qwen QwQ 32B', tier: 'Fallback 3', tpd: 'Separate quota',
+        desc: "Alibaba's reasoning model. Excellent at math and step-by-step problems."
+    },
+    'deepseek-r1-distill-qwen-32b': {
+        badge: 'R1 32B', short: 'DeepSeek R1 32B', tier: 'Fallback 4', tpd: 'Separate quota',
+        desc: 'DeepSeek R1 reasoning on Qwen 32B. Good quality at 32B scale.'
     },
     'llama-3.1-8b-instant': {
-        badge: 'L3.1 8B', short: 'Llama 3.1 8B', tier: 'Fallback 2', tpd: '500k/day',
-        desc: 'Fast & lightweight. Highest daily allowance. Used when cloud quotas are low.'
+        badge: 'L3.1 8B', short: 'Llama 3.1 8B', tier: 'Fallback 5', tpd: '500k/day',
+        desc: 'Fast & lightweight. Highest daily allowance. Used when larger models are exhausted.'
+    },
+    'cerebras:llama-3.3-70b': {
+        badge: 'CBR 70B', short: 'Llama 3.3 70B (Cerebras)', tier: 'Fallback 6', tpd: '30 req/min',
+        desc: 'Same Llama 3.3 70B model running on Cerebras hardware. Separate rate limits to Groq.'
+    },
+    'gemini:gemini-2.0-flash': {
+        badge: 'Gemini', short: 'Gemini 2.0 Flash', tier: 'Fallback 7', tpd: '1M tok/day',
+        desc: "Google's Gemini 2.0 Flash. Largest free daily quota of any provider."
     },
     'ollama:llama3.1:8b': {
         badge: 'Local', short: 'Llama 3.1 8B (Local)', tier: 'Local Device', tpd: 'Unlimited',
-        desc: 'Runs locally on the server via Ollama. Same model as Groq Fallback 2 but with no API quota. Used only when all cloud models are exhausted.'
+        desc: 'Runs locally on the server via Ollama. No API quota. Used only when all cloud models are exhausted.'
     }
 };
 
@@ -420,7 +440,7 @@ function showModelBadge(toolId, modelId) {
     // Error state — all models unavailable
     if (!modelId || modelId === 'none') {
         badge.className = 'tool-model-badge tmb-error';
-        badge.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No AI<div class="tmb-tooltip"><div class="tmb-header">AI Unavailable</div><div class="tmb-no-model">All AI models are currently rate-limited or unreachable. This includes the 3 Groq cloud models and the local Ollama fallback. Please try again later.</div></div>`;
+        badge.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No AI<div class="tmb-tooltip"><div class="tmb-header">AI Unavailable</div><div class="tmb-no-model">All AI models are currently rate-limited or unreachable. This includes all Groq cloud models, Cerebras, Gemini, and the local Ollama fallback. Please try again later.</div></div>`;
         return;
     }
     const model = AI_MODELS[modelId];
