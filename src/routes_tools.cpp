@@ -80,7 +80,9 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
     GroqResult result;
     for (const auto& model : GROQ_MODEL_CHAIN) {
         payload["model"] = model;
-        { ofstream f(pf); f << payload.dump(); }
+        // Use error_handler_t::replace so invalid UTF-8 bytes (e.g. 0xA0 from
+        // Windows-1252 encoded PDFs) never cause type_error.316 to throw here.
+        { ofstream f(pf); f << payload.dump(-1, ' ', false, json::error_handler_t::replace); }
         try { if (fs::exists(rf))  fs::remove(rf);  } catch (...) {}
         try { if (fs::exists(dhf)) fs::remove(dhf); } catch (...) {}
         int rc; exec_command(curl_cmd, rc);
@@ -118,7 +120,7 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
         json ol_payload = payload;
         ol_payload["model"] = "llama3.1:8b";
         string ol_pf = proc + "/" + prefix + "_ollama_pl.json";
-        { ofstream f(ol_pf); f << ol_payload.dump(); }
+        { ofstream f(ol_pf); f << ol_payload.dump(-1, ' ', false, json::error_handler_t::replace); }
         string ol_cmd = "curl -s -X POST http://localhost:11434/v1/chat/completions"
                         " -H \"Content-Type: application/json\""
                         " -d @" + escape_arg(ol_pf) +
@@ -193,13 +195,28 @@ static string extract_text_from_upload(
         ifstream f(input_path, std::ios::binary);
         std::ostringstream ss; ss << f.rdbuf();
         text = ss.str();
-    } else if (file_ext == ".pdf" && !g_ghostscript_path.empty()) {
-        string cmd = escape_arg(g_ghostscript_path) + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite -sOutputFile="
-                   + escape_arg(txt_path) + " " + escape_arg(input_path);
-        int code; exec_command(cmd, code);
-        if (fs::exists(txt_path)) {
-            ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
-            text = ss.str();
+    } else if (file_ext == ".pdf") {
+        // Try Ghostscript first (with -dTextFormat=3 for consistent UTF-8 output)
+        if (!g_ghostscript_path.empty()) {
+            string cmd = escape_arg(g_ghostscript_path)
+                       + " -q -dNOPAUSE -dBATCH -sDEVICE=txtwrite"
+                         " -dTextFormat=3"
+                       " -sOutputFile=" + escape_arg(txt_path)
+                       + " " + escape_arg(input_path);
+            int code; exec_command(cmd, code);
+            if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
+                ifstream f(txt_path, std::ios::binary); std::ostringstream ss; ss << f.rdbuf();
+                text = ss.str();
+            }
+        }
+        // Fallback: pdftotext
+        if (text.empty()) {
+            string cmd = "pdftotext " + escape_arg(input_path) + " " + escape_arg(txt_path);
+            int code; exec_command(cmd, code);
+            if (fs::exists(txt_path) && fs::file_size(txt_path) > 0) {
+                ifstream f(txt_path, std::ios::binary); std::ostringstream ss; ss << f.rdbuf();
+                text = ss.str();
+            }
         }
     } else if (file_ext == ".docx") {
         string pandoc_exe = g_pandoc_path.empty() ? "pandoc" : g_pandoc_path;
@@ -2759,6 +2776,7 @@ CRITICAL RULES:
                 }
             }
             for (const auto& p : parts) text += p;
+            text = sanitize_utf8(text); // re-sanitize combined text
             input_desc = to_string(filecount) + " files";
         } else {
             string key = (filecount == 1) ? "file0" : "file";
@@ -2897,6 +2915,7 @@ CRITICAL RULES:
                 }
             }
             for (const auto& p : parts) text += p;
+            text = sanitize_utf8(text); // re-sanitize combined text
             input_desc = to_string(filecount) + " files (" + difficulty + ")";
         } else {
             string key = (filecount == 1) ? "file0" : "file";
