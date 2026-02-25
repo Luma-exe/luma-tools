@@ -1731,7 +1731,11 @@ body {
     border: 1px solid var(--glass-border); border-radius: var(--radius-md);
     padding: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     z-index: 1000; text-align: left; cursor: default;
-    box-sizing: border-box;
+    box-sizing: border-box; white-space: normal;
+}
+.tmb-no-model {
+    font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;
+    white-space: normal; word-wrap: break-word;
 }
 .tool-model-badge:hover .tmb-tooltip { display: block; }
 .tmb-header {

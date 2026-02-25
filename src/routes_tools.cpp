@@ -143,6 +143,34 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
 }
 
 // -----------------------------------------------------------------------------
+// Helper: strip invalid UTF-8 bytes and BOMs so json::dump() never throws 316
+// (0xA0 and other Latin-1/Windows-1252 bytes that appear in PDF-extracted text)
+static string sanitize_utf8(const string& s) {
+    string out;
+    out.reserve(s.size());
+    size_t i = 0;
+    // Strip UTF-8 BOM (EF BB BF) or UTF-16 BOM (FF FE / FE FF)
+    if (s.size() >= 3 && (unsigned char)s[0]==0xEF && (unsigned char)s[1]==0xBB && (unsigned char)s[2]==0xBF) i = 3;
+    else if (s.size() >= 2 && ((unsigned char)s[0]==0xFF && (unsigned char)s[1]==0xFE)) i = 2;
+    else if (s.size() >= 2 && ((unsigned char)s[0]==0xFE && (unsigned char)s[1]==0xFF)) i = 2;
+    for (; i < s.size(); ) {
+        unsigned char c = (unsigned char)s[i];
+        int seq = 0;
+        if      (c <= 0x7F)                         seq = 1;
+        else if ((c & 0xE0) == 0xC0 && c >= 0xC2)  seq = 2;
+        else if ((c & 0xF0) == 0xE0)                seq = 3;
+        else if ((c & 0xF8) == 0xF0 && c <= 0xF4)  seq = 4;
+        if (seq == 0) { i++; out += '?'; continue; } // invalid lead byte → replace
+        if (i + seq > s.size()) { i++; out += '?'; continue; }
+        bool ok = true;
+        for (int k = 1; k < seq; k++)
+            if (((unsigned char)s[i+k] & 0xC0) != 0x80) { ok = false; break; }
+        if (ok) { out.append(s, i, seq); i += seq; }
+        else    { out += '?'; i++; }
+    }
+    return out;
+}
+
 // extract_text_from_upload  — shared helper used by Flashcards, Quiz, etc.
 // Saves the multipart file to proc/jid_input<ext>, extracts text via the
 // appropriate method, then cleans up temp files.  Returns empty string on fail.
@@ -184,7 +212,7 @@ static string extract_text_from_upload(
     }
 
     try { fs::remove(input_path); fs::remove(txt_path); } catch (...) {}
-    return text;
+    return sanitize_utf8(text);
 }
 
 void register_tool_routes(httplib::Server& svr, string dl_dir) {
@@ -2715,7 +2743,7 @@ CRITICAL RULES:
 
         string input_desc;
         if (has_text) {
-            text = req.get_file_value("text").content;
+            text = sanitize_utf8(req.get_file_value("text").content);
             input_desc = "Pasted Text";
         } else if (filecount > 1) {
             vector<string> parts;
@@ -2853,7 +2881,7 @@ CRITICAL RULES:
 
         string input_desc;
         if (has_text) {
-            text = req.get_file_value("text").content;
+            text = sanitize_utf8(req.get_file_value("text").content);
             input_desc = "Pasted Text (" + difficulty + ")";
         } else if (filecount > 1) {
             vector<string> parts;
