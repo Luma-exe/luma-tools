@@ -1306,8 +1306,32 @@ function processStudyNotes() {
                 showProcessing(toolId, false);
             });
     } else {
-        // Handle file upload — use existing processFile logic
-        processFile(toolId);
+        // Handle file upload — multi-file support
+        const files = state.multiFiles[toolId];
+        if (!files || files.length === 0) {
+            showToast('Please upload at least one file', 'error');
+            return;
+        }
+        showProcessing(toolId, true);
+        const formData = new FormData();
+        files.forEach((f, i) => formData.append('file' + i, f));
+        formData.append('filecount', String(files.length));
+        formData.append('format', format);
+        formData.append('math', mathFmt);
+        fetch('/api/tools/ai-study-notes', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    showProcessing(toolId, false);
+                    return;
+                }
+                if (data.job_id) pollJobStatus(toolId, data.job_id);
+            })
+            .catch(err => {
+                showToast(err.message || 'Request failed', 'error');
+                showProcessing(toolId, false);
+            });
     }
 }
 

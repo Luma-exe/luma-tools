@@ -2259,7 +2259,13 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
         }
         
         bool has_text = req.has_file("text") && !req.get_file_value("text").content.empty();
-        bool has_file = req.has_file("file") && !req.get_file_value("file").content.empty();
+        // Multi-file support: filecount + file0..fileN, or single "file" for backward compat
+        int filecount = 0;
+        if (req.has_file("filecount")) {
+            try { filecount = std::stoi(req.get_file_value("filecount").content); } catch (...) {}
+        }
+        bool has_file = (filecount > 0) ||
+                        (req.has_file("file") && !req.get_file_value("file").content.empty());
         
         if (!has_text && !has_file) {
             res.status = 400;
@@ -2285,9 +2291,29 @@ Return 8-15 key concepts. Be thorough but fair in your assessment.)";
             input_text = req.get_file_value("text").content;
             filename = "pasted_text";
             input_desc = "Pasted Text (" + format + ")";
+        } else if (filecount > 1) {
+            // Multi-file mode: extract text from all files before the async thread
+            vector<string> parts;
+            for (int fi = 0; fi < filecount && fi < 10; fi++) {
+                string key = "file" + to_string(fi);
+                if (!req.has_file(key)) continue;
+                auto f = req.get_file_value(key);
+                if (f.content.empty()) continue;
+                string extracted = extract_text_from_upload(f, proc, jid + "_sn" + to_string(fi));
+                if (!extracted.empty()) {
+                    if (!parts.empty()) parts.push_back("\n\n--- " + f.filename + " ---\n\n");
+                    parts.push_back(extracted);
+                }
+            }
+            for (const auto& p : parts) input_text += p;
+            filename = to_string(filecount) + " files";
+            input_desc = to_string(filecount) + " files (" + format + ")";
+            has_text = true; // treat combined text as pasted-text mode in thread
         } else {
-            // File upload mode
-            auto file = req.get_file_value("file");
+            // Single file mode (original behavior, or filecount == 1)
+            string key = (filecount == 1) ? "file0" : "file";
+            if (!req.has_file(key)) key = "file"; // fallback
+            auto file = req.get_file_value(key);
             filename = file.filename;
             input_desc = filename + " (" + format + ")";
             
@@ -2661,7 +2687,13 @@ CRITICAL RULES:
         }
 
         bool has_text = req.has_file("text") && !req.get_file_value("text").content.empty();
-        bool has_file = req.has_file("file") && !req.get_file_value("file").content.empty();
+        // Multi-file support
+        int filecount = 0;
+        if (req.has_file("filecount")) {
+            try { filecount = std::stoi(req.get_file_value("filecount").content); } catch (...) {}
+        }
+        bool has_file = (filecount > 0) ||
+                        (req.has_file("file") && !req.get_file_value("file").content.empty());
 
         if (!has_text && !has_file) {
             res.status = 400;
@@ -2685,8 +2717,25 @@ CRITICAL RULES:
         if (has_text) {
             text = req.get_file_value("text").content;
             input_desc = "Pasted Text";
+        } else if (filecount > 1) {
+            vector<string> parts;
+            for (int fi = 0; fi < filecount && fi < 10; fi++) {
+                string key = "file" + to_string(fi);
+                if (!req.has_file(key)) continue;
+                auto f = req.get_file_value(key);
+                if (f.content.empty()) continue;
+                string extracted = extract_text_from_upload(f, proc, jid + "_fc" + to_string(fi));
+                if (!extracted.empty()) {
+                    if (!parts.empty()) parts.push_back("\n\n--- " + f.filename + " ---\n\n");
+                    parts.push_back(extracted);
+                }
+            }
+            for (const auto& p : parts) text += p;
+            input_desc = to_string(filecount) + " files";
         } else {
-            auto file = req.get_file_value("file");
+            string key = (filecount == 1) ? "file0" : "file";
+            if (!req.has_file(key)) key = "file";
+            auto file = req.get_file_value(key);
             input_desc = file.filename;
             text = extract_text_from_upload(file, proc, jid + "_fc");
         }
@@ -2772,7 +2821,13 @@ CRITICAL RULES:
         }
 
         bool has_text = req.has_file("text") && !req.get_file_value("text").content.empty();
-        bool has_file = req.has_file("file") && !req.get_file_value("file").content.empty();
+        // Multi-file support
+        int filecount = 0;
+        if (req.has_file("filecount")) {
+            try { filecount = std::stoi(req.get_file_value("filecount").content); } catch (...) {}
+        }
+        bool has_file = (filecount > 0) ||
+                        (req.has_file("file") && !req.get_file_value("file").content.empty());
 
         if (!has_text && !has_file) {
             res.status = 400;
@@ -2800,8 +2855,25 @@ CRITICAL RULES:
         if (has_text) {
             text = req.get_file_value("text").content;
             input_desc = "Pasted Text (" + difficulty + ")";
+        } else if (filecount > 1) {
+            vector<string> parts;
+            for (int fi = 0; fi < filecount && fi < 10; fi++) {
+                string key = "file" + to_string(fi);
+                if (!req.has_file(key)) continue;
+                auto f = req.get_file_value(key);
+                if (f.content.empty()) continue;
+                string extracted = extract_text_from_upload(f, proc, jid + "_qz" + to_string(fi));
+                if (!extracted.empty()) {
+                    if (!parts.empty()) parts.push_back("\n\n--- " + f.filename + " ---\n\n");
+                    parts.push_back(extracted);
+                }
+            }
+            for (const auto& p : parts) text += p;
+            input_desc = to_string(filecount) + " files (" + difficulty + ")";
         } else {
-            auto file = req.get_file_value("file");
+            string key = (filecount == 1) ? "file0" : "file";
+            if (!req.has_file(key)) key = "file";
+            auto file = req.get_file_value(key);
             input_desc = file.filename + " (" + difficulty + ")";
             text = extract_text_from_upload(file, proc, jid + "_qz");
         }

@@ -97,9 +97,9 @@ function processFlashcards() {
             return;
         }
     } else {
-        const file = state.files[toolId];
-        if (!file) {
-            showToast('Please upload a file first', 'error');
+        const files = state.multiFiles[toolId];
+        if (!files || files.length === 0) {
+            showToast('Please upload at least one file', 'error');
             return;
         }
     }
@@ -110,7 +110,9 @@ function processFlashcards() {
     if (inputMode === 'paste') {
         formData.append('text', text);
     } else {
-        formData.append('file', state.files[toolId]);
+        const files = state.multiFiles[toolId] || [];
+        files.forEach((f, i) => formData.append('file' + i, f));
+        formData.append('filecount', String(files.length));
     }
     formData.append('count', count);
 
@@ -374,9 +376,9 @@ function processQuiz() {
             return;
         }
     } else {
-        const file = state.files[toolId];
-        if (!file) {
-            showToast('Please upload a file first', 'error');
+        const files = state.multiFiles[toolId];
+        if (!files || files.length === 0) {
+            showToast('Please upload at least one file', 'error');
             return;
         }
     }
@@ -387,7 +389,9 @@ function processQuiz() {
     if (inputMode === 'paste') {
         formData.append('text', text);
     } else {
-        formData.append('file', state.files[toolId]);
+        const files = state.multiFiles[toolId] || [];
+        files.forEach((f, i) => formData.append('file' + i, f));
+        formData.append('filecount', String(files.length));
     }
     formData.append('count', count);
     formData.append('difficulty', difficulty);
