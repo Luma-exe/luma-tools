@@ -2764,11 +2764,10 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
                     "STRUCTURE FOR EVERY CONCEPT (condensed for cheat-sheet style):\n"
                     "(1) ONE-LINE PLAIN ENGLISH INTRODUCTION: What is this in everyday terms? Before any symbols.\n"
-                    "(2) REAL-WORLD ANALOGY: One sentence connecting the concept to something familiar. The analogy must be accurate — it must actually reflect how the concept works. If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one. After the analogy, add one phrase explicitly stating how it maps to the concept.\n"
-                    "(3) FORMULA or DEFINITION: Show the formal content.\n"
-                    "(4) EXPLAIN EVERY PART: List every symbol, variable, term, or keyword with a plain-English label. Nothing left unexplained.\n"
-                    "(5) FULLY WORKED EXAMPLE: One complete example from start to finish with every arithmetic step shown and a plain-English sentence at the end explaining what the answer means.\n"
-                    "(6) ONE-SENTENCE SUMMARY: End every concept with a single plain-English sentence that captures the whole idea.\n\n"
+                    "(2) FORMULA or DEFINITION: Show the formal content.\n"
+                    "(3) EXPLAIN EVERY PART: List every symbol, variable, term, or keyword with a plain-English label. Nothing left unexplained.\n"
+                    "(4) FULLY WORKED EXAMPLE: One complete example from start to finish with every arithmetic step shown and a plain-English sentence at the end explaining what the answer means.\n"
+                    "(5) ONE-SENTENCE SUMMARY: End every concept with a single plain-English sentence that captures the whole idea.\n\n"
 
                     "RULES FOR WORKED EXAMPLES — NON-NEGOTIABLE:\n"
                     "- Every example must be COMPLETELY FINISHED with actual numbers and every arithmetic step written out.\n"
@@ -2812,8 +2811,6 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Does every concept have a plain-English explanation before the technical content?\n"
                     "- Is every symbol, keyword, and abbreviation explained?\n"
                     "- Were any sections from the source silently dropped?\n"
-                    "- Is every analogy accurate and explicitly mapped to the concept?\n"
-                    "- Could any analogy create a misconception or teach something wrong, even if it seems roughly accurate? If yes, replace it or explicitly tell the reader no accurate analogy exists.\n"
                     "- Were any sections that were already complete and correct left alone?\n"
                     "Fix anything that fails before outputting.\n\n"
                     "Goal: a student returning after time away picks this up cold and immediately recalls how to use everything.";
@@ -2843,34 +2840,19 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
                     "STRUCTURE FOR EVERY CONCEPT (follow this order strictly):\n"
                     "Step 1 — PLAIN ENGLISH INTRODUCTION: Before ANY symbols or formulas, write a plain-English paragraph explaining what this concept is in simple everyday language. Pretend you are explaining it to someone who has never heard of it before.\n"
-                    "Step 2 — REAL-WORLD ANALOGY: Connect the concept to something familiar from everyday life. "
-                        "The analogy must be ACCURATE — it must actually reflect how the concept works, not just sound vaguely similar. "
-                        "If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one. "
-                        "Prefer analogies from everyday life anyone would recognise: cooking, sport, navigation, shopping, building things. "
-                        "After giving the analogy, always explicitly state how it maps to the technical concept (e.g. 'In our analogy, the table is the plane, and the pole is the normal vector'). "
-                        "Never use an analogy that could create a misconception about how the concept actually works. "
-                        "(Examples of good analogies: for cross product: 'two arrows lying flat on a table — the cross product shoots a new arrow straight up through the table, perpendicular to both'; "
-                        "for normal vector: 'a flat table — the normal is the pole sticking straight up out of it, telling you which direction the surface faces'; "
-                        "for parametric equations: 't is like time — at t=0 you are at the start, as t increases you walk along the curve'.)\n"
-                    "Step 3 — FORMAL DEFINITION or FORMULA: Introduce the proper technical definition, formula, code syntax, legal principle, or formal statement.\n"
-                    "Step 4 — EXPLAIN EVERY PART: Go through every symbol, keyword, variable, term, or clause and explain what it means in plain English. Nothing should be left unexplained.\n"
-                    "Step 5 — FULLY WORKED EXAMPLE: Show a complete example from start to finish. Write a short sentence before EACH arithmetic step saying what you are about to do and why. "
+                    "Step 2 — FORMAL DEFINITION or FORMULA: Introduce the proper technical definition, formula, code syntax, legal principle, or formal statement.\n"
+                    "Step 3 — EXPLAIN EVERY PART: Go through every symbol, keyword, variable, term, or clause and explain what it means in plain English. Nothing should be left unexplained.\n"
+                    "Step 4 — FULLY WORKED EXAMPLE: Show a complete example from start to finish. Write a short sentence before EACH arithmetic step saying what you are about to do and why. "
                         "Show every multiplication, every subtraction, every simplification — no skipping. "
                         "If a step uses a rule or formula, briefly remind the reader what that rule is before applying it. "
                         "The example must go all the way from the starting numbers to the final answer with nothing omitted.\n"
-                    "Step 6 — MEANING OF THE ANSWER: Write a plain-English sentence explaining what the answer actually means in real life or in the problem's context.\n"
-                    "Step 7 — ONE-SENTENCE SUMMARY: End every concept with a single plain-English sentence that captures the whole idea.\n\n"
+                    "Step 5 — MEANING OF THE ANSWER: Write a plain-English sentence explaining what the answer actually means in real life or in the problem's context.\n"
+                    "Step 6 — ONE-SENTENCE SUMMARY: End every concept with a single plain-English sentence that captures the whole idea.\n\n"
 
                     "RULES FOR WORKED EXAMPLES — NON-NEGOTIABLE:\n"
                     "- Never set up a problem and then stop — every example must be fully completed.\n"
                     "- Show every single step even if it seems too simple or obvious.\n"
                     "- NEVER use example data that breaks the concept being demonstrated: no collinear points for a plane, no empty list for a sorting algorithm, no law that clearly does not apply for a legal principle, no parallel vectors for a cross product.\n\n"
-
-                    "RULES FOR ANALOGIES:\n"
-                    "- The analogy must be accurate — it must actually reflect how the concept works, not just sound vaguely similar.\n"
-                    "- If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one.\n"
-                    "- After giving the analogy always explicitly state how it maps to the technical concept so the connection is clear.\n"
-                    "- Never use an analogy that could create a misconception about how the concept actually works.\n\n"
 
                     "RULES FOR PLAIN ENGLISH EXPLANATIONS:\n"
                     "- Never use technical jargon without immediately explaining it in the next sentence.\n"
@@ -2906,13 +2888,12 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Never use a symbol, keyword, term, or abbreviation without explaining what it means.\n"
                     "- Never write a wall of technical content with no plain-English explanation in between.\n"
                     "- Never skip steps in a calculation, proof, or code walkthrough even if they seem trivial.\n"
-                    "- Never use an analogy that is inaccurate or that could create a misconception.\n"
                     "- Never choose example data that makes the concept break down or gives a trivial or misleading result.\n"
                     "- Never rewrite sections that are already working well — only add what is genuinely missing.\n"
                     "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n\n"
 
                     "ONE FINAL RULE — DO NOT FIX WHAT IS NOT BROKEN:\n"
-                    "If a section of notes already has clear plain-English explanations, accurate analogies, and fully worked examples, do not rewrite it. "
+                    "If a section of notes already has clear plain-English explanations and fully worked examples, do not rewrite it. "
                     "Only add what is genuinely missing. The goal is to improve the notes, not to replace good content with different content.\n\n"
 
                     "LENGTH MANAGEMENT:\n"
@@ -2925,16 +2906,13 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "(4) Does every new concept explicitly connect back to something already covered?\n"
                     "(5) Is every symbol, keyword, term, and abbreviation explained?\n"
                     "(6) Are common mistakes and edge cases flagged?\n"
-                    "(7) Is every analogy accurate and explicitly mapped to the concept?\n"
-                    "(7b) Could any analogy create a misconception or teach something wrong, even if it seems roughly accurate? If yes, replace it or explicitly tell the reader no accurate analogy exists.\n"
-                    "(8) Does the cross product section OPEN with the dot-product comparison paragraph BEFORE any formula or symbol?\n"
-                    "(9) Is the j-sign blockquote warning present immediately after the cross product determinant formula?\n"
-                    "(10) Does every concept have an analogy before the symbols?\n"
-                    "(11) Were any sections from the source dropped?\n"
-                    "(12) Is the parametric equations section present with a 3D example connected to the vector line equation?\n"
-                    "(13) Is the Cartesian line equation written in full standard form with a zero-component note where needed?\n"
-                    "(14) Was the meaning of a,b,c in the plane equation explained as the normal vector?\n"
-                    "(15) Have I avoided deleting or replacing worked examples that were already complete and correct?\n"
+                    "(7) Does the cross product section OPEN with the dot-product comparison paragraph BEFORE any formula or symbol?\n"
+                    "(8) Is the j-sign blockquote warning present immediately after the cross product determinant formula?\n"
+                    "(9) Were any sections from the source dropped?\n"
+                    "(10) Is the parametric equations section present with a 3D example connected to the vector line equation?\n"
+                    "(11) Is the Cartesian line equation written in full standard form with a zero-component note where needed?\n"
+                    "(12) Was the meaning of a,b,c in the plane equation explained as the normal vector?\n"
+                    "(13) Have I avoided deleting or replacing worked examples that were already complete and correct?\n"
                     "If any answer is no, fix that section before finishing.";
 
             } else {
@@ -2960,26 +2938,14 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
                     "STRUCTURE FOR EVERY CONCEPT:\n"
                     "(1) PLAIN ENGLISH INTRODUCTION: Before any symbols or formulas, explain what this concept is in simple everyday language. Pretend you are explaining it to someone who has never heard of it before.\n"
-                    "(2) REAL-WORLD ANALOGY: Connect the concept to something familiar from everyday life. "
-                        "The analogy must be ACCURATE — it must actually reflect how the concept works, not just sound vaguely similar. "
-                        "Prefer analogies from everyday life anyone would recognise: cooking, sport, navigation, shopping, building things. "
-                        "If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one. "
-                        "After giving the analogy, always explicitly state how it maps to the technical concept so the connection is clear. "
-                        "Never use an analogy that could create a misconception about how the concept actually works.\n"
-                    "(3) FORMAL DEFINITION: Introduce the mathematical definition, legal principle, code syntax, or formal statement.\n"
-                    "(4) EXPLAIN EVERY PART: Go through every symbol, keyword, variable, term, or clause and explain what it means in plain English. Nothing left unexplained. Include units where applicable.\n"
-                    "(5) FULLY WORKED EXAMPLE: Completely solved with every step of arithmetic/algebra shown and a brief sentence at each step explaining what you are doing and why. "
+                    "(2) FORMAL DEFINITION: Introduce the mathematical definition, legal principle, code syntax, or formal statement.\n"
+                    "(3) EXPLAIN EVERY PART: Go through every symbol, keyword, variable, term, or clause and explain what it means in plain English. Nothing left unexplained. Include units where applicable.\n"
+                    "(4) FULLY WORKED EXAMPLE: Completely solved with every step of arithmetic/algebra shown and a brief sentence at each step explaining what you are doing and why. "
                         "If a step uses a rule or formula, briefly remind the reader what that rule is before applying it. "
                         "End with a plain-English sentence explaining what the answer means in real life or in the problem's context.\n"
-                    "(6) CONNECTIONS: Explicitly link back to earlier concepts using 'Remember how we said...', 'This is similar to...', 'Unlike X which did Y, this does Z'.\n"
-                    "(7) ONE-SENTENCE SUMMARY: End every concept with a single plain-English sentence that captures the whole idea.\n"
-                    "(8) EXAM HINTS and COMMON MISTAKES: Flag anything students commonly get wrong, including sign errors, edge cases, and cases where a formula does not apply.\n\n"
-
-                    "RULES FOR ANALOGIES:\n"
-                    "- The analogy must be accurate — it must actually reflect how the concept works, not just sound vaguely similar.\n"
-                    "- If no accurate analogy exists, explicitly tell the reader that rather than forcing a misleading one.\n"
-                    "- After giving the analogy always explicitly state how it maps to the technical concept.\n"
-                    "- Never use an analogy that could create a misconception about how the concept actually works.\n\n"
+                    "(5) CONNECTIONS: Explicitly link back to earlier concepts using 'Remember how we said...', 'This is similar to...', 'Unlike X which did Y, this does Z'.\n"
+                    "(6) ONE-SENTENCE SUMMARY: End every concept with a single plain-English sentence that captures the whole idea.\n"
+                    "(7) EXAM HINTS and COMMON MISTAKES: Flag anything students commonly get wrong, including sign errors, edge cases, and cases where a formula does not apply.\n\n"
 
                     "RULES FOR PLAIN ENGLISH:\n"
                     "- Never use technical jargon without immediately explaining it in plain English in the next sentence.\n"
@@ -3014,13 +2980,12 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Never use a symbol, keyword, term, or abbreviation without explaining what it means.\n"
                     "- Never write a wall of technical content with no plain-English explanation in between.\n"
                     "- Never skip steps in a calculation, proof, code walkthrough, or legal analysis even if they seem trivial.\n"
-                    "- Never use an analogy that is inaccurate or that could create a misconception.\n"
                     "- Never choose example data that makes the concept break down or gives a trivial or misleading result.\n"
                     "- Never rewrite sections that are already working well — only add what is genuinely missing.\n"
                     "- If the source material contains an error, an incomplete example, or degenerate data, fix it and add a > blockquote note explaining what was changed and why. Never silently reproduce an error from the source.\n\n"
 
                     "ONE FINAL RULE — DO NOT FIX WHAT IS NOT BROKEN:\n"
-                    "If a section of notes already has clear plain-English explanations, accurate analogies, and fully worked examples, do not rewrite it. "
+                    "If a section of notes already has clear plain-English explanations and fully worked examples, do not rewrite it. "
                     "Only add what is genuinely missing. The goal is to improve the notes, not to replace good content with different content.\n\n"
 
                     "DEPTH TARGETS for In Depth mode:\n"
@@ -3039,9 +3004,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "(5) Is every symbol, keyword, term, and abbreviation explained?\n"
                     "(6) Are common mistakes and edge cases flagged?\n"
                     "(7) Would the plain-English explanations make sense to someone who has never studied this subject?\n"
-                    "(8) Is every analogy accurate and explicitly mapped to the concept?\n"
-                    "(8b) Could any analogy create a misconception or teach something wrong, even if it seems roughly accurate? Replace it or explicitly tell the reader no accurate analogy exists.\n"
-                    "(9) Have I avoided deleting or replacing worked examples that were already complete and correct?\n"
+                    "(8) Have I avoided deleting or replacing worked examples that were already complete and correct?\n"
                     "(10) Does the cross product section open with the dot-product comparison paragraph BEFORE any formula?\n"
                     "(11) Is the j-sign blockquote warning present immediately after the cross product determinant formula?\n"
                     "(12) Were any sections from the source omitted?\n"
@@ -3063,31 +3026,30 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "\n\n---\n\nCRITICAL REMINDER: Every example must be COMPLETELY SOLVED with real numbers and every arithmetic step written out. "
                     "NEVER write 'plug in the values' and stop. NEVER use '...' as a placeholder. If an example has no numbers, invent clean ones and solve it fully.\n\n" +
                     (depth == "simple" ?
-                        "Create concise notes covering every checklist item. Real-world analogy before each concept. For each formula: one plain-English sentence, then the formula, then symbol definitions, then one minimal but FULLY SOLVED example with every step shown." :
+                        "Create concise notes covering every checklist item. For each formula: one plain-English sentence, then the formula, then symbol definitions, then one minimal but FULLY SOLVED example with every step shown." :
                      depth == "eli6" ?
                         "Create plain-English notes for every checklist item following all your instructions. "
-                        "Real-world analogy BEFORE any symbols for every concept. Every formula explained in plain English first, every symbol defined. "
+                        "Every formula explained in plain English first, every symbol defined. "
                         "EVERY example completely solved — actual numbers, every arithmetic step, a sentence at each step, plain-English meaning of the answer. "
                         "Assume zero prior knowledge. Use the determinant grid method for cross products." :
-                        "Create thorough notes for every checklist item. Real-world analogy before each concept. "
+                        "Create thorough notes for every checklist item. "
                         "Every formula: plain English first, all variables defined, FULLY worked example with every step. "
                         "Exam hints, common mistakes, connections between topics, summary table at the end.");
             } else {
                 user_prompt = (depth == "simple" ?
                     "Create concise study notes from the following content. "
                     "CRITICAL: Every example must be completely solved with real numbers — never write 'plug in values' and stop, never use '...' as a placeholder. "
-                    "Real-world analogy before each concept. For each formula: plain-English sentence, formula, symbol definitions, one fully-solved minimal example:\n\n" :
+                    "For each formula: plain-English sentence, formula, symbol definitions, one fully-solved minimal example:\n\n" :
                  depth == "eli6" ?
                     "Create plain-English study notes from the following content, following all the rules in your instructions exactly. "
-                    "CRITICAL REMINDERS: (1) Real-world analogy BEFORE any formulas or symbols for every concept. "
-                    "(2) Every example must be COMPLETELY solved — actual numbers, every multiplication and subtraction written out, a sentence at each step, never stop at 'plug in the values'. "
-                    "(3) NEVER use '...' as a placeholder — use real numbers. "
-                    "(4) For cross products, explain and use the 3x3 determinant grid method as it is easier to remember. "
-                    "(5) Every symbol explained in plain English. Connections back to earlier concepts throughout. "
+                    "CRITICAL REMINDERS: (1) Every example must be COMPLETELY solved — actual numbers, every multiplication and subtraction written out, a sentence at each step, never stop at 'plug in the values'. "
+                    "(2) NEVER use '...' as a placeholder — use real numbers. "
+                    "(3) For cross products, explain and use the 3x3 determinant grid method as it is easier to remember. "
+                    "(4) Every symbol explained in plain English. Connections back to earlier concepts throughout. "
                     "Assume the reader has not done maths in years:\n\n" :
                     "Create thorough, in-depth study notes from the following lecture content. "
                     "CRITICAL: Every example must be completely solved — never write 'plug in values' and stop, never use '...' as a placeholder. If numbers are missing, invent them. "
-                    "For each concept: real-world analogy first, plain-English explanation, formal definition, fully worked example with every step shown. "
+                    "For each concept: plain-English explanation, formal definition, fully worked example with every step shown. "
                     "For each formula: plain English before showing it, all variables defined, memory tips (e.g. determinant grid for cross products), fully worked example. "
                     "Exam hints, common mistakes, connections between topics, summary table at end of each major section:\n\n")
                     + text;
