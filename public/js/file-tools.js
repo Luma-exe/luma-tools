@@ -504,7 +504,13 @@ function getFilenameFromResponse(res) {
 function showProcessing(toolId, show) {
     const el = document.querySelector(`.processing-status[data-tool="${toolId}"]`);
 
-    if (el) el.classList.toggle('hidden', !show);
+    if (el) {
+        el.classList.toggle('hidden', !show);
+        if (show) {
+            const procText = el.querySelector('.processing-text');
+            if (procText) procText.textContent = procText.dataset.default || 'Processing...';
+        }
+    }
     const panel = document.getElementById('tool-' + toolId);
     const btn = panel?.querySelector('.process-btn');
 
