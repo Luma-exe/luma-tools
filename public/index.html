@@ -1940,6 +1940,14 @@
                             <button class="preset-btn" data-val="eli6" onclick="selectPreset(this)"><i class="fas fa-child"></i><span>Explain Simply</span><small>No jargon</small></button>
                         </div>
                     </div>
+                    <div class="tool-options">
+                        <label class="option-label">Numbered sections</label>
+                        <div class="preset-grid" data-tool="study-notes-numbering" style="grid-template-columns:repeat(3,1fr)">
+                            <button class="preset-btn" data-val="full" onclick="selectPreset(this)"><i class="fas fa-list-ol"></i><span>1.0, 1.1&hellip;</span><small>Full hierarchy</small></button>
+                            <button class="preset-btn active" data-val="titles" onclick="selectPreset(this)"><i class="fas fa-hashtag"></i><span>1., 2., 3.&hellip;</span><small>Titles only</small></button>
+                            <button class="preset-btn" data-val="none" onclick="selectPreset(this)"><i class="fas fa-ban"></i><span>No numbers</span><small>Clean format</small></button>
+                        </div>
+                    </div>
                     <div class="tool-options" id="study-notes-math-option">
                         <label class="option-label">Math notation <span style="font-weight:400;opacity:0.6;font-size:0.85em">(rendered in preview &amp; output)</span></label>
                         <div class="preset-grid" data-tool="study-notes-math" style="grid-template-columns:repeat(3,1fr)">

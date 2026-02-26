@@ -2389,6 +2389,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         string format   = req.has_file("format") ? req.get_file_value("format").content : "markdown";
         string math_fmt  = req.has_file("math")   ? req.get_file_value("math").content   : "dollar";
         string depth     = req.has_file("depth")  ? req.get_file_value("depth").content  : "indepth";
+        string numbering = req.has_file("numbering") ? req.get_file_value("numbering").content : "titles";
         string jid = generate_job_id();
         string proc = get_processing_dir();
         
@@ -2442,7 +2443,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
         update_job(jid, {{"status", "processing"}, {"progress", 10}, {"stage", has_text ? "Processing pasted text..." : "Extracting text from file..."}});
 
-        thread([jid, input_text, input_path, file_ext, format, math_fmt, depth, proc, has_text, filename, ip, input_desc]() {
+        thread([jid, input_text, input_path, file_ext, format, math_fmt, depth, numbering, proc, has_text, filename, ip, input_desc]() {
           string txt_path = proc + "/" + jid + "_text.txt";
           try {
             string text;
@@ -2740,14 +2741,31 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     math_instruction = " Do not use any special math notation delimiters — write all mathematical expressions in plain readable text.";
                 }
             }
+            string numbering_instruction;
+            if (numbering == "full") {
+                numbering_instruction = " Number ALL headings in a full hierarchy: ## 1. Section, ### 1.1 Sub-section, #### 1.1.1 Detail. Every heading at every level gets a number.";
+            } else if (numbering == "titles") {
+                numbering_instruction = " Number main section headings only (##) as 1., 2., 3. etc. Sub-sections (###) are NOT numbered.";
+            } else {
+                numbering_instruction = " Do NOT add numbers to any headings.";
+            }
+
             string style_instruction;
             if (format == "markdown") {
                 style_instruction = "Format the output as clean Markdown optimised for Obsidian. "
-                    "Use ## headings (never numbered). Use bullet points for all details — never long paragraphs. "
-                    "Bold (**) every key term on first use. Use > blockquotes for instructor emphasis points and exam hints. "
-                    "Use `code blocks` only for actual programming code, never for maths." + math_instruction;
+                    "FORMATTING RULES — follow all of these without exception:\n"
+                    "- No emojis anywhere in the output.\n"
+                    "- Bold (**term**) every key term the FIRST time it appears only — never bold the same term a second time.\n"
+                    "- Use > blockquotes for: formal definitions, warnings, exam hints, and 'what this means in practice' explanations.\n"
+                    "- Separate every major concept section with a --- horizontal rule.\n"
+                    "- Use ## for main sections and ### for subsections.\n"
+                    "- Use markdown tables for term/symbol explanations and side-by-side comparisons between concepts.\n"
+                    "- Use $$ display math (on its own line) for full calculations; use $ inline math for short expressions within text.\n"
+                    "- Inside worked examples use numbered steps (1. 2. 3.) only — never bullet points.\n"
+                    "- End the entire document with a Summary Table (all key formulas and terms) followed by a Key Takeaways section.\n"
+                    + numbering_instruction + math_instruction;
             } else {
-                style_instruction = "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points.";
+                style_instruction = "Write clear, readable plain text notes with UPPERCASE section labels and dash bullet points. Do NOT use emojis.";
             }
 
             string depth_instruction;
@@ -2827,7 +2845,15 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "- Does every calculation actually teach something important about the concept, or is it just numbers for the sake of having numbers?\n"
                     "- Are there any concepts easily confused with each other that have not been directly compared?\n"
                     "Fix anything that fails before outputting.\n\n"
-                    "Goal: a student returning after time away picks this up cold and immediately recalls how to use everything.";
+                    "Goal: a student returning after time away picks this up cold and immediately recalls how to use everything.\n\n"
+
+                    "IMPORTANT — SIMPLE MODE RESTRICTION:\n"
+                    "Do NOT create the following ### section headers (they are for In-Depth mode only):\n"
+                    "- '### Every Term Explained'\n"
+                    "- '### Fully Worked Example — ...'\n"
+                    "- '### Connections'\n"
+                    "- '### Exam Hints'\n"
+                    "You may include worked examples and term definitions as part of the flowing concept explanation under its ## heading — just do not give them their own separate ### section headers.";
 
             } else if (depth == "eli6") {
                 depth_instruction =
@@ -2941,7 +2967,15 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "(15) Are there any contradictions between sections — e.g. a calculation produces result X in one section but a different value when referenced in another?\n"
                     "(16) Does every calculation actually teach something important about the concept, or is it just numbers for the sake of having numbers?\n"
                     "(17) Are there any concepts easily confused with each other that have not been directly compared in a table or explicit contrast paragraph?\n"
-                    "If any answer is no, fix that section before finishing.";
+                    "If any answer is no, fix that section before finishing.\n\n"
+
+                    "IMPORTANT — EXPLAIN SIMPLY MODE RESTRICTION:\n"
+                    "Do NOT create the following ### section headers (they are for In-Depth mode only):\n"
+                    "- '### Every Term Explained'\n"
+                    "- '### Fully Worked Example — ...'\n"
+                    "- '### Connections'\n"
+                    "- '### Exam Hints'\n"
+                    "You may include worked examples and term definitions as part of the flowing concept explanation under its ## heading — just do not give them their own separate ### section headers.";
 
             } else {
                 // indepth (default)
@@ -2964,16 +2998,14 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "If no numbers are given in the source, invent clean numbers and solve the full example yourself. "
                     "This rule overrides everything else.\n\n"
 
-                    "STRUCTURE FOR EVERY CONCEPT:\n"
-                    "(1) PLAIN ENGLISH INTRODUCTION: Before any symbols or formulas, explain what this concept is in simple everyday language. Pretend you are explaining it to someone who has never heard of it before.\n"
-                    "(2) FORMAL DEFINITION: Introduce the mathematical definition, legal principle, code syntax, or formal statement.\n"
-                    "(3) EXPLAIN EVERY PART: Go through every symbol, keyword, variable, term, or clause and explain what it means in plain English. Nothing left unexplained. Include units where applicable.\n"
-                    "(4) FULLY WORKED EXAMPLE: Completely solved with every step of arithmetic/algebra shown and a brief sentence at each step explaining what you are doing and why. "
-                        "If a step uses a rule or formula, briefly remind the reader what that rule is before applying it. "
-                        "End with a plain-English sentence explaining what the answer means in real life or in the problem's context.\n"
-                    "(5) CONNECTIONS: Explicitly link back to earlier concepts using 'Remember how we said...', 'This is similar to...', 'Unlike X which did Y, this does Z'.\n"
-                    "(6) ONE-SENTENCE SUMMARY: End every concept with a single plain-English sentence that captures the whole idea.\n"
-                    "(7) EXAM HINTS and COMMON MISTAKES: Flag anything students commonly get wrong, including sign errors, edge cases, and cases where a formula does not apply.\n\n"
+                    "SECTION STRUCTURE FOR EVERY CONCEPT (use these exact ### headings in this order):\n"
+                    "(1) ### Plain-English Introduction — 2–4 sentences in everyday language BEFORE any symbols or formulas explaining what this concept is.\n"
+                    "(2) ### Formal Definition — the precise mathematical/formal definition placed inside a > blockquote.\n"
+                    "(3) ### Every Term Explained — a markdown table with columns: Term/Symbol | Plain-English Meaning | Units (if any). Cover every variable, symbol, keyword, and clause.\n"
+                    "(4) ### Fully Worked Example — [Descriptive Title] — use numbered steps (1. 2. 3.) only, never bullet points. Show every arithmetic step. Bold the final **Answer:**. Close with a > blockquote: *What this means in practice: ...*\n"
+                    "(5) ### Connections — a bullet list explicitly linking this concept to related earlier or later sections by their section number/name.\n"
+                    "(6) ### One-Sentence Summary — exactly one plain-English sentence capturing the whole idea.\n"
+                    "(7) ### Exam Hints — a > blockquote with targeted exam advice plus an explicit **Common mistake:** line flagging the most frequent error.\n\n"
 
                     "RULES FOR PLAIN ENGLISH:\n"
                     "- Never use technical jargon without immediately explaining it in plain English in the next sentence.\n"
