@@ -1093,6 +1093,15 @@ body {
     border-radius: 4px;
     transition: width 0.4s ease;
 }
+.progress-bar.processing {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+    background-size: 200% 100%;
+    animation: progressShimmer 1.6s ease-in-out infinite;
+}
+@keyframes progressShimmer {
+    0%   { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
 
 .progress-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .progress-icon { font-size: 1.5rem; color: var(--accent); }

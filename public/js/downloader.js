@@ -194,6 +194,7 @@ function selectQuality(quality) {
 async function startDownload() {
     if (!state.url) return;
     $('downloadBtn').disabled = true;
+    state.downloadLastProgress = 0;
     showDlSection('progress');
 
     try {
@@ -218,24 +219,38 @@ function pollDownloadStatus() {
 
             if (data.status === 'completed') {
                 clearInterval(state.pollInterval); state.pollInterval = null;
+                $('progressBar').classList.remove('processing');
                 $('progressBar').style.width = '100%'; $('progressTitle').textContent = 'Complete!'; $('progressStatus').textContent = 'Preparing file...';
                 setTimeout(() => { $('saveBtn').href = data.download_url; $('saveBtn').download = lumaTag(data.filename || 'download'); showDlSection('complete'); }, 600);
             } else if (data.status === 'error') {
                 clearInterval(state.pollInterval); state.pollInterval = null;
+                $('progressBar').classList.remove('processing');
                 showToast('Download error: ' + (data.error || 'Unknown error'), 'error');
                 showDlSection('media'); $('downloadBtn').disabled = false;
             } else {
                 const pct = data.progress || 0;
-                $('progressBar').style.width = Math.max(pct, 2) + '%';
-                const pctEl = $('progressPct'); if (pctEl) pctEl.textContent = pct > 0 ? pct.toFixed(1) + '%' : '';
+                // Monotonic cap: never let displayed progress go backward
+                // (prevents visible regression when yt-dlp resets to 0% for a second stream)
+                const displayPct = Math.max(pct, state.downloadLastProgress || 0);
+                state.downloadLastProgress = displayPct;
+
+                $('progressBar').style.width = Math.max(displayPct, 2) + '%';
+                const pctEl = $('progressPct'); if (pctEl) pctEl.textContent = displayPct > 0 ? displayPct.toFixed(1) + '%' : '';
 
                 if (data.speed) { const el = $('progressSpeed'); if (el) el.textContent = data.speed; }
                 const etaEl = $('progressEta'); if (etaEl) etaEl.textContent = (data.eta != null && data.eta >= 0) ? formatETA(data.eta) : '';
 
                 if (data.filesize) { const el = $('progressSize'); if (el) el.textContent = data.filesize; }
-                if (data.status === 'processing') { $('progressStatus').textContent = 'Processing file...'; $('progressBar').style.width = '95%'; }
-                else if (data.status === 'downloading') { $('progressStatus').textContent = 'Downloading...'; }
-                else { $('progressStatus').textContent = 'Starting download...'; }
+                if (data.status === 'processing') {
+                    $('progressStatus').textContent = data.processing_msg || 'Processing file...';
+                    $('progressBar').classList.add('processing');
+                } else if (data.status === 'downloading') {
+                    $('progressStatus').textContent = 'Downloading...';
+                    $('progressBar').classList.remove('processing');
+                } else {
+                    $('progressStatus').textContent = 'Starting download...';
+                    $('progressBar').classList.remove('processing');
+                }
             }
         } catch (err) { /* keep polling */ }
     }, 800);
@@ -247,7 +262,7 @@ function resetDownloaderUI() {
     if (urlInput) urlInput.value = '';
     state.url = ''; state.mediaInfo = null; state.downloadId = null;
     state.selectedFormat = 'mp3'; state.selectedQuality = 'best';
-    state.isDownloading = false; state.playlistItems = []; state.batchResults = [];
+    state.isDownloading = false; state.playlistItems = []; state.batchResults = []; state.downloadLastProgress = 0;
 
     if (state.pollInterval) { clearInterval(state.pollInterval); state.pollInterval = null; }
     const badge = $('platformBadge');
@@ -257,7 +272,7 @@ function resetDownloaderUI() {
 
     if (wrapper) wrapper.classList.remove('detected');
     const db = $('downloadBtn'); if (db) db.disabled = false;
-    const pb = $('progressBar'); if (pb) pb.style.width = '0%';
+    const pb = $('progressBar'); if (pb) { pb.style.width = '0%'; pb.classList.remove('processing'); }
     const pi = $('playlistItems'); if (pi) pi.innerHTML = '';
     const bf = $('batchFiles'); if (bf) bf.innerHTML = '';
     $$('#tool-downloader .format-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.format === 'mp3'));
@@ -393,6 +408,7 @@ async function startPlaylistDownload() {
 
 function pollBatchItem(downloadId) {
     return new Promise((resolve) => {
+        let lastItemProgress = 0;
         const interval = setInterval(async () => {
             try {
                 const res = await fetch(`/api/status/${downloadId}`);
@@ -405,8 +421,10 @@ function pollBatchItem(downloadId) {
                     clearInterval(interval); resolve({ status: 'error', error: data.error || 'Download failed' });
                 } else {
                     const pct = data.progress || 0;
-                    $('batchItemBar').style.width = Math.max(pct, 2) + '%';
-                    $('batchItemPct').textContent = pct > 0 ? pct.toFixed(1) + '%' : '';
+                    const displayPct = Math.max(pct, lastItemProgress);
+                    lastItemProgress = displayPct;
+                    $('batchItemBar').style.width = Math.max(displayPct, 2) + '%';
+                    $('batchItemPct').textContent = displayPct > 0 ? displayPct.toFixed(1) + '%' : '';
 
                     if (data.speed) $('batchItemSpeed').textContent = data.speed;
                     if (data.eta != null && data.eta >= 0) $('batchItemEta').textContent = formatETA(data.eta);

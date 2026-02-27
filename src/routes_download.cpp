@@ -331,11 +331,17 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
             cout << "[Luma Tools] Download cmd: " << cmd << endl;
 
-            thread([cmd, download_id, dl_dir, client_ip, title]() {
+            thread([cmd, download_id, dl_dir, client_ip, title, format]() {
                 update_download_status(download_id, {
                     {"status", "downloading"}, {"progress", 0},
                     {"eta", nullptr}, {"speed", ""}, {"filesize", ""}
                 });
+
+                // For MP4 downloads yt-dlp fetches video and audio as separate streams.
+                // Track how many streams have started so we can scale the combined progress:
+                // stream 1 maps to 0-50%, stream 2 maps to 50-100%, avoiding regressions.
+                bool two_streams_expected = (format == "mp4");
+                int stream_count = 0;
 
                 string full_output;
                 array<char, 4096> buffer;
@@ -352,6 +358,11 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                     while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
                         string line(buffer.data());
                         full_output += line;
+
+                        // Each "[download] Destination:" line marks the start of a new stream.
+                        if (line.find("[download] Destination:") != string::npos) {
+                            stream_count++;
+                        }
 
                         if (line.find("[download]") != string::npos && line.find('%') != string::npos) {
                             double pct = 0;
@@ -410,20 +421,40 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                                 else if (n == 3) eta_seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
                             }
 
+                            // Scale progress to avoid regressions when yt-dlp downloads
+                            // video and audio as two separate streams for MP4.
+                            double display_pct = pct;
+                            if (two_streams_expected) {
+                                display_pct = (stream_count <= 1) ? (pct / 2.0) : (50.0 + pct / 2.0);
+                            }
+
                             json st = {
-                                {"status", "downloading"}, {"progress", pct},
+                                {"status", "downloading"}, {"progress", display_pct},
                                 {"speed", sanitize_utf8(speed_str)}, {"filesize", sanitize_utf8(size_str)}
                             };
                             if (eta_seconds >= 0) st["eta"] = eta_seconds;
                             else st["eta"] = nullptr;
                             update_download_status(download_id, st);
                         }
-                        else if (line.find("[ExtractAudio]") != string::npos ||
-                                 line.find("[Merger]") != string::npos ||
-                                 line.find("[ffmpeg]") != string::npos) {
+                        else if (line.find("[ExtractAudio]") != string::npos) {
                             update_download_status(download_id, {
                                 {"status", "processing"}, {"progress", 95},
-                                {"eta", nullptr}, {"speed", ""}, {"filesize", ""}
+                                {"eta", nullptr}, {"speed", ""}, {"filesize", ""},
+                                {"processing_msg", "Converting audio..."}
+                            });
+                        }
+                        else if (line.find("[Merger]") != string::npos) {
+                            update_download_status(download_id, {
+                                {"status", "processing"}, {"progress", 95},
+                                {"eta", nullptr}, {"speed", ""}, {"filesize", ""},
+                                {"processing_msg", "Merging video & audio..."}
+                            });
+                        }
+                        else if (line.find("[ffmpeg]") != string::npos) {
+                            update_download_status(download_id, {
+                                {"status", "processing"}, {"progress", 95},
+                                {"eta", nullptr}, {"speed", ""}, {"filesize", ""},
+                                {"processing_msg", "Processing..."}
                             });
                         }
                     }
