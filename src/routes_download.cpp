@@ -309,10 +309,15 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             if (format == "mp3") {
                 cmd += "-x --audio-format mp3 --audio-quality 0 ";
             } else if (format == "mp4") {
-                string mp4_audio = "--merge-output-format mp4 --postprocessor-args \"ffmpeg:-c:v copy -c:a aac -b:a 192k\" ";
+                // -c:v copy -c:a copy: stream-copy both streams — no re-encoding at all.
+                // ffmpeg just wraps the existing compressed data into an mp4 container,
+                // which takes ~1-2s regardless of video length vs 30-60s for audio transcode.
+                // Format selector prefers mp4 video + m4a audio first (already AAC, so copy
+                // is guaranteed lossless), then falls back to any best streams.
+                string mp4_merge = "--merge-output-format mp4 --postprocessor-args \"ffmpeg:-c:v copy -c:a copy\" ";
 
                 if (quality == "best") {
-                    cmd += "-f \"bv*+ba/b\" " + mp4_audio;
+                    cmd += "-f \"bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b\" " + mp4_merge;
                 } else {
                     string height = quality;
                     height.erase(std::remove(height.begin(), height.end(), 'p'), height.end());
@@ -323,7 +328,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                         res.set_content(json({{"error","Invalid quality parameter"}}).dump(), "application/json");
                         return;
                     }
-                    cmd += "-f \"bv*[height<=" + height + "]+ba/b[height<=" + height + "]\" " + mp4_audio;
+                    cmd += "-f \"bv*[ext=mp4][height<=" + height + "]+ba[ext=m4a]/bv*[height<=" + height + "]+ba/b[height<=" + height + "]\" " + mp4_merge;
                 }
             }
 
