@@ -60,8 +60,21 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             };
 
             // ── Check if it's a playlist first ──────────────────────────────
+            // Skip the probe entirely for URLs that are clearly single videos —
+            // no list= param, no /playlist/, /sets/, /channel/ path segment.
+            // This saves a full yt-dlp cold-start (~1-3s) for the common case.
+            auto is_obvious_single = [&](const string& u) -> bool {
+                if (u.find("list=")     != string::npos) return false;
+                if (u.find("/playlist") != string::npos) return false;
+                if (u.find("/sets/")    != string::npos) return false;
+                if (u.find("/channel/") != string::npos) return false;
+                if (u.find("/user/")    != string::npos) return false;
+                if (u.find("/c/")       != string::npos) return false;
+                return true;
+            };
+
             bool is_playlist = false;
-            {
+            if (!is_obvious_single(url)) {
                 string probe_cmd = build_ytdlp_cmd() + " --flat-playlist --dump-single-json --no-warnings " + escape_arg(url);
                 int probe_code;
                 string probe_output = exec_command(probe_cmd, probe_code);
@@ -304,7 +317,11 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             });
 
             // Build yt-dlp command
-            string cmd = build_ytdlp_cmd() + " --no-warnings --newline --progress --no-playlist ";
+            // --concurrent-fragments 4 : download 4 DASH/HLS segments in parallel
+            // --buffer-size 1M         : 1 MB read buffer, fewer syscalls per second
+            // --no-mtime               : skip setting file modification time at end
+            string cmd = build_ytdlp_cmd() + " --no-warnings --newline --progress --no-playlist "
+                         "--concurrent-fragments 4 --buffer-size 1M --no-mtime ";
 
             if (format == "mp3") {
                 cmd += "-x --audio-format mp3 --audio-quality 0 ";
