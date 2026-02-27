@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v8'; // bumped: depth presets + coverage fix
+const CACHE_NAME = 'lumatools-v9'; // bumped: downloader progress fix + UI polish
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

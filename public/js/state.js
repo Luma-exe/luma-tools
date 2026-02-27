@@ -13,6 +13,7 @@ const state = {
     isDownloading: false,
     playlistItems: [],
     batchResults: [],
+    downloadLastProgress: 0,
     pollInterval: null,
     files: {},
     multiFiles: {},

@@ -342,6 +342,8 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 // stream 1 maps to 0-50%, stream 2 maps to 50-100%, avoiding regressions.
                 bool two_streams_expected = (format == "mp4");
                 int stream_count = 0;
+                // Server-side monotonic cap: never emit a lower progress than already sent.
+                double last_sent_pct = 0.0;
 
                 string full_output;
                 array<char, 4096> buffer;
@@ -427,6 +429,9 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                             if (two_streams_expected) {
                                 display_pct = (stream_count <= 1) ? (pct / 2.0) : (50.0 + pct / 2.0);
                             }
+                            // Monotonic cap: never send a lower value than previously sent.
+                            display_pct = std::max(display_pct, last_sent_pct);
+                            last_sent_pct = display_pct;
 
                             json st = {
                                 {"status", "downloading"}, {"progress", display_pct},
@@ -437,22 +442,25 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                             update_download_status(download_id, st);
                         }
                         else if (line.find("[ExtractAudio]") != string::npos) {
+                            last_sent_pct = std::max(last_sent_pct, 95.0);
                             update_download_status(download_id, {
-                                {"status", "processing"}, {"progress", 95},
+                                {"status", "processing"}, {"progress", last_sent_pct},
                                 {"eta", nullptr}, {"speed", ""}, {"filesize", ""},
                                 {"processing_msg", "Converting audio..."}
                             });
                         }
                         else if (line.find("[Merger]") != string::npos) {
+                            last_sent_pct = std::max(last_sent_pct, 95.0);
                             update_download_status(download_id, {
-                                {"status", "processing"}, {"progress", 95},
+                                {"status", "processing"}, {"progress", last_sent_pct},
                                 {"eta", nullptr}, {"speed", ""}, {"filesize", ""},
                                 {"processing_msg", "Merging video & audio..."}
                             });
                         }
                         else if (line.find("[ffmpeg]") != string::npos) {
+                            last_sent_pct = std::max(last_sent_pct, 95.0);
                             update_download_status(download_id, {
-                                {"status", "processing"}, {"progress", 95},
+                                {"status", "processing"}, {"progress", last_sent_pct},
                                 {"eta", nullptr}, {"speed", ""}, {"filesize", ""},
                                 {"processing_msg", "Processing..."}
                             });

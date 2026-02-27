@@ -238,12 +238,17 @@ function pollDownloadStatus() {
                 const pctEl = $('progressPct'); if (pctEl) pctEl.textContent = displayPct > 0 ? displayPct.toFixed(1) + '%' : '';
 
                 if (data.speed) { const el = $('progressSpeed'); if (el) el.textContent = data.speed; }
-                const etaEl = $('progressEta'); if (etaEl) etaEl.textContent = (data.eta != null && data.eta >= 0) ? formatETA(data.eta) : '';
+                // Only show ETA when > 1s — suppresses the 0s/2s flicker at end of download
+                const etaEl = $('progressEta'); if (etaEl) etaEl.textContent = (data.eta != null && data.eta > 1) ? formatETA(data.eta) : '  ';
 
                 if (data.filesize) { const el = $('progressSize'); if (el) el.textContent = data.filesize; }
                 if (data.status === 'processing') {
                     $('progressStatus').textContent = data.processing_msg || 'Processing file...';
                     $('progressBar').classList.add('processing');
+                    // Clear stale download stats during post-processing
+                    const sp = $('progressSpeed'); if (sp) sp.textContent = '';
+                    const et = $('progressEta');   if (et) et.textContent = '';
+                    const sz = $('progressSize');  if (sz) sz.textContent = '';
                 } else if (data.status === 'downloading') {
                     $('progressStatus').textContent = 'Downloading...';
                     $('progressBar').classList.remove('processing');

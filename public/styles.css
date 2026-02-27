@@ -1122,6 +1122,7 @@ body {
     animation: scaleIn 0.5s ease;
 }
 @keyframes scaleIn { from { transform: scale(0); } to { transform: scale(1); } }
+#completeSection h3 { text-align: center; margin-bottom: 16px; }
 
 .save-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
