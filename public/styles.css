@@ -1256,6 +1256,133 @@ body {
 .footer strong { color: var(--text-secondary); }
 .footer i.fa-heart { color: var(--accent-3); }
 
+/* ─── Landing: Luma Planner promo ─────────────────────────────────────────── */
+.landing-planner {
+    margin: 32px 0;
+    background: linear-gradient(135deg, rgba(79, 131, 255, 0.08) 0%, rgba(124, 58, 237, 0.08) 100%);
+    border: 1px solid rgba(79, 131, 255, 0.2);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+}
+.landing-planner::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at top right, rgba(79, 131, 255, 0.1), transparent 60%);
+    pointer-events: none;
+}
+.landing-planner-inner {
+    display: flex; align-items: center; gap: 24px;
+    padding: 28px 32px;
+}
+.landing-planner-left { flex: 1; min-width: 0; }
+.landing-planner-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    background: rgba(79, 131, 255, 0.12);
+    border: 1px solid rgba(79, 131, 255, 0.25);
+    border-radius: 20px;
+    font-size: 0.72rem; font-weight: 600;
+    color: #7aadff;
+    letter-spacing: 0.4px;
+    margin-bottom: 12px;
+}
+.landing-planner-title {
+    font-size: 1.4rem; font-weight: 800;
+    margin: 0 0 10px; line-height: 1.2;
+}
+.landing-planner-title span { color: #7aadff; }
+.landing-planner-desc {
+    font-size: 0.85rem; color: var(--text-secondary);
+    line-height: 1.6; margin: 0 0 14px;
+}
+.landing-planner-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 20px;
+}
+.landing-planner-chips span {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    font-size: 0.73rem; color: var(--text-secondary);
+}
+.landing-planner-chips span i { font-size: 0.68rem; color: #7aadff; }
+.landing-planner-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px;
+    background: linear-gradient(135deg, #4f83ff, #7c3aed);
+    border-radius: var(--radius-sm);
+    color: #fff; font-weight: 700; font-size: 0.88rem;
+    text-decoration: none;
+    transition: all var(--transition);
+    box-shadow: 0 4px 20px rgba(79, 131, 255, 0.3);
+}
+.landing-planner-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(79, 131, 255, 0.45);
+}
+.landing-planner-right {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+}
+.landing-planner-icon-wrap {
+    width: 90px; height: 90px;
+    background: linear-gradient(135deg, rgba(79,131,255,0.15), rgba(124,58,237,0.15));
+    border: 1px solid rgba(79,131,255,0.2);
+    border-radius: 24px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.6rem; color: #7aadff;
+}
+@media (max-width: 540px) {
+    .landing-planner-inner { flex-direction: column; padding: 22px 20px; }
+    .landing-planner-right { display: none; }
+}
+
+/* ─── Portfolio Floating Button ────────────────────────────────────────────── */
+.portfolio-float {
+    position: fixed;
+    bottom: 80px; right: 24px;
+    z-index: 999;
+    display: flex; align-items: center; gap: 0;
+    height: 44px;
+    padding: 0 14px;
+    background: rgba(18, 18, 30, 0.8);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(79, 131, 255, 0.25);
+    border-radius: 22px;
+    text-decoration: none;
+    color: #7aadff;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 24px rgba(79, 131, 255, 0.12);
+}
+.portfolio-float:hover {
+    padding: 0 20px;
+    gap: 8px;
+    background: rgba(79, 131, 255, 0.1);
+    border-color: rgba(79, 131, 255, 0.45);
+    box-shadow: 0 4px 32px rgba(79, 131, 255, 0.22);
+    color: #a0c4ff;
+}
+.portfolio-icon {
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.portfolio-label {
+    font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 0.5px; white-space: nowrap;
+    max-width: 0; opacity: 0; overflow: hidden;
+    transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+.portfolio-float:hover .portfolio-label { max-width: 100px; opacity: 1; }
+@media (max-width: 600px) {
+    .portfolio-float { bottom: 68px; right: 16px; height: 40px; padding: 0 12px; }
+}
+
 /* ─── Ko-fi Floating Button ───────────────────────────────────────────────── */
 .kofi-float {
     position: fixed;
