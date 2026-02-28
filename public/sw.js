@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v9'; // bumped: downloader progress fix + UI polish
+const CACHE_NAME = 'lumatools-v10'; // bumped: planner section + portfolio button + icon restyle
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
