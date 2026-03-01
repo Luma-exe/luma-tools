@@ -1361,27 +1361,30 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                 try { fs::remove(input_path); } catch (...) {}
                 return;
             }
-            // Build FFmpeg select filter: select='not(eq(n\,0)+eq(n\,2)+...)'
+            // Build FFmpeg select expression: not(eq(n,0)+eq(n,2)+...)
+            // setpts=PTS-STARTPTS preserves each frame's original delay (important for GIF)
             string not_expr;
             for (int f : to_remove) {
                 if (!not_expr.empty()) not_expr += "+";
                 not_expr += "eq(n\\," + to_string(f) + ")";
             }
-            string select_filter = "select='not(" + not_expr + ")',setpts=N/TB";
+            string select_expr = "select='not(" + not_expr + ")',setpts=PTS-STARTPTS";
             if (is_gif) {
                 string palette_path = get_processing_dir() + "/" + jid + "_palette.png";
+                update_job(jid, {{"status","processing"},{"progress",10},{"stage","Analysing frames..."}});
                 string pass1 = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
-                    " -vf \"" + select_filter + ",palettegen\" " + escape_arg(palette_path);
+                    " -vf \"" + select_expr + ",palettegen=stats_mode=diff\" " + escape_arg(palette_path);
+                int c1; exec_command(pass1, c1);
+                update_job(jid, {{"status","processing"},{"progress",55},{"stage","Rebuilding GIF..."}});
                 string pass2 = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
                     " -i " + escape_arg(palette_path) +
-                    " -lavfi \"" + select_filter + " [x]; [x][1:v] paletteuse\" " + escape_arg(output_path);
-                int c1, c2;
-                exec_command(pass1, c1);
-                exec_command(pass2, c2);
+                    " -lavfi \"" + select_expr + " [x]; [x][1:v] paletteuse=dither=bayer:bayer_scale=5\" -loop 0 " + escape_arg(output_path);
+                int c2; exec_command(pass2, c2);
                 try { fs::remove(palette_path); } catch (...) {}
             } else {
+                update_job(jid, {{"status","processing"},{"progress",15},{"stage","Removing frames..."}});
                 string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
-                    " -vf \"" + select_filter + "\" -c:v libx264 -crf 20 -c:a copy " + escape_arg(output_path);
+                    " -vf \"" + select_expr + "\" -c:v libx264 -crf 20 -c:a copy " + escape_arg(output_path);
                 int code; exec_command(cmd, code);
             }
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
