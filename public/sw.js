@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v10'; // bumped: planner section + portfolio button + icon restyle
+const CACHE_NAME = 'lumatools-v11'; // bumped: drag-and-drop upload zone fix
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
