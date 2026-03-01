@@ -2157,7 +2157,7 @@ body {
     opacity: 0; pointer-events: none;
     transition: opacity 0.25s ease;
 }
-.drop-overlay.visible { opacity: 1; pointer-events: auto; }
+.drop-overlay.visible { opacity: 1; }
 .drop-overlay-icon {
     font-size: 4rem; color: var(--accent);
     margin-bottom: 20px;
