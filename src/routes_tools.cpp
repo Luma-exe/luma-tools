@@ -2766,11 +2766,11 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             }
             string numbering_instruction;
             if (numbering == "full") {
-                numbering_instruction = " Number ALL headings in a full hierarchy: ## 1. Section, ### 1.1 Sub-section, #### 1.1.1 Detail. Every heading at every level gets a number.";
+                numbering_instruction = "- HEADING NUMBERING (mandatory): Number ALL headings at every level. ## headings as '1.', '2.' etc; ### headings as '1.1', '1.2' etc; #### headings as '1.1.1', '1.1.2' etc. Every single heading must have a number.\n";
             } else if (numbering == "titles") {
-                numbering_instruction = " Number main section headings only (##) as 1., 2., 3. etc. Sub-sections (###) are NOT numbered.";
+                numbering_instruction = "- HEADING NUMBERING (mandatory): Number ## main section headings only as '1.', '2.', '3.' etc. Sub-headings (### and ####) must NOT have numbers — plain text only.\n";
             } else {
-                numbering_instruction = " Do NOT add numbers to any headings.";
+                numbering_instruction = "- HEADING NUMBERING (mandatory): Do NOT add any numbers to any headings at any level. All headings are plain text with no numeric prefix whatsoever.\n";
             }
 
             string style_instruction;
@@ -3199,11 +3199,19 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                 update_job(jid, {{"status","processing"},{"progress",78},{"stage","Refining and filling gaps..."}});
 
                 string refine_math_rule;
+                string refine_numbering_rule;
                 if (format == "markdown") {
                     if (math_fmt == "dollar") {
                         refine_math_rule = "\n6. Math notation: use $...$ for inline and $$...$$ on its own line for display — never \\(...\\) or \\[...\\].";
                     } else if (math_fmt == "latex") {
                         refine_math_rule = "\n6. Math notation: use \\(...\\) for inline and \\[...\\] for display — never $...$ or $$...$$. Preserve the existing notation.";
+                    }
+                    if (numbering == "full") {
+                        refine_numbering_rule = "\n7. Heading numbering: ALL headings must be numbered at every level (## 1. Section, ### 1.1 Sub-section, #### 1.1.1 Detail). Preserve all existing heading numbers and add them where missing.";
+                    } else if (numbering == "titles") {
+                        refine_numbering_rule = "\n7. Heading numbering: Only ## main section headings are numbered (1., 2., 3. etc). Sub-headings (### and ####) must have NO numbers — preserve this exactly.";
+                    } else {
+                        refine_numbering_rule = "\n7. Heading numbering: NO headings have any numbers at any level. Remove any numeric prefixes from headings.";
                     }
                 }
 
@@ -3217,7 +3225,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     "3. Keep the same Markdown structure (## headings, bullet points, **bold** terms, > blockquotes).\n"
                     "4. Output ONLY the improved notes — no commentary, no preamble, no meta-text.\n"
                     "5. If the notes already fully cover all checklist items, return them unchanged."
-                    + refine_math_rule;
+                    + refine_math_rule + refine_numbering_rule;
 
                 string refine_user =
                     "COVERAGE CHECKLIST (every item must be in the notes):\n" + coverage_checklist +
