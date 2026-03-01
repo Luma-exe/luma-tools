@@ -99,6 +99,12 @@ function handleFileSelect(toolId, file) {
     if (toolId === 'video-trim') initWaveform('video-trim', file);
     if (toolId === 'audio-trim') initWaveform('audio-trim', file);
 
+    if (toolId === 'video-frame') {
+        const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+        $('frameTimestampOption').classList.toggle('hidden', isGif);
+        $('frameIndexOption').classList.toggle('hidden', !isGif);
+    }
+
     // Show SVG notice immediately when user uploads an SVG to a Canvas tool.
     // Defer one tick so the badge DOM is stable after switchTool / zone hide.
     if (typeof CANVAS_TOOLS !== 'undefined' && CANVAS_TOOLS.has(toolId)) {
@@ -280,10 +286,13 @@ async function processFileServer(toolId) {
 
             formData.append('speed', $('videoSpeed').value || '2');
             break;
-        case 'video-frame':
-
-            formData.append('timestamp', $('frameTimestamp').value || '00:00:00');
+        case 'video-frame': {
+            const frameFile = state.files['video-frame'];
+            const isGif = frameFile && (frameFile.type === 'image/gif' || frameFile.name.toLowerCase().endsWith('.gif'));
+            if (isGif) formData.append('frame', $('frameIndex').value || '0');
+            else formData.append('timestamp', $('frameTimestamp').value || '00:00:00');
             break;
+        }
         case 'subtitle-extract':
 
             formData.append('format', getSelectedFmt('subtitle-extract') || 'srt');

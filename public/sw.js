@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v12'; // bumped: drop overlay pointer-events fix
+const CACHE_NAME = 'lumatools-v13'; // bumped: GIF frame extract support
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

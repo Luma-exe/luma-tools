@@ -50,10 +50,11 @@ const FILE_TOOL_MAP = {
         { id: 'hash-generate',       label: 'Hash File',        icon: 'fas fa-fingerprint' },
     ],
     'gif': [
-        { id: 'gif-to-video',    label: 'To Video',  icon: 'fas fa-film' },
-        { id: 'image-compress',  label: 'Compress',  icon: 'fas fa-compress-alt' },
-        { id: 'image-convert',   label: 'Convert',   icon: 'fas fa-exchange-alt' },
-        { id: 'hash-generate',   label: 'Hash File', icon: 'fas fa-fingerprint' },
+        { id: 'gif-to-video',    label: 'To Video',      icon: 'fas fa-film' },
+        { id: 'video-frame',     label: 'Extract Frame', icon: 'fas fa-camera' },
+        { id: 'image-compress',  label: 'Compress',      icon: 'fas fa-compress-alt' },
+        { id: 'image-convert',   label: 'Convert',       icon: 'fas fa-exchange-alt' },
+        { id: 'hash-generate',   label: 'Hash File',     icon: 'fas fa-fingerprint' },
     ],
     'video': [
         { id: 'video-compress',      label: 'Compress',        icon: 'fas fa-compress' },

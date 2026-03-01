@@ -1391,25 +1391,48 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
     svr.Post("/api/tools/video-frame", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        string timestamp = req.has_file("timestamp") ? req.get_file_value("timestamp").content : "00:00:00";
-        // Validate timestamp: only digits, colons, and periods allowed (prevent injection)
-        if (timestamp.empty() || timestamp.size() > 20 ||
-            !std::all_of(timestamp.begin(), timestamp.end(), [](char c) {
-                return std::isdigit((unsigned char)c) || c == ':' || c == '.';
-            })) {
-            res.status = 400;
-            res.set_content(json({{"error", "Invalid timestamp format"}}).dump(), "application/json");
-            return;
-        }
-        discord_log_tool("Frame Extract", file.filename + " @ " + timestamp, req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string output_path = get_processing_dir() + "/" + jid + "_frame.png";
-        string cmd = ffmpeg_cmd() + " -y -ss " + timestamp + " -i " + escape_arg(input_path) + " -frames:v 1 -q:v 2 " + escape_arg(output_path);
-        int code; exec_command(cmd, code);
+        string stem = fs::path(file.filename).stem().string();
+        string cmd;
 
+        if (req.has_file("frame")) {
+            // GIF / frame-index mode
+            string frame_str = req.get_file_value("frame").content;
+            // Validate: non-negative integer only
+            if (frame_str.empty() || frame_str.size() > 10 ||
+                !std::all_of(frame_str.begin(), frame_str.end(), [](char c) {
+                    return std::isdigit((unsigned char)c);
+                })) {
+                try { fs::remove(input_path); } catch (...) {}
+                res.status = 400;
+                res.set_content(json({{"error", "Invalid frame number"}}).dump(), "application/json");
+                return;
+            }
+            discord_log_tool("Frame Extract", file.filename + " @ frame " + frame_str, req.remote_addr);
+            cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
+                  " -vf \"select=eq(n\\\\," + frame_str + ")\" -vframes 1 " + escape_arg(output_path);
+        } else {
+            // Video / timestamp mode
+            string timestamp = req.has_file("timestamp") ? req.get_file_value("timestamp").content : "00:00:00";
+            // Validate timestamp: only digits, colons, and periods allowed (prevent injection)
+            if (timestamp.empty() || timestamp.size() > 20 ||
+                !std::all_of(timestamp.begin(), timestamp.end(), [](char c) {
+                    return std::isdigit((unsigned char)c) || c == ':' || c == '.';
+                })) {
+                try { fs::remove(input_path); } catch (...) {}
+                res.status = 400;
+                res.set_content(json({{"error", "Invalid timestamp format"}}).dump(), "application/json");
+                return;
+            }
+            discord_log_tool("Frame Extract", file.filename + " @ " + timestamp, req.remote_addr);
+            cmd = ffmpeg_cmd() + " -y -ss " + timestamp + " -i " + escape_arg(input_path) + " -frames:v 1 -q:v 2 " + escape_arg(output_path);
+        }
+
+        int code; exec_command(cmd, code);
         if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
-            send_file_response(res, output_path, fs::path(file.filename).stem().string() + "_frame.png");
+            send_file_response(res, output_path, stem + "_frame.png");
         } else { res.status = 500; res.set_content(json({{"error","Frame extraction failed"}}).dump(), "application/json"); }
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
     });
