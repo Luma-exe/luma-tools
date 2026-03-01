@@ -1322,6 +1322,76 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         res.set_content(json({{"job_id", jid}}).dump(), "application/json");
     });
 
+    // ── POST /api/tools/gif-frame-remove (async) ────────────────────────────
+    svr.Post("/api/tools/gif-frame-remove", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
+        auto file = req.get_file_value("file");
+        string frames_str = req.has_file("frames") ? req.get_file_value("frames").content : "";
+        if (frames_str.empty()) { res.status = 400; res.set_content(json({{"error","Please specify frame numbers to remove"}}).dump(),"application/json"); return; }
+        discord_log_tool("Remove Frames", file.filename + " (frames: " + frames_str + ")", req.remote_addr);
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string ext = fs::path(file.filename).extension().string();
+        for (auto& c : ext) c = (char)tolower((unsigned char)c);
+        bool is_gif = (ext == ".gif");
+        string out_ext = is_gif ? ".gif" : ".mp4";
+        string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
+        string orig_name = fs::path(file.filename).stem().string();
+        update_job(jid, {{"status","processing"},{"progress",0},{"stage","Removing frames..."}});
+        thread([jid, input_path, output_path, orig_name, out_ext, is_gif, frames_str]() {
+            // Parse frames_str (e.g. "0, 2-5, 10") into a sorted set of frame indices
+            set<int> to_remove;
+            istringstream fss(frames_str);
+            string token;
+            while (getline(fss, token, ',')) {
+                token.erase(remove_if(token.begin(), token.end(), ::isspace), token.end());
+                auto dash = token.find('-');
+                if (dash != string::npos && dash > 0) {
+                    try {
+                        int from = stoi(token.substr(0, dash));
+                        int to_n = stoi(token.substr(dash + 1));
+                        for (int i = from; i <= to_n; i++) to_remove.insert(i);
+                    } catch (...) {}
+                } else {
+                    try { to_remove.insert(stoi(token)); } catch (...) {}
+                }
+            }
+            if (to_remove.empty()) {
+                update_job(jid, {{"status","error"},{"error","No valid frame numbers provided"}});
+                try { fs::remove(input_path); } catch (...) {}
+                return;
+            }
+            // Build FFmpeg select filter: select='not(eq(n\,0)+eq(n\,2)+...)'
+            string not_expr;
+            for (int f : to_remove) {
+                if (!not_expr.empty()) not_expr += "+";
+                not_expr += "eq(n\\," + to_string(f) + ")";
+            }
+            string select_filter = "select='not(" + not_expr + ")',setpts=N/TB";
+            if (is_gif) {
+                string palette_path = get_processing_dir() + "/" + jid + "_palette.png";
+                string pass1 = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
+                    " -vf \"" + select_filter + ",palettegen\" " + escape_arg(palette_path);
+                string pass2 = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
+                    " -i " + escape_arg(palette_path) +
+                    " -lavfi \"" + select_filter + " [x]; [x][1:v] paletteuse\" " + escape_arg(output_path);
+                int c1, c2;
+                exec_command(pass1, c1);
+                exec_command(pass2, c2);
+                try { fs::remove(palette_path); } catch (...) {}
+            } else {
+                string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
+                    " -vf \"" + select_filter + "\" -c:v libx264 -crf 20 -c:a copy " + escape_arg(output_path);
+                int code; exec_command(cmd, code);
+            }
+            if (fs::exists(output_path) && fs::file_size(output_path) > 0)
+                update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_frames_removed" + out_ext}}, output_path);
+            else { discord_log_error("Remove Frames", "Failed for: " + mask_filename(orig_name)); update_job(jid, {{"status","error"},{"error","Frame removal failed"}}); }
+            try { fs::remove(input_path); } catch (...) {}
+        }).detach();
+        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+    });
+
     // ── POST /api/tools/video-remove-audio (async) ──────────────────────────
     svr.Post("/api/tools/video-remove-audio", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }

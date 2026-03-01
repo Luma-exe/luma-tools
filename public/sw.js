@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v13'; // bumped: GIF frame extract support
+const CACHE_NAME = 'lumatools-v14'; // bumped: GIF frame extract support
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

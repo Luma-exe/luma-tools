@@ -286,6 +286,12 @@ async function processFileServer(toolId) {
 
             formData.append('speed', $('videoSpeed').value || '2');
             break;
+        case 'gif-frame-remove': {
+            const framesVal = $('removeFrames').value.trim();
+            if (!framesVal) { showToast('Please enter frame numbers to remove', 'error'); return; }
+            formData.append('frames', framesVal);
+            break;
+        }
         case 'video-frame': {
             const frameFile = state.files['video-frame'];
             const isGif = frameFile && (frameFile.type === 'image/gif' || frameFile.name.toLowerCase().endsWith('.gif'));
@@ -380,7 +386,7 @@ async function processFileServer(toolId) {
     showProcessing(toolId, true);
 
     const asyncTools = ['video-compress','video-trim','video-convert','video-extract-audio',
-        'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize',
+        'video-to-gif','gif-to-video','gif-frame-remove','video-remove-audio','video-speed','video-stabilize','audio-normalize',
         'audio-trim','ai-study-notes'];
     const isAsync = asyncTools.includes(toolId);
 

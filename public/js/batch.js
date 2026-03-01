@@ -166,7 +166,7 @@ async function processFileServerDirect(toolId, file) {
     }
 
     const asyncTools = ['video-compress','video-trim','video-convert','video-extract-audio',
-        'video-to-gif','gif-to-video','video-remove-audio','video-speed','video-stabilize','audio-normalize',
+        'video-to-gif','gif-to-video','gif-frame-remove','video-remove-audio','video-speed','video-stabilize','audio-normalize',
         'audio-trim'];
     const isAsync = asyncTools.includes(toolId);
 

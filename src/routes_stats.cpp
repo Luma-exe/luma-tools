@@ -539,6 +539,7 @@ const ALL_TOOLS = [
   {id:'video-extract-audio',loc:'server'},
   {id:'video-to-gif',       loc:'server'},
   {id:'gif-to-video',       loc:'server'},
+  {id:'gif-frame-remove',   loc:'server'},
   {id:'video-remove-audio', loc:'server'},
   {id:'video-speed',        loc:'server'},
   {id:'video-frame',        loc:'server'},

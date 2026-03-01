@@ -173,6 +173,9 @@
                     <a class="nav-item" data-tool="gif-to-video" data-location="server" onclick="switchTool('gif-to-video')">
                         <i class="fas fa-photo-video"></i><span>GIF to Video</span>
                     </a>
+                    <a class="nav-item" data-tool="gif-frame-remove" data-location="server" onclick="switchTool('gif-frame-remove')">
+                        <i class="fas fa-trash-alt"></i><span>Remove Frames</span>
+                    </a>
                     <a class="nav-item" data-tool="video-remove-audio" data-location="server" onclick="switchTool('video-remove-audio')">
                         <i class="fas fa-volume-mute"></i><span>Remove Audio</span>
                     </a>
@@ -435,6 +438,7 @@
                             <span class="landing-chip" onclick="switchTool('video-convert')"><i class="fas fa-film"></i> Video Convert</span>
                             <span class="landing-chip" onclick="switchTool('video-to-gif')"><i class="fas fa-magic"></i> Video to GIF</span>
                             <span class="landing-chip" onclick="switchTool('gif-to-video')"><i class="fas fa-photo-video"></i> GIF to Video</span>
+                            <span class="landing-chip" onclick="switchTool('gif-frame-remove')"><i class="fas fa-trash-alt"></i> Remove Frames</span>
                             <span class="landing-chip" onclick="switchTool('video-extract-audio')"><i class="fas fa-volume-up"></i> Extract Audio</span>
                             <span class="landing-chip" onclick="switchTool('video-remove-audio')"><i class="fas fa-volume-mute"></i> Remove Audio</span>
                             <span class="landing-chip" onclick="switchTool('video-speed')"><i class="fas fa-tachometer-alt"></i> Speed Change</span>
@@ -1176,6 +1180,37 @@
                     <button class="process-btn" onclick="processFile('gif-to-video')"><i class="fas fa-photo-video"></i> Convert to MP4</button>
                     <div class="processing-status hidden" data-tool="gif-to-video"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
                     <div class="result-section hidden" data-tool="gif-to-video">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──────────── GIF / VIDEO FRAME REMOVE ──────────── -->
+            <div class="tool-panel" id="tool-gif-frame-remove">
+                <div class="tool-header">
+                    <h2><i class="fas fa-trash-alt"></i> Remove Frames</h2>
+                    <p>Remove specific frames from GIFs and video files by frame number or range</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-gif-frame-remove" data-accept="video/*,.gif" data-max="524288000">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop your GIF or video here</p><span>or click to browse</span><small>GIF, MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.gif">
+                    </div>
+                    <div class="file-preview hidden" data-tool="gif-frame-remove">
+                        <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('gif-frame-remove')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Frames to Remove</label>
+                        <div class="time-inputs">
+                            <div class="time-group" style="flex:1"><label>Frames</label><input type="text" id="removeFrames" placeholder="e.g. 0, 2-5, 10"></div>
+                        </div>
+                        <small class="option-hint">0-based index. Comma-separated, supports ranges &mdash; e.g. <code>0, 2-5, 10</code></small>
+                    </div>
+                    <button class="process-btn" onclick="processFile('gif-frame-remove')"><i class="fas fa-trash-alt"></i> Remove Frames</button>
+                    <div class="processing-status hidden" data-tool="gif-frame-remove"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
+                    <div class="result-section hidden" data-tool="gif-frame-remove">
                         <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
                         <a class="result-download" download><i class="fas fa-download"></i> Download</a>
                     </div>

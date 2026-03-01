@@ -69,6 +69,7 @@ Each tool is labelled **In your browser** (runs locally — nothing is sent to t
 | Extract Audio       | Server  | Rip audio track from any video file                           |
 | Video to GIF        | Server  | Convert video clips to animated GIF                           |
 | GIF to Video        | Server  | Convert GIF to MP4                                            |
+| Remove Frames       | Server  | Remove specific frames from GIFs and video files              |
 | Remove Audio        | Server  | Strip the audio track from a video                            |
 | Speed Change        | Server  | Speed up or slow down video                                   |
 | Frame Extract       | Server  | Extract individual frames as images                           |
