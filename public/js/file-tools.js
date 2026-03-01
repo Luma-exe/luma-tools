@@ -105,6 +105,10 @@ function handleFileSelect(toolId, file) {
         $('frameIndexOption').classList.toggle('hidden', !isGif);
     }
 
+    if (toolId === 'video-frame' || toolId === 'gif-frame-remove') {
+        if (typeof FrameScrubber !== 'undefined') FrameScrubber.init(toolId, file);
+    }
+
     // Show SVG notice immediately when user uploads an SVG to a Canvas tool.
     // Defer one tick so the badge DOM is stable after switchTool / zone hide.
     if (typeof CANVAS_TOOLS !== 'undefined' && CANVAS_TOOLS.has(toolId)) {
@@ -158,6 +162,10 @@ function removeFile(toolId) {
 
     if (zone) zone.classList.remove('hidden');
     hideResult(toolId);
+
+    if (toolId === 'video-frame' || toolId === 'gif-frame-remove') {
+        if (typeof FrameScrubber !== 'undefined') FrameScrubber.destroy(toolId);
+    }
 
     // Reset location badge back to "In Browser" when a file is removed from a Canvas tool.
     if (typeof CANVAS_TOOLS !== 'undefined' && CANVAS_TOOLS.has(toolId)) {
