@@ -1121,6 +1121,7 @@ function detectFileCategory(file) {
 }
 
 let _dragCounter = 0;
+let _overUploadZone = 0;
 
 function initGlobalDrop() {
     const overlay = $('dropOverlay');
@@ -1129,18 +1130,33 @@ function initGlobalDrop() {
     document.addEventListener('dragenter', (e) => {
         e.preventDefault();
 
-        if (e.dataTransfer?.types?.includes('Files')) { _dragCounter++; overlay.classList.add('visible'); }
+        if (e.dataTransfer?.types?.includes('Files')) {
+            _dragCounter++;
+            if (e.target.closest('.upload-zone')) _overUploadZone++;
+            if (_overUploadZone > 0) overlay.classList.remove('visible');
+            else overlay.classList.add('visible');
+        }
     });
     document.addEventListener('dragleave', (e) => {
         e.preventDefault();
         _dragCounter--;
+        if (e.target.closest('.upload-zone')) _overUploadZone = Math.max(0, _overUploadZone - 1);
 
-        if (_dragCounter <= 0) { _dragCounter = 0; overlay.classList.remove('visible'); }
+        if (_dragCounter <= 0) {
+            _dragCounter = 0;
+            _overUploadZone = 0;
+            overlay.classList.remove('visible');
+        } else if (_overUploadZone > 0) {
+            overlay.classList.remove('visible');
+        } else {
+            overlay.classList.add('visible');
+        }
     });
     document.addEventListener('dragover', (e) => e.preventDefault());
     document.addEventListener('drop', (e) => {
         e.preventDefault();
         _dragCounter = 0;
+        _overUploadZone = 0;
         overlay.classList.remove('visible');
 
         if (e.target.closest('.upload-zone')) return;
