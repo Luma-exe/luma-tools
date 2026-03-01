@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v11'; // bumped: drag-and-drop upload zone fix
+const CACHE_NAME = 'lumatools-v12'; // bumped: drop overlay pointer-events fix
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
