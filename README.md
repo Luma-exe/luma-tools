@@ -11,7 +11,7 @@
 
   [![Live](https://img.shields.io/badge/LIVE-tools.lumaplayground.com-1a73e8?style=flat-square)](https://tools.lumaplayground.com)
   &nbsp;
-  ![Version](https://img.shields.io/badge/VERSION-2.2.1-7c3aed?style=flat-square)
+  ![Version](https://img.shields.io/badge/VERSION-2.2.2-7c3aed?style=flat-square)
   &nbsp;
   ![C++](https://img.shields.io/badge/C%2B%2B-17-0057a8?style=flat-square&logo=cplusplus&logoColor=white)
   &nbsp;
