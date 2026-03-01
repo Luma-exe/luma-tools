@@ -99,12 +99,6 @@ function handleFileSelect(toolId, file) {
     if (toolId === 'video-trim') initWaveform('video-trim', file);
     if (toolId === 'audio-trim') initWaveform('audio-trim', file);
 
-    if (toolId === 'video-frame') {
-        const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
-        $('frameTimestampOption').classList.toggle('hidden', isGif);
-        $('frameIndexOption').classList.toggle('hidden', !isGif);
-    }
-
     if (toolId === 'video-frame' || toolId === 'gif-frame-remove') {
         if (typeof FrameScrubber !== 'undefined') FrameScrubber.init(toolId, file);
     }

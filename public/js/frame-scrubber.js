@@ -5,77 +5,71 @@
  *   'select' — single-frame pick  (video-frame extract)
  *   'multi'  — multi-frame toggle (gif-frame-remove)
  *
- * Usage:
- *   FrameScrubber.init(toolId, file)   — called after a file is selected
- *   FrameScrubber.destroy(toolId)      — called when a file is removed
- *   FrameScrubber.clearSelection(toolId)
+ * GIF frames are fully composited via ImageDecoder + disposal-method parsing
+ * from raw GIF bytes (Graphic Control Extension blocks), so thumbnails show
+ * exactly what each frame looks like in a GIF viewer.
  */
 const FrameScrubber = (() => {
-    const THUMB_W       = 88;
-    const MAX_VIDEO     = 60;   // max thumbnails for video
-    const MAX_GIF       = 200;  // max frames for GIF
+    const THUMB_W   = 112;  // thumbnail render width (px)
+    const MAX_VIDEO = 60;
+    const MAX_GIF   = 300;
 
-    // keyed by toolId → { thumbs, mode, selected, isGif }
+    // Singleton hover popup
+    let _popup = null;
+    function _ensurePopup() {
+        if (_popup) return;
+        _popup = document.createElement('div');
+        _popup.className = 'fscrub-popup';
+        _popup.innerHTML = '<img class="fscrub-popup-img" draggable="false"><span class="fscrub-popup-lbl"></span>';
+        document.body.appendChild(_popup);
+    }
+
+    // keyed by toolId
     const _state = {};
 
-    /* ── Public API ─────────────────────────────────────────────────── */
+    /* ── Public API ──────────────────────────────────────────────────── */
 
     async function init(toolId, file) {
         destroy(toolId);
+        _ensurePopup();
 
         const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
         const mode  = toolId === 'video-frame' ? 'select' : 'multi';
 
         const panel = document.getElementById('tool-' + toolId);
         if (!panel) return;
-        const insertAfter = panel.querySelector('.file-preview[data-tool="' + toolId + '"]');
-        if (!insertAfter) return;
+        const anchor = panel.querySelector('.file-preview[data-tool="' + toolId + '"]');
+        if (!anchor) return;
 
-        // Hide manual input sections while scrubber is active
-        _setManualVisibility(toolId, false);
-
-        // Build shell UI
         const wrap = document.createElement('div');
-        wrap.className = 'frame-scrubber';
-        wrap.id = 'fscrub-' + toolId;
+        wrap.className  = 'frame-scrubber';
+        wrap.id         = 'fscrub-' + toolId;
         wrap.dataset.mode = mode;
-        wrap.innerHTML = `
+        wrap.innerHTML  = `
             <div class="fscrub-header">
-                <span class="fscrub-title"><i class="fas fa-film"></i> <span class="fscrub-count">Loading…</span></span>
-                <div class="fscrub-header-right">
-                    <span class="fscrub-sel-tag"></span>
+                <span class="fscrub-title"><i class="fas fa-film"></i><span class="fscrub-count"> Loading…</span></span>
+                <div class="fscrub-hdr-right">
+                    <span class="fscrub-sel-tag" style="display:none"></span>
                     ${mode === 'multi' ? `
-                        <button class="fscrub-action-btn" onclick="FrameScrubber.selectAll('${toolId}')">All</button>
-                        <button class="fscrub-action-btn" onclick="FrameScrubber.clearSelection('${toolId}')">Clear</button>
-                    ` : ''}
+                        <button class="fscrub-btn" onclick="FrameScrubber.selectAll('${toolId}')">Select all</button>
+                        <button class="fscrub-btn" onclick="FrameScrubber.clearSelection('${toolId}')">Clear</button>
+                    ` : `<span class="fscrub-hint">Click a frame to select it</span>`}
                 </div>
             </div>
             <div class="fscrub-body">
                 <div class="fscrub-loading"><i class="fas fa-circle-notch fa-spin"></i> Generating previews…</div>
-                <div class="fscrub-strip hidden"></div>
-            </div>
-        `;
-        insertAfter.after(wrap);
+                <div class="fscrub-strip fscrub-hidden"></div>
+            </div>`;
+        anchor.after(wrap);
 
-        // Generate thumbnails
         let thumbs = null;
         try {
             thumbs = isGif ? await _genGif(file) : await _genVideo(file);
-        } catch (_) { /* fall through to fallback */ }
+        } catch (_) { /* fallthrough */ }
 
-        if (!thumbs || thumbs.length === 0) {
-            _setManualVisibility(toolId, true);
-            wrap.remove();
-            return;
-        }
+        if (!thumbs || thumbs.length === 0) { wrap.remove(); return; }
 
-        _state[toolId] = {
-            thumbs,
-            mode,
-            isGif,
-            selected: mode === 'select' ? null : new Set()
-        };
-
+        _state[toolId] = { thumbs, mode, isGif, selected: mode === 'select' ? null : new Set() };
         _renderStrip(toolId, wrap);
     }
 
@@ -83,7 +77,7 @@ const FrameScrubber = (() => {
         const el = document.getElementById('fscrub-' + toolId);
         if (el) el.remove();
         delete _state[toolId];
-        _setManualVisibility(toolId, true);
+        if (_popup) _popup.classList.remove('fscrub-popup-visible');
     }
 
     function clearSelection(toolId) {
@@ -106,85 +100,100 @@ const FrameScrubber = (() => {
         _updateTag(toolId);
     }
 
-    /* ── Private ─────────────────────────────────────────────────────── */
+    /* ── Private: rendering ──────────────────────────────────────────── */
 
     function _renderStrip(toolId, wrap) {
-        const s = _state[toolId];
+        const s       = _state[toolId];
         const loading = wrap.querySelector('.fscrub-loading');
         const strip   = wrap.querySelector('.fscrub-strip');
         const countEl = wrap.querySelector('.fscrub-count');
+        const total   = s.thumbs.length;
 
-        const total = s.thumbs.length;
-        countEl.textContent = total + (total === 1 ? ' frame' : ' frames');
+        countEl.textContent = ' ' + total + (total === 1 ? ' frame' : ' frames');
 
         s.thumbs.forEach((t, i) => {
-            const div  = document.createElement('div');
-            div.className = 'fscrub-thumb';
+            const div = document.createElement('div');
+            div.className   = 'fscrub-thumb';
             div.dataset.idx = i;
-            const label = s.isGif ? t.frameIndex : _fmtLabel(t.timestamp);
-            div.innerHTML = `<img src="${t.thumbnail}" loading="lazy" draggable="false"><span class="fscrub-label">${label}</span><div class="fscrub-x"><i class="fas fa-times"></i></div>`;
-            div.addEventListener('click', () => _onClickThumb(toolId, i));
+            const lbl = s.isGif ? ('Frame ' + t.frameIndex) : _fmtLabel(t.timestamp);
+            div.innerHTML = `
+                <div class="fscrub-img-wrap">
+                    <img src="${t.thumbnail}" draggable="false">
+                    <div class="fscrub-overlay-x"><i class="fas fa-times"></i></div>
+                    <div class="fscrub-overlay-check"><i class="fas fa-check"></i></div>
+                </div>
+                <span class="fscrub-lbl">${lbl}</span>`;
+            div.addEventListener('click', () => _onClick(toolId, i));
+            div.addEventListener('mouseenter', e => _onHover(t, lbl, e));
+            div.addEventListener('mouseleave', _hidePopup);
             strip.appendChild(div);
         });
 
-        loading.classList.add('hidden');
-        strip.classList.remove('hidden');
+        loading.classList.add('fscrub-hidden');
+        strip.classList.remove('fscrub-hidden');
 
-        // Auto-select first frame in select mode
-        if (s.mode === 'select') {
-            _onClickThumb(toolId, 0);
-        }
+        if (s.mode === 'select') _onClick(toolId, 0);
     }
 
-    function _onClickThumb(toolId, idx) {
+    function _onClick(toolId, idx) {
         const s = _state[toolId];
         if (!s) return;
-        const wrap = document.getElementById('fscrub-' + toolId);
-        if (!wrap) return;
-        const thumbEls = wrap.querySelectorAll('.fscrub-thumb');
+        const thumbEls = _getThumbEls(toolId);
+        if (!thumbEls.length) return;
 
         if (s.mode === 'select') {
             thumbEls.forEach(el => el.classList.remove('fscrub-on'));
             thumbEls[idx].classList.add('fscrub-on');
             s.selected = idx;
-            // Scroll selected thumb into view
-            thumbEls[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-            _syncInput(toolId);
-            _updateTag(toolId);
+            thumbEls[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         } else {
-            if (s.selected.has(idx)) {
-                s.selected.delete(idx);
-                thumbEls[idx].classList.remove('fscrub-on');
-            } else {
-                s.selected.add(idx);
-                thumbEls[idx].classList.add('fscrub-on');
-            }
-            _syncInput(toolId);
-            _updateTag(toolId);
+            if (s.selected.has(idx)) { s.selected.delete(idx); thumbEls[idx].classList.remove('fscrub-on'); }
+            else                     { s.selected.add(idx);    thumbEls[idx].classList.add('fscrub-on'); }
         }
+        _syncInput(toolId);
+        _updateTag(toolId);
+    }
+
+    function _onHover(t, lbl, e) {
+        if (!_popup) return;
+        _popup.querySelector('.fscrub-popup-img').src = t.thumbnail;
+        _popup.querySelector('.fscrub-popup-lbl').textContent = lbl;
+        _popup.classList.add('fscrub-popup-visible');
+        _positionPopup(e.currentTarget);
+    }
+
+    function _hidePopup() {
+        if (_popup) _popup.classList.remove('fscrub-popup-visible');
+    }
+
+    function _positionPopup(thumbEl) {
+        if (!_popup) return;
+        const r    = thumbEl.getBoundingClientRect();
+        const pw   = 200;
+        let   left = r.left + r.width / 2 - pw / 2;
+        left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+        const top  = r.top + window.scrollY - _popup.offsetHeight - 8;
+        _popup.style.left = left + 'px';
+        _popup.style.top  = Math.max(8, top) + 'px';
     }
 
     function _syncInput(toolId) {
         const s = _state[toolId];
         if (!s) return;
-
         if (toolId === 'video-frame') {
             if (s.selected === null) return;
             const t = s.thumbs[s.selected];
             if (s.isGif) {
-                const fi = document.getElementById('frameIndex');
-                if (fi) fi.value = t.frameIndex;
+                const el = document.getElementById('frameIndex');
+                if (el) el.value = t.frameIndex;
             } else {
-                const fts = document.getElementById('frameTimestamp');
-                if (fts) fts.value = _fmtTimestamp(t.timestamp);
+                const el = document.getElementById('frameTimestamp');
+                if (el) el.value = _fmtTimestamp(t.timestamp);
             }
         } else if (toolId === 'gif-frame-remove') {
-            const input = document.getElementById('removeFrames');
-            if (!input) return;
-            const frames = [...s.selected]
-                .map(i => s.thumbs[i].frameIndex)
-                .sort((a, b) => a - b);
-            input.value = frames.join(', ');
+            const el = document.getElementById('removeFrames');
+            if (!el) return;
+            el.value = [...s.selected].map(i => s.thumbs[i].frameIndex).sort((a, b) => a - b).join(', ');
         }
     }
 
@@ -192,45 +201,24 @@ const FrameScrubber = (() => {
         const s    = _state[toolId];
         const wrap = document.getElementById('fscrub-' + toolId);
         if (!s || !wrap) return;
-        const tag = wrap.querySelector('.fscrub-sel-tag');
+        const tag  = wrap.querySelector('.fscrub-sel-tag');
         if (!tag) return;
-
         if (s.mode === 'select') {
             if (s.selected !== null) {
                 const t = s.thumbs[s.selected];
-                tag.textContent = s.isGif ? `Frame ${t.frameIndex}` : _fmtTimestamp(t.timestamp);
+                tag.textContent = s.isGif ? ('Frame ' + t.frameIndex) : _fmtTimestamp(t.timestamp);
                 tag.style.display = 'inline-block';
             }
         } else {
             const n = s.selected.size;
-            if (n === 0) {
-                tag.textContent = '';
-                tag.style.display = 'none';
-            } else {
-                tag.textContent = n + ' selected';
-                tag.style.display = 'inline-block';
-            }
+            if (n === 0) { tag.textContent = ''; tag.style.display = 'none'; }
+            else         { tag.textContent = n + ' selected'; tag.style.display = 'inline-block'; }
         }
     }
 
-    function _setManualVisibility(toolId, visible) {
-        if (toolId === 'video-frame') {
-            // Both hid/shown depending on file type — scrubber overrides both to hidden
-            const tsOpt  = document.getElementById('frameTimestampOption');
-            const idxOpt = document.getElementById('frameIndexOption');
-            if (!visible) {
-                // Only mark as scrub-hidden if currently visible (preserve file-type toggle state)
-                if (tsOpt  && !tsOpt.classList.contains('hidden'))  { tsOpt.dataset.scrubHidden  = '1'; tsOpt.classList.add('hidden'); }
-                if (idxOpt && !idxOpt.classList.contains('hidden')) { idxOpt.dataset.scrubHidden = '1'; idxOpt.classList.add('hidden'); }
-            } else {
-                // restore to whatever the file-type logic set (leave them hidden unless explicitly restored)
-                if (tsOpt  && tsOpt.dataset.scrubHidden)  { tsOpt.classList.remove('hidden');  delete tsOpt.dataset.scrubHidden; }
-                if (idxOpt && idxOpt.dataset.scrubHidden) { idxOpt.classList.remove('hidden'); delete idxOpt.dataset.scrubHidden; }
-            }
-        } else if (toolId === 'gif-frame-remove') {
-            const opts = document.querySelector('#tool-gif-frame-remove .tool-options');
-            if (opts) opts.classList.toggle('hidden', !visible);
-        }
+    function _getThumbEls(toolId) {
+        const wrap = document.getElementById('fscrub-' + toolId);
+        return wrap ? [...wrap.querySelectorAll('.fscrub-thumb')] : [];
     }
 
     /* ── Thumbnail generators ─────────────────────────────────────────── */
@@ -266,11 +254,7 @@ const FrameScrubber = (() => {
                         ? Math.round(THUMB_W * vid.videoHeight / vid.videoWidth)
                         : Math.round(THUMB_W * 9 / 16);
                     ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-                    thumbs.push({
-                        thumbnail: canvas.toDataURL('image/jpeg', 0.72),
-                        timestamp: t,
-                        frameIndex: Math.round(t * 30)  // approx at 30 fps
-                    });
+                    thumbs.push({ thumbnail: canvas.toDataURL('image/jpeg', 0.85), timestamp: t });
                 }
 
                 vid.src = '';
@@ -284,42 +268,103 @@ const FrameScrubber = (() => {
 
     function _seekTo(vid, time) {
         return new Promise(resolve => {
-            const onSeeked = () => resolve();
-            vid.addEventListener('seeked', onSeeked, { once: true });
+            vid.addEventListener('seeked', resolve, { once: true });
             vid.currentTime = time;
         });
     }
 
+    /* ── GIF with proper compositing + disposal handling ─────────────── */
+
     async function _genGif(file) {
         if (!('ImageDecoder' in window)) return null;
 
-        const buf     = await file.arrayBuffer();
-        const decoder = new ImageDecoder({ data: buf, type: 'image/gif' });
+        const buf       = await file.arrayBuffer();
+        const disposals = _readGifDisposals(buf);  // parse disposal methods from raw bytes
+
+        const decoder = new ImageDecoder({ data: buf.slice(0), type: 'image/gif' });
         await decoder.tracks.ready;
 
         const track = decoder.tracks.selectedTrack;
-        const total = track.frameCount;
+        const total = track ? track.frameCount : 0;
         if (!total || total <= 0) { decoder.close(); return null; }
 
         const toProcess = Math.min(total, MAX_GIF);
+
+        // Decode frame 0 to get logical-screen dimensions
+        const { image: firstImg } = await decoder.decode({ frameIndex: 0 });
+        const W = firstImg.displayWidth;
+        const H = firstImg.displayHeight;
+        firstImg.close();
+        if (!W || !H) { decoder.close(); return null; }
+
+        // Persistent compositor canvas — accumulates frames exactly as a GIF viewer would
+        const comp  = new OffscreenCanvas(W, H);
+        const cctx  = comp.getContext('2d');
+
+        // Thumbnail output canvas
+        const thumbH = Math.round(THUMB_W * H / W) || THUMB_W;
+        const tcanv  = document.createElement('canvas');
+        tcanv.width  = THUMB_W;
+        tcanv.height = thumbH;
+        const tctx   = tcanv.getContext('2d');
+
         const thumbs    = [];
-        const canvas    = document.createElement('canvas');
-        const ctx       = canvas.getContext('2d');
-        canvas.width    = THUMB_W;
+        let   prevRect  = null;      // bounding rect of prev frame on compositor
+        let   savedPx   = null;      // ImageData snapshot for disposal=3
 
         for (let i = 0; i < toProcess; i++) {
             const { image } = await decoder.decode({ frameIndex: i });
-            canvas.height   = image.height > 0
-                ? Math.round(THUMB_W * image.height / image.width)
-                : THUMB_W;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            const vr       = image.visibleRect;
+            const fx = vr.x, fy = vr.y, fw = vr.width || W, fh = vr.height || H;
+            const disposal = disposals[i] ?? 1;
+
+            // Apply PREVIOUS frame's disposal before drawing this frame
+            if (i > 0 && prevRect) {
+                const pd = disposals[i - 1] ?? 1;
+                if (pd === 2) {
+                    // Restore to background (transparent)
+                    cctx.clearRect(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
+                } else if (pd === 3 && savedPx) {
+                    // Restore to pre-previous-frame content
+                    cctx.putImageData(savedPx, prevRect.x, prevRect.y);
+                    savedPx = null;
+                }
+            }
+
+            // Save snapshot of region if THIS frame's disposal will restore it later
+            if (disposal === 3) {
+                savedPx = cctx.getImageData(fx, fy, fw, fh);
+            }
+
+            cctx.drawImage(image, fx, fy, fw, fh);
+            prevRect = { x: fx, y: fy, w: fw, h: fh };
             image.close();
-            thumbs.push({ thumbnail: canvas.toDataURL('image/jpeg', 0.72), frameIndex: i });
+
+            // Capture thumbnail of composited state
+            tctx.clearRect(0, 0, THUMB_W, thumbH);
+            tctx.drawImage(comp, 0, 0, THUMB_W, thumbH);
+            thumbs.push({ thumbnail: tcanv.toDataURL('image/jpeg', 0.85), frameIndex: i });
         }
 
         decoder.close();
         return thumbs;
+    }
+
+    /**
+     * Parse Graphic Control Extension blocks from raw GIF bytes.
+     * GCE: 0x21 0xF9 0x04 [packed] [dly_lo] [dly_hi] [tci] 0x00
+     * disposal = (packed >> 3) & 0x07
+     */
+    function _readGifDisposals(buf) {
+        const bytes     = new Uint8Array(buf);
+        const disposals = [];
+        for (let i = 0; i < bytes.length - 7; i++) {
+            if (bytes[i] === 0x21 && bytes[i + 1] === 0xF9 && bytes[i + 2] === 0x04) {
+                disposals.push((bytes[i + 3] >> 3) & 0x07);
+                i += 7;
+            }
+        }
+        return disposals;
     }
 
     /* ── Formatting helpers ──────────────────────────────────────────── */
@@ -328,17 +373,17 @@ const FrameScrubber = (() => {
         if (!isFinite(secs)) return '–';
         if (secs >= 60) {
             const m = Math.floor(secs / 60);
-            const s = (secs % 60).toFixed(1);
-            return m + ':' + (parseFloat(s) < 10 ? '0' : '') + s;
+            const s = secs % 60;
+            return m + ':' + (s < 10 ? '0' : '') + s.toFixed(0);
         }
-        return secs.toFixed(1) + 's';
+        return secs.toFixed(2) + 's';
     }
 
     function _fmtTimestamp(secs) {
         if (!isFinite(secs)) return '00:00:00';
-        const h   = Math.floor(secs / 3600);
-        const m   = Math.floor((secs % 3600) / 60);
-        const s   = secs % 60;
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const s = secs % 60;
         return String(h).padStart(2, '0') + ':' +
                String(m).padStart(2, '0') + ':' +
                s.toFixed(3).padStart(6, '0');

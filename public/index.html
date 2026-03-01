@@ -1201,13 +1201,7 @@
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('gif-frame-remove')"><i class="fas fa-times"></i></button>
                     </div>
-                    <div class="tool-options">
-                        <label class="option-label">Frames to Remove</label>
-                        <div class="time-inputs">
-                            <div class="time-group" style="flex:1"><label>Frames</label><input type="text" id="removeFrames" placeholder="e.g. 0, 2-5, 10"></div>
-                        </div>
-                        <small class="option-hint">0-based index. Comma-separated, supports ranges &mdash; e.g. <code>0, 2-5, 10</code></small>
-                    </div>
+                    <input type="hidden" id="removeFrames">
                     <button class="process-btn" onclick="processFile('gif-frame-remove')"><i class="fas fa-trash-alt"></i> Remove Frames</button>
                     <div class="processing-status hidden" data-tool="gif-frame-remove"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
                     <div class="result-section hidden" data-tool="gif-frame-remove">
@@ -1290,20 +1284,8 @@
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('video-frame')"><i class="fas fa-times"></i></button>
                     </div>
-                    <div class="tool-options" id="frameTimestampOption">
-                        <label class="option-label">Timestamp</label>
-                        <div class="time-inputs">
-                            <div class="time-group" style="flex:1"><label>Time</label><input type="text" id="frameTimestamp" placeholder="00:00:05" value="00:00:00"></div>
-                        </div>
-                        <small class="option-hint">Format: HH:MM:SS or HH:MM:SS.mmm</small>
-                    </div>
-                    <div class="tool-options hidden" id="frameIndexOption">
-                        <label class="option-label">Frame Number</label>
-                        <div class="time-inputs">
-                            <div class="time-group" style="flex:1"><label>Frame</label><input type="number" id="frameIndex" placeholder="0" value="0" min="0"></div>
-                        </div>
-                        <small class="option-hint">0 = first frame, 1 = second frame, etc.</small>
-                    </div>
+                    <input type="hidden" id="frameTimestamp" value="00:00:00">
+                    <input type="hidden" id="frameIndex" value="0" min="0">
                     <button class="process-btn" onclick="processFile('video-frame')"><i class="fas fa-camera"></i> Extract Frame</button>
                     <div class="processing-status hidden" data-tool="video-frame"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Processing...</span></div>
                     <div class="result-section hidden" data-tool="video-frame">
