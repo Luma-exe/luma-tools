@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v16'; // bumped: improved frame scrubber, proper GIF compositing
+const CACHE_NAME = 'lumatools-v17'; // bumped: fix download button re-enable after analyze
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
