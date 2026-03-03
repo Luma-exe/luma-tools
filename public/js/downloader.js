@@ -126,7 +126,7 @@ async function analyzeURL() {
         if (msg.length > 150) msg = msg.substring(0, 150) + '...';
         $('errorText').textContent = msg;
         showDlSection('error');
-    } finally { $('analyzeBtn').disabled = false; }
+    } finally { $('analyzeBtn').disabled = false; const db = $('downloadBtn'); if (db) db.disabled = false; }
 }
 
 function retryAnalysis() { analyzeURL(); }
