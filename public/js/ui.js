@@ -10,6 +10,13 @@ function switchTool(toolId) {
         return;
     }
 
+    // Analytics
+    if (toolId !== 'landing') {
+        const _navItem2 = document.querySelector(`.nav-item[data-tool="${toolId}"]`);
+        const category = _navItem2?.closest('.nav-category')?.querySelector('.nav-category-title')?.textContent?.trim() || null;
+        window.LumaVantage?.track('tool_open', { tool: toolId, category })
+    }
+
     state.currentTool = toolId;
     $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tool === toolId));
     $$('.tool-panel').forEach(el => el.classList.toggle('active', el.id === 'tool-' + toolId));
