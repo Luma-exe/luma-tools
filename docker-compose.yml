@@ -27,31 +27,20 @@ services:
     build: .
     image: luma-tools:latest
     restart: unless-stopped
+    container_name: luma-tools-app
     env_file: .env
-    ports:
-      - "8080:8080"
     volumes:
       - downloads:/app/downloads
       - processing:/app/processing
       # Uncomment to persist stats.db (create the file first — see above):
       # - ./stats.db:/app/stats.db
+    networks:
+      - caddy-proxy
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile.docker:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - app
+networks:
+  caddy-proxy:
+    external: true
 
 volumes:
   downloads:
   processing:
-  caddy_data:
-  caddy_config:
