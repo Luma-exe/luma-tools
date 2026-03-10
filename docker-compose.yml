@@ -1,0 +1,57 @@
+# ============================================================================
+# luma-tools — Docker Compose
+# ============================================================================
+# Services:
+#   app   — C++ HTTP server serving the tools web UI
+#   caddy — Reverse proxy with automatic HTTPS (production only)
+#
+# Usage:
+#   Local dev:         docker compose up app
+#   Full production:   docker compose up
+#
+# Setup:
+#   1. Copy .env.example to .env and fill in API keys.
+#   2. downloads/ and processing/ are bind-mounted so large media files
+#      don't bloat the container layer.
+#
+# Persisting stats.db:
+#   stats.db is created in the working directory at runtime. To persist it
+#   across container recreations, create the file first then uncomment the
+#   bind mount below:
+#     New-Item -ItemType File stats.db    (PowerShell)
+#     touch stats.db                      (Linux/macOS)
+# ============================================================================
+
+services:
+  app:
+    build: .
+    image: luma-tools:latest
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - downloads:/app/downloads
+      - processing:/app/processing
+      # Uncomment to persist stats.db (create the file first — see above):
+      # - ./stats.db:/app/stats.db
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.docker:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  downloads:
+  processing:
+  caddy_data:
+  caddy_config:

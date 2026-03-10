@@ -1,0 +1,22 @@
+tools.lumaplayground.com {
+    reverse_proxy app:8080
+
+    encode gzip
+
+    # Allow large uploads (tools accept up to 500 MB)
+    request_body {
+        max_size 500MB
+    }
+
+    # Required for ffmpeg.wasm SharedArrayBuffer support
+    header {
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Embedder-Policy "require-corp"
+    }
+
+    # Long cache for static assets
+    @assets {
+        path /assets/* /css/* /js/*
+    }
+    header @assets Cache-Control "public, max-age=31536000, immutable"
+}

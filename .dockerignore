@@ -1,0 +1,10 @@
+build/
+downloads/
+processing/
+deploy/
+tools/
+*.db
+*.db-wal
+*.db-shm
+.env
+.git/
