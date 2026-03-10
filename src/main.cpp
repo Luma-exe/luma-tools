@@ -67,7 +67,11 @@ int main() {
             cout << "[Luma Tools] Git: " << g_git_branch << "@" << g_git_commit << endl;
 
             // Check for updates in a background thread (git fetch can hang under NSSM/SYSTEM)
+#ifdef _WIN32
             _putenv_s("GIT_TERMINAL_PROMPT", "0"); // prevent git from waiting for credentials
+#else
+            setenv("GIT_TERMINAL_PROMPT", "0", 1);
+#endif
             string captured_git_dir = git_dir;
             std::thread([captured_git_dir]() {
                 int rc;
@@ -203,8 +207,13 @@ int main() {
                 if (!fs::exists(candidate)) return false;
                 string scripts_dir = fs::path(candidate).parent_path().string();
                 const char* cur = std::getenv("PATH");
+#ifdef _WIN32
                 string new_path = scripts_dir + ";" + (cur ? cur : "");
                 _putenv_s("PATH", new_path.c_str());
+#else
+                string new_path = scripts_dir + ":" + (cur ? cur : "");
+                setenv("PATH", new_path.c_str(), 1);
+#endif
                 g_rembg_available = true;
                 cout << "[Luma Tools] rembg found: " << candidate << endl;
                 return true;
@@ -279,9 +288,14 @@ int main() {
         if (env_path) current_path = env_path;
 
         bool modified = false;
+#ifdef _WIN32
+        const string path_sep = ";";
+#else
+        const string path_sep = ":";
+#endif
 
         if (!g_ffmpeg_path.empty() && current_path.find(g_ffmpeg_path) == string::npos) {
-            current_path = g_ffmpeg_path + ";" + current_path;
+            current_path = g_ffmpeg_path + path_sep + current_path;
             modified = true;
             cout << "[Luma Tools] Added ffmpeg dir to PATH" << endl;
         }
@@ -290,14 +304,18 @@ int main() {
             string deno_dir = fs::path(g_deno_path).parent_path().string();
 
             if (current_path.find(deno_dir) == string::npos) {
-                current_path = deno_dir + ";" + current_path;
+                current_path = deno_dir + path_sep + current_path;
                 modified = true;
                 cout << "[Luma Tools] Added deno dir to PATH" << endl;
             }
         }
 
         if (modified) {
+#ifdef _WIN32
             _putenv_s("PATH", current_path.c_str());
+#else
+            setenv("PATH", current_path.c_str(), 1);
+#endif
         }
     }
 
