@@ -2,8 +2,8 @@
 # luma-tools — Docker Compose
 # ============================================================================
 # Services:
-#   app   — C++ HTTP server serving the tools web UI
-#   caddy — Reverse proxy with automatic HTTPS (production only)
+#   app          — C++ HTTP server serving the tools web UI
+#   cloudflared  — Cloudflare Tunnel (outbound-only, no open ports needed)
 #
 # Usage:
 #   Local dev:         docker compose up app
@@ -13,6 +13,13 @@
 #   1. Copy .env.example to .env and fill in API keys.
 #   2. downloads/ and processing/ are bind-mounted so large media files
 #      don't bloat the container layer.
+#   3. Add TUNNEL_TOKEN to .env — create a tunnel at dash.cloudflare.com and
+#      configure the public hostname: tools.lumaplayground.com → http://app:8080
+#
+# Note: Cloudflare's free plan limits uploads to 100 MB. The tools app accepts
+# up to 500 MB — to enable this, go to Cloudflare dashboard → your domain →
+# Rules → Config Rules and set "Upload Max Size" to 500 MB (requires Pro plan),
+# or add the COOP/COEP headers via a Transform Rule if needed by ffmpeg.wasm.
 #
 # Persisting stats.db:
 #   stats.db is created in the working directory at runtime. To persist it
@@ -34,12 +41,15 @@ services:
       - processing:/app/processing
       # Uncomment to persist stats.db (create the file first — see above):
       # - ./stats.db:/app/stats.db
-    networks:
-      - caddy-proxy
 
-networks:
-  caddy-proxy:
-    external: true
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on:
+      - app
 
 volumes:
   downloads:
