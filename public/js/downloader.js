@@ -107,6 +107,8 @@ async function analyzeURL() {
 
     showDlSection('loading');
     $('analyzeBtn').disabled = true;
+    LiveLogs.reset('downloader');
+    LiveLogs.add('downloader', 'Analyzing URL', 'info');
     lvTrack('tool_process_started', {
         tool_id: 'downloader',
         tool_category: 'media',
@@ -124,6 +126,7 @@ async function analyzeURL() {
 
         if (data.type === 'playlist') { renderPlaylist(data); showDlSection('playlist'); resolveUnknownTitles(); }
         else { renderMediaInfo(data); showDlSection('media'); }
+        LiveLogs.add('downloader', `Analyze success (${data.type || 'single'})`, 'success');
         lvTrack('tool_process_succeeded', {
             tool_id: 'downloader',
             tool_category: 'media',
@@ -138,6 +141,7 @@ async function analyzeURL() {
         if (msg.length > 150) msg = msg.substring(0, 150) + '...';
         $('errorText').textContent = msg;
         showDlSection('error');
+        LiveLogs.add('downloader', `Analyze failed: ${msg}`, 'error');
         lvTrack('tool_process_failed', {
             tool_id: 'downloader',
             tool_category: 'media',
@@ -214,6 +218,7 @@ async function startDownload() {
     $('downloadBtn').disabled = true;
     state.downloadLastProgress = 0;
     showDlSection('progress');
+    LiveLogs.add('downloader', `Download started (${state.selectedFormat}/${state.selectedQuality})`, 'info');
     lvTrack('tool_process_started', {
         tool_id: 'downloader',
         tool_category: 'media',
@@ -225,8 +230,9 @@ async function startDownload() {
     try {
         const data = await apiCall('/api/download', { url: state.url, format: state.selectedFormat, quality: state.selectedQuality, title: state.mediaInfo?.title || '' });
         state.downloadId = data.download_id;
+        LiveLogs.add('downloader', `Job created: ${data.download_id}`, 'info');
         pollDownloadStatus();
-    } catch (err) { showToast('Download failed: ' + err.message, 'error'); showDlSection('media'); $('downloadBtn').disabled = false; }
+    } catch (err) { showToast('Download failed: ' + err.message, 'error'); showDlSection('media'); $('downloadBtn').disabled = false; LiveLogs.add('downloader', `Download start failed: ${err.message}`, 'error'); }
 }
 
 function formatETA(seconds) {
@@ -258,12 +264,14 @@ function pollDownloadStatus() {
                     selected_format: state.selectedFormat,
                     selected_quality: state.selectedQuality,
                 }, { dedupeKey: `downloader_download_success:${state.downloadId || 'na'}`, debounceMs: 600 });
+                LiveLogs.add('downloader', 'Download completed', 'success');
                 setTimeout(() => { $('saveBtn').href = data.download_url; $('saveBtn').download = lumaTag(data.filename || 'download'); showDlSection('complete'); }, 600);
             } else if (data.status === 'error') {
                 clearInterval(state.pollInterval); state.pollInterval = null;
                 $('progressBar').classList.remove('processing');
                 showToast('Download error: ' + (data.error || 'Unknown error'), 'error');
                 showDlSection('media'); $('downloadBtn').disabled = false;
+                LiveLogs.add('downloader', `Download error: ${data.error || 'Unknown error'}`, 'error');
                 lvTrack('tool_process_failed', {
                     tool_id: 'downloader',
                     tool_category: 'media',
@@ -287,6 +295,7 @@ function pollDownloadStatus() {
                 if (data.filesize) { const el = $('progressSize'); if (el) el.textContent = data.filesize; }
                 if (data.status === 'processing') {
                     $('progressStatus').textContent = data.processing_msg || 'Processing file...';
+                    if (data.processing_msg) LiveLogs.add('downloader', data.processing_msg, 'info');
                     $('progressBar').classList.add('processing');
                     // Clear stale download stats during post-processing
                     const sp = $('progressSpeed'); if (sp) sp.textContent = '';

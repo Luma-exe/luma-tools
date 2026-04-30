@@ -507,6 +507,111 @@ body {
 .lp-price { font-size: 1.05rem; font-weight: 800; }
 .lp-price span { color: var(--text-secondary); font-weight: 500; font-size: 0.8rem; }
 .lp-feature { color: var(--text-secondary); font-size: 0.76rem; }
+.landing-price-card[data-plan="starter"] {
+    opacity: 0.75;
+    border-style: dashed;
+}
+.landing-price-card[data-plan="starter"] .lp-feature {
+    color: var(--accent-light);
+}
+
+.template-pack-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.template-pack-select {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.8rem;
+}
+.template-pack-apply-btn {
+    border: 1px solid rgba(124,92,255,0.45);
+    background: rgba(124,92,255,0.12);
+    color: var(--accent-light);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+.template-pack-apply-btn:hover {
+    border-color: rgba(124,92,255,0.8);
+    background: rgba(124,92,255,0.2);
+}
+.live-logs-panel {
+    margin-top: 8px;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+}
+.live-logs-toggle {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 11px;
+    cursor: pointer;
+    font-size: 0.78rem;
+}
+.live-logs-toggle i { margin-right: 6px; }
+.live-logs-panel:not(.collapsed) .live-logs-toggle i { transform: rotate(180deg); }
+.live-logs-unread {
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: rgba(124, 92, 255, 0.25);
+    color: var(--accent-light);
+    font-size: 0.68rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+}
+.live-logs-panel.collapsed .live-logs-body { display: none; }
+.live-logs-body {
+    border-top: 1px solid var(--glass-border);
+    padding: 8px 10px;
+}
+.live-logs-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 7px;
+}
+.live-logs-action-copy,
+.live-logs-action-clear {
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-secondary);
+    border-radius: 7px;
+    padding: 5px 8px;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+.live-logs-list {
+    max-height: 150px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+}
+.ll-line {
+    display: flex;
+    gap: 8px;
+    line-height: 1.4;
+}
+.ll-time { color: var(--text-muted); white-space: nowrap; }
+.ll-msg { color: var(--text-secondary); word-break: break-word; }
+.ll-line-error .ll-msg { color: #ff9a9a; }
+.ll-line-success .ll-msg { color: #7ee5b0; }
 
 .landing-privacy-notice {
     display: flex; align-items: flex-start; gap: 14px;

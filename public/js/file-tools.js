@@ -467,6 +467,7 @@ function pollJobStatus(toolId, jobId) {
 
     const es = new EventSource(`/api/tools/progress/${jobId}`);
     state.jobPolls[toolId] = es;
+    LiveLogs.add(toolId, `Connected to server log stream (${jobId})`, 'info');
 
     es.onmessage = async (evt) => {
         let data;
@@ -474,6 +475,8 @@ function pollJobStatus(toolId, jobId) {
 
         if (data.status === 'completed') {
             es.close(); delete state.jobPolls[toolId];
+            LiveLogs.ingestServerLogs(toolId, data.logs, data.log_seq);
+            LiveLogs.add(toolId, 'Processing completed', 'success');
             if (progressBar) progressBar.style.width = '100%';
             if (progressPct) progressPct.textContent = '100%';
             try {
@@ -487,20 +490,25 @@ function pollJobStatus(toolId, jobId) {
             if (data.model_used) showModelBadge(toolId, data.model_used);
         } else if (data.status === 'error' || data.status === 'not_found' || data.status === 'timeout') {
             es.close(); delete state.jobPolls[toolId];
+            LiveLogs.ingestServerLogs(toolId, data.logs, data.log_seq);
+            LiveLogs.add(toolId, data.error || 'Processing failed', 'error');
             showProcessing(toolId, false);
             showToast(data.error || 'Processing failed', 'error');
             const AI_TOOL_IDS = ['ai-study-notes', 'ai-flashcards', 'ai-quiz', 'ai-paraphrase', 'mind-map', 'youtube-summary'];
             if (AI_TOOL_IDS.includes(toolId)) showModelBadge(toolId, 'none');
         } else {
+            LiveLogs.ingestServerLogs(toolId, data.logs, data.log_seq);
             const pct = data.progress || 0;
             if (progressBar) progressBar.style.width = pct + '%';
             if (progressPct) progressPct.textContent = pct > 0 ? Math.round(pct) + '%' : '';
             if (procText && data.stage) procText.textContent = data.stage;
+            if (data.stage) LiveLogs.add(toolId, data.stage, 'info');
         }
     };
 
     es.onerror = () => {
         es.close(); delete state.jobPolls[toolId];
+        LiveLogs.add(toolId, 'Lost connection to server progress stream', 'error');
         showProcessing(toolId, false);
         showToast('Lost connection to server', 'error');
     };
@@ -543,6 +551,8 @@ function showProcessing(toolId, show) {
         if (show) {
             const procText = el.querySelector('.processing-text');
             if (procText) procText.textContent = procText.dataset.default || 'Processing...';
+            LiveLogs.reset(toolId);
+            LiveLogs.add(toolId, `Started ${toolId} request`, 'info');
         }
     }
 
@@ -574,6 +584,8 @@ function showProcessing(toolId, show) {
     if (btn) btn.disabled = show;
     if (show) {
         lvTrack('tool_process_started', { tool_id: toolId, source_page: 'tool_panel' }, { dedupeKey: `tool_process_started:${toolId}`, debounceMs: 800 });
+    } else {
+        LiveLogs.add(toolId, 'Processing flow finished', 'success');
     }
 }
 
@@ -584,6 +596,7 @@ function showResult(toolId, blob, filename, jobId = null) {
     const result = document.querySelector(`.result-section[data-tool="${toolId}"]`);
 
     if (!result) return;
+    LiveLogs.add(toolId, `Output ready: ${filename || 'result file'}`, 'success');
     trackFirstValueAction(toolId, {
         source_page: 'tool_result',
         output_size_bytes: blob?.size || 0,

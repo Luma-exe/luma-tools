@@ -37,6 +37,8 @@ static mutex jobs_mutex;
 static map<string, json> job_status_map;
 static map<string, string> job_results_map;
 static map<string, string> job_raw_text_map;
+static map<string, std::deque<json>> job_logs_map;
+static map<string, long long> job_log_seq_map;
 static int job_counter = 0;
 
 // ─── JSON helpers ───────────────────────────────────────────────────────────
@@ -436,9 +438,52 @@ void update_job(const string& id, const json& status, const string& result_path)
     static std::deque<string> job_order;
     if (!job_status_map.count(id)) {
         job_order.push_back(id);
+        job_logs_map[id] = {};
+        job_log_seq_map[id] = 0;
     }
 
-    job_status_map[id] = status;
+    auto append_log_locked = [&](const string& msg, const string& level = "info") {
+        if (msg.empty()) return;
+        string trimmed = msg;
+        constexpr size_t MAX_LOG_CHARS = 240;
+        if (trimmed.size() > MAX_LOG_CHARS) trimmed = trimmed.substr(0, MAX_LOG_CHARS) + "...";
+        long long seq = ++job_log_seq_map[id];
+        json entry = {
+            {"seq", seq},
+            {"ts", (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count()},
+            {"level", level},
+            {"msg", trimmed}
+        };
+        auto& dq = job_logs_map[id];
+        dq.push_back(entry);
+        constexpr size_t MAX_LOG_LINES = 140;
+        while (dq.size() > MAX_LOG_LINES) dq.pop_front();
+    };
+
+    if (status.contains("stage") && status["stage"].is_string()) {
+        string stage = status["stage"].get<string>();
+        int progress = status.contains("progress") && status["progress"].is_number_integer()
+            ? status["progress"].get<int>() : -1;
+        append_log_locked(progress >= 0 ? ("Stage: " + stage + " (" + to_string(progress) + "%)") : ("Stage: " + stage), "info");
+    }
+    if (status.contains("error") && status["error"].is_string()) {
+        append_log_locked(status["error"].get<string>(), "error");
+    }
+    if (status.contains("status") && status["status"].is_string()) {
+        string s = status["status"].get<string>();
+        if (s == "completed") append_log_locked("Job completed successfully", "success");
+        else if (s == "processing") append_log_locked("Job started", "info");
+    }
+
+    json merged = status;
+    json logs = json::array();
+    if (job_logs_map.count(id)) {
+        for (const auto& e : job_logs_map[id]) logs.push_back(e);
+    }
+    merged["log_seq"] = job_log_seq_map[id];
+    merged["logs"] = logs;
+    job_status_map[id] = merged;
     if (!result_path.empty()) job_results_map[id] = result_path;
 
     // Evict oldest entries if maps exceed the cap (prevents unbounded memory growth).
@@ -448,6 +493,8 @@ void update_job(const string& id, const json& status, const string& result_path)
         job_status_map.erase(oldest);
         job_results_map.erase(oldest);
         job_raw_text_map.erase(oldest);
+        job_logs_map.erase(oldest);
+        job_log_seq_map.erase(oldest);
         job_order.pop_front();
     }
 }
@@ -457,6 +504,38 @@ json get_job(const string& id) {
 
     if (job_status_map.count(id)) return job_status_map[id];
     return {{"error", "not_found"}};
+}
+
+void append_job_log(const string& id, const string& message, const string& level) {
+    lock_guard<mutex> lock(jobs_mutex);
+    if (!job_status_map.count(id)) return;
+    if (!job_logs_map.count(id)) job_logs_map[id] = {};
+    if (!job_log_seq_map.count(id)) job_log_seq_map[id] = 0;
+
+    string trimmed = message;
+    constexpr size_t MAX_LOG_CHARS = 240;
+    if (trimmed.size() > MAX_LOG_CHARS) trimmed = trimmed.substr(0, MAX_LOG_CHARS) + "...";
+
+    long long seq = ++job_log_seq_map[id];
+    json entry = {
+        {"seq", seq},
+        {"ts", (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count()},
+        {"level", level.empty() ? "info" : level},
+        {"msg", trimmed}
+    };
+    auto& dq = job_logs_map[id];
+    dq.push_back(entry);
+    constexpr size_t MAX_LOG_LINES = 140;
+    while (dq.size() > MAX_LOG_LINES) dq.pop_front();
+
+    auto it = job_status_map.find(id);
+    if (it != job_status_map.end() && it->second.is_object()) {
+        json logs = json::array();
+        for (const auto& e : dq) logs.push_back(e);
+        it->second["log_seq"] = job_log_seq_map[id];
+        it->second["logs"] = logs;
+    }
 }
 
 string get_job_result_path(const string& id) {

@@ -497,10 +497,10 @@
                         <h3>Support the project, unlock faster workflow</h3>
                         <p class="landing-pricing-sub">Experimenting with a simple freemium model. Core tools stay free.</p>
                         <div class="landing-pricing-grid">
-                            <button class="landing-price-card" data-plan="starter" data-price="4.99" onclick="openUpgradeModal('starter')">
+                            <button class="landing-price-card" data-plan="starter" data-price="4.99" onclick="openUpgradeModal('pro')">
                                 <span class="lp-name">Starter</span>
                                 <span class="lp-price">$4.99<span>/mo</span></span>
-                                <span class="lp-feature">Higher daily limits</span>
+                                <span class="lp-feature">Included in Pro access right now</span>
                             </button>
                             <button class="landing-price-card is-featured" data-plan="pro" data-price="9.99" onclick="openUpgradeModal('pro')">
                                 <span class="lp-name">Pro</span>
@@ -2643,6 +2643,15 @@
             <p id="upgradeBody">Unlock higher limits, bigger batches, and priority processing while keeping core tools free for everyone.</p>
             <button class="dtm-close" id="upgradeCtaBtn" onclick="openSupportCheckout()"><i class="fas fa-mug-hot"></i> Continue to support</button>
             <button class="dtm-close" onclick="closeUpgradeModal()"><i class="fas fa-times"></i> Maybe later</button>
+        </div>
+    </div>
+    <!-- Pro update notice (shown once) -->
+    <div class="disabled-tool-backdrop" id="proNoticeBackdrop" onclick="closeProNoticeModal(event)">
+        <div class="disabled-tool-modal">
+            <div class="dtm-icon"><i class="fas fa-crown"></i></div>
+            <h3>Pro Membership Enabled For Everyone</h3>
+            <p>Everyone has been given Pro membership while we roll out updates to the site. Thanks for your support while we improve Luma Tools.</p>
+            <button class="dtm-close" onclick="closeProNoticeModal()"><i class="fas fa-check"></i> Got it</button>
         </div>
     </div>
 

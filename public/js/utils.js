@@ -186,3 +186,98 @@ function trackFirstValueAction(toolId, meta = {}) {
 }
 
 document.addEventListener('DOMContentLoaded', initLumaVantageTracking);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIVE LOGS (CLIENT + SERVER MERGE)
+// ═══════════════════════════════════════════════════════════════════════════
+const LiveLogs = (() => {
+    const stateByTool = Object.create(null);
+    const MAX_LINES = 220;
+
+    function getState(toolId) {
+        if (!stateByTool[toolId]) {
+            stateByTool[toolId] = { lines: [], seenSeq: 0, unread: 0, autoScroll: true };
+        }
+        return stateByTool[toolId];
+    }
+
+    function lineHtml(line) {
+        const lvl = line.level || 'info';
+        const cls = lvl === 'error' ? 'll-line-error' : (lvl === 'success' ? 'll-line-success' : 'll-line-info');
+        const ts = new Date(line.ts || Date.now()).toLocaleTimeString();
+        return `<div class="ll-line ${cls}"><span class="ll-time">${ts}</span><span class="ll-msg">${escapeHTML(line.msg || '')}</span></div>`;
+    }
+
+    function render(toolId) {
+        const panel = document.querySelector(`#tool-${toolId} .live-logs-panel`);
+        if (!panel) return;
+        const list = panel.querySelector('.live-logs-list');
+        const badge = panel.querySelector('.live-logs-unread');
+        const st = getState(toolId);
+        if (list) list.innerHTML = st.lines.map(lineHtml).join('');
+        if (badge) {
+            badge.textContent = st.unread > 0 ? String(st.unread) : '';
+            badge.classList.toggle('hidden', st.unread === 0);
+        }
+        if (list && st.autoScroll) list.scrollTop = list.scrollHeight;
+    }
+
+    function add(toolId, msg, level = 'info') {
+        if (!toolId || !msg) return;
+        const st = getState(toolId);
+        st.lines.push({ ts: Date.now(), level, msg: String(msg) });
+        if (st.lines.length > MAX_LINES) st.lines.splice(0, st.lines.length - MAX_LINES);
+        const panel = document.querySelector(`#tool-${toolId} .live-logs-panel`);
+        if (panel?.classList.contains('collapsed')) st.unread += 1;
+        render(toolId);
+    }
+
+    function ingestServerLogs(toolId, logs, logSeq) {
+        if (!toolId || !Array.isArray(logs) || logs.length === 0) return;
+        const st = getState(toolId);
+        const incoming = logs.filter(l => Number(l.seq || 0) > st.seenSeq);
+        for (const l of incoming) {
+            st.lines.push({
+                ts: Number(l.ts || Date.now()),
+                level: String(l.level || 'info'),
+                msg: `[server] ${String(l.msg || '')}`,
+            });
+        }
+        st.seenSeq = Math.max(st.seenSeq, Number(logSeq || 0));
+        if (st.lines.length > MAX_LINES) st.lines.splice(0, st.lines.length - MAX_LINES);
+        const panel = document.querySelector(`#tool-${toolId} .live-logs-panel`);
+        if (panel?.classList.contains('collapsed') && incoming.length > 0) st.unread += incoming.length;
+        render(toolId);
+    }
+
+    function reset(toolId) {
+        const st = getState(toolId);
+        st.lines = [];
+        st.seenSeq = 0;
+        st.unread = 0;
+        st.autoScroll = true;
+        render(toolId);
+    }
+
+    function clearView(toolId) {
+        const st = getState(toolId);
+        st.lines = [];
+        st.unread = 0;
+        render(toolId);
+    }
+
+    function markRead(toolId) {
+        const st = getState(toolId);
+        st.unread = 0;
+        render(toolId);
+    }
+
+    function setAutoScroll(toolId, enabled) {
+        const st = getState(toolId);
+        st.autoScroll = !!enabled;
+    }
+
+    return { add, ingestServerLogs, reset, clearView, markRead, setAutoScroll, render };
+})();
+
+window.LiveLogs = LiveLogs;

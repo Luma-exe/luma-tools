@@ -96,6 +96,7 @@ function switchTool(toolId) {
         const isServer = _navItem?.dataset.location === 'server';
         banner.classList.toggle('hidden', !(isServer && window._serverOnline === false));
     }
+    LiveLogs.add(toolId, 'Opened tool panel', 'info');
 }
 
 function showDisabledModal() {
@@ -110,6 +111,7 @@ function closeDisabledModal(e) {
 }
 
 function openUpgradeModal(planId = 'pro') {
+    planId = 'pro';
     const backdrop = $('upgradeBackdrop');
     const title = $('upgradeTitle');
     const body = $('upgradeBody');
@@ -128,8 +130,20 @@ function closeUpgradeModal(e) {
     if (backdrop) backdrop.classList.remove('open');
 }
 
+function showProNoticeModal() {
+    const backdrop = $('proNoticeBackdrop');
+    if (backdrop) backdrop.classList.add('open');
+}
+
+function closeProNoticeModal(e) {
+    if (e && e.target !== $('proNoticeBackdrop') && !e.target.closest('.dtm-close')) return;
+    const backdrop = $('proNoticeBackdrop');
+    if (backdrop) backdrop.classList.remove('open');
+}
+
 function openSupportCheckout() {
-    const selectedPlan = localStorage.getItem('lt_selected_plan') || 'pro';
+    const selectedPlan = 'pro';
+    try { localStorage.setItem('lt_selected_plan', 'pro'); } catch {}
     lvTrack('pricing_plan_selected', { source_page: 'upgrade_modal', selected_plan: selectedPlan }, { dedupeKey: `pricing_plan_selected:${selectedPlan}`, debounceMs: 800 });
     lvTrack('share_clicked', { source_page: 'upgrade_modal', share_target: 'kofi_checkout', selected_plan: selectedPlan }, { dedupeKey: `support_checkout:${selectedPlan}`, debounceMs: 800 });
     window.open('https://ko-fi.com/lumaexe', '_blank', 'noopener');
@@ -195,6 +209,148 @@ function selectPreset(btn) {
     const toolId = grid.dataset.tool;
 
     if (toolId) { state.presets[toolId] = btn.dataset.val; try { localStorage.setItem('lt_p_' + toolId, btn.dataset.val); } catch {} }
+}
+
+const TEMPLATE_PACKS = {
+    'compress-lecture-upload': {
+        label: 'Compress lecture recording for upload',
+        toolId: 'video-compress',
+        apply() {
+            const preset = document.querySelector('.preset-grid[data-tool="video-compress"] .preset-btn[data-val="fast"]')
+                || document.querySelector('.preset-grid[data-tool="video-compress"] .preset-btn[data-val="medium"]');
+            if (preset) selectPreset(preset);
+        },
+    },
+    'slides-to-study-notes': {
+        label: 'Convert slides to study notes',
+        toolId: 'ai-study-notes',
+        apply() {
+            const mode = document.querySelector('.preset-grid[data-tool="study-notes-input-mode"] .preset-btn[data-val="upload"]');
+            if (mode) { selectPreset(mode); if (typeof toggleStudyNotesInput === 'function') toggleStudyNotesInput('upload'); }
+            const format = document.querySelector('.preset-grid[data-tool="study-notes-format"] .preset-btn[data-val="markdown"]');
+            if (format) { selectPreset(format); if (typeof toggleStudyNotesMathOption === 'function') toggleStudyNotesMathOption('markdown'); }
+            const depth = document.querySelector('.preset-grid[data-tool="study-notes-depth"] .preset-btn[data-val="indepth"]');
+            if (depth) selectPreset(depth);
+            const numbering = document.querySelector('.preset-grid[data-tool="study-notes-numbering"] .preset-btn[data-val="titles"]');
+            if (numbering) selectPreset(numbering);
+        },
+    },
+    'fast-social-clip-export': {
+        label: 'Fast social clip export',
+        toolId: 'video-convert',
+        apply() {
+            const fmt = document.querySelector('.format-select-grid[data-tool="video-convert"] .fmt-btn[data-fmt="mp4"]');
+            if (fmt) selectOutputFmt(fmt);
+        },
+    },
+    'small-pdf-lms': {
+        label: 'Small PDF for LMS submission',
+        toolId: 'pdf-compress',
+        apply() {
+            const preset = document.querySelector('.preset-grid[data-tool="pdf-compress"] .preset-btn[data-val="screen"]')
+                || document.querySelector('.preset-grid[data-tool="pdf-compress"] .preset-btn[data-val="ebook"]');
+            if (preset) selectPreset(preset);
+        },
+    },
+};
+
+const TOOL_TEMPLATE_PACKS = {
+    'video-compress': ['compress-lecture-upload'],
+    'ai-study-notes': ['slides-to-study-notes'],
+    'video-convert': ['fast-social-clip-export'],
+    'pdf-compress': ['small-pdf-lms'],
+};
+
+function applyTemplatePack(packId, sourcePage = 'template_pack') {
+    const pack = TEMPLATE_PACKS[packId];
+    if (!pack) return;
+    pack.apply();
+    lvTrack('template_pack_applied', {
+        tool_id: pack.toolId,
+        source_page: sourcePage,
+        template_pack_id: packId,
+    }, { dedupeKey: `template_pack_applied:${packId}`, debounceMs: 400 });
+    showToast(`Template applied: ${pack.label}`, 'success', 1800);
+}
+
+function injectTemplatePackSelectors() {
+    Object.entries(TOOL_TEMPLATE_PACKS).forEach(([toolId, packIds]) => {
+        const toolBody = document.querySelector(`#tool-${toolId} .tool-body`);
+        if (!toolBody || toolBody.querySelector('.template-pack-wrap')) return;
+        const firstOptions = toolBody.querySelector('.tool-options');
+        if (!firstOptions) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'tool-options template-pack-wrap';
+        wrap.innerHTML = `
+            <label class="option-label">Template Pack</label>
+            <div class="template-pack-row">
+                <select class="template-pack-select" data-tool="${toolId}">
+                    <option value="">Choose a pack...</option>
+                    ${packIds.map(id => `<option value="${id}">${TEMPLATE_PACKS[id].label}</option>`).join('')}
+                </select>
+                <button type="button" class="template-pack-apply-btn" data-tool="${toolId}">
+                    <i class="fas fa-bolt"></i> Apply
+                </button>
+            </div>
+        `;
+        toolBody.insertBefore(wrap, firstOptions);
+        const selectEl = wrap.querySelector('.template-pack-select');
+        const btnEl = wrap.querySelector('.template-pack-apply-btn');
+        btnEl?.addEventListener('click', () => {
+            const selected = selectEl?.value || '';
+            if (!selected) return;
+            applyTemplatePack(selected, 'template_pack_selector');
+        });
+        lvTrack('template_pack_viewed', { tool_id: toolId, source_page: 'tool_panel' }, { dedupeKey: `template_pack_viewed:${toolId}`, debounceMs: 120000 });
+    });
+}
+
+function initLiveLogsPanels() {
+    document.querySelectorAll('.tool-panel[id^="tool-"]').forEach(panel => {
+        const toolId = panel.id.replace('tool-', '');
+        const body = panel.querySelector('.tool-body');
+        if (!toolId || !body || body.querySelector('.live-logs-panel')) return;
+        const panelEl = document.createElement('div');
+        panelEl.className = 'live-logs-panel collapsed';
+        panelEl.innerHTML = `
+            <button type="button" class="live-logs-toggle">
+                <span><i class="fas fa-chevron-down"></i> Live logs</span>
+                <span class="live-logs-unread hidden"></span>
+            </button>
+            <div class="live-logs-body">
+                <div class="live-logs-actions">
+                    <button type="button" class="live-logs-action-copy"><i class="fas fa-copy"></i> Copy logs</button>
+                    <button type="button" class="live-logs-action-clear"><i class="fas fa-trash-alt"></i> Clear view</button>
+                </div>
+                <div class="live-logs-list"></div>
+            </div>
+        `;
+        body.appendChild(panelEl);
+        const toggle = panelEl.querySelector('.live-logs-toggle');
+        const list = panelEl.querySelector('.live-logs-list');
+        toggle?.addEventListener('click', () => {
+            panelEl.classList.toggle('collapsed');
+            const isCollapsed = panelEl.classList.contains('collapsed');
+            if (!isCollapsed) {
+                LiveLogs.markRead(toolId);
+                lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'expand' }, { dedupeKey: `live_logs_expand:${toolId}`, debounceMs: 500 });
+            }
+        });
+        list?.addEventListener('scroll', () => {
+            const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 10;
+            LiveLogs.setAutoScroll(toolId, nearBottom);
+        });
+        panelEl.querySelector('.live-logs-action-copy')?.addEventListener('click', () => {
+            const text = [...panelEl.querySelectorAll('.ll-line')].map(n => n.innerText).join('\n');
+            navigator.clipboard.writeText(text || '').then(() => showToast('Logs copied', 'success')).catch(() => showToast('Copy failed', 'error'));
+            lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'copy' }, { dedupeKey: `live_logs_copy:${toolId}`, debounceMs: 500 });
+        });
+        panelEl.querySelector('.live-logs-action-clear')?.addEventListener('click', () => {
+            LiveLogs.clearView(toolId);
+            lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'clear_view' }, { dedupeKey: `live_logs_clear:${toolId}`, debounceMs: 500 });
+        });
+        LiveLogs.render(toolId);
+    });
 }
 
 function selectWmPos(btn) {
@@ -336,6 +492,13 @@ function toggleHistoryDrawer(open) {
 // INITIALISATION (DOMContentLoaded)
 // ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    try { localStorage.setItem('lt_selected_plan', 'pro'); } catch {}
+    try {
+        if (!localStorage.getItem('lt_pro_notice_seen')) {
+            showProNoticeModal();
+            localStorage.setItem('lt_pro_notice_seen', '1');
+        }
+    } catch {}
     // ─ Add chevrons + onclick to all nav-category-titles ─
     document.querySelectorAll('#sidebarNav .nav-category-title').forEach(titleEl => {
         if (!titleEl.querySelector('.nav-cat-chevron')) {
@@ -358,7 +521,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ─ Render favourites category ─
     renderFavs();
-    const persistedPlan = localStorage.getItem('lt_selected_plan');
+    initLiveLogsPanels();
+    injectTemplatePackSelectors();
+    const persistedPlan = 'pro';
     if (persistedPlan) {
         document.querySelectorAll('.landing-price-card').forEach(card => {
             card.classList.toggle('is-featured', card.dataset.plan === persistedPlan);
@@ -366,10 +531,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     document.querySelectorAll('.landing-price-card').forEach(card => {
         card.addEventListener('click', () => {
-            const plan = card.dataset.plan || 'pro';
-            try { localStorage.setItem('lt_selected_plan', plan); } catch {}
-            document.querySelectorAll('.landing-price-card').forEach(c => c.classList.toggle('is-featured', c === card));
-            lvTrack('pricing_plan_selected', { source_page: 'landing_pricing', selected_plan: plan, price_usd: card.dataset.price || '' }, { dedupeKey: `landing_pricing:${plan}`, debounceMs: 1000 });
+            const plan = 'pro';
+            try { localStorage.setItem('lt_selected_plan', 'pro'); } catch {}
+            document.querySelectorAll('.landing-price-card').forEach(c => c.classList.toggle('is-featured', c.dataset.plan === 'pro'));
+            lvTrack('pricing_plan_selected', { source_page: 'landing_pricing', selected_plan: plan, price_usd: card.dataset.plan === 'pro' ? (card.dataset.price || '') : '9.99' }, { dedupeKey: 'landing_pricing:pro', debounceMs: 1000 });
         });
     });
 
