@@ -318,7 +318,7 @@ function ensureLiveLogsPanel(panel) {
     const toolId = panel.id.replace('tool-', '');
     if (toolId === 'landing') return false;
     const body = panel.querySelector('.tool-body');
-    if (!toolId || !body || body.querySelector('.live-logs-panel')) return false;
+    if (!toolId || !body || panel.querySelector('.live-logs-panel')) return false;
 
     const panelEl = document.createElement('div');
     panelEl.className = 'live-logs-panel collapsed';
@@ -340,7 +340,7 @@ function ensureLiveLogsPanel(panel) {
         </div>
     `;
 
-    body.appendChild(panelEl);
+    panel.appendChild(panelEl);
     const toggle = panelEl.querySelector('.live-logs-toggle');
     const list = panelEl.querySelector('.live-logs-list');
     toggle?.addEventListener('click', () => {

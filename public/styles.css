@@ -633,63 +633,52 @@ body {
     background: rgba(124,92,255,0.2);
 }
 .live-logs-panel {
-    margin-top: 8px;
-    border-radius: 10px;
-    border: 1px solid rgba(124,92,255,0.6);
-    border-left: 4px solid var(--accent);
-    background: rgba(124,92,255,0.08);
-    overflow: hidden;
+    margin-top: 10px;
 }
 .live-logs-toggle {
-    width: 100%;
-    min-height: 40px;
-    border: none;
-    background: rgba(124,92,255,0.15);
-    color: var(--accent-light);
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 11px 14px;
+    gap: 5px;
+    background: transparent;
+    border: none;
+    padding: 0;
     cursor: pointer;
-    font-size: 0.84rem;
-    font-weight: 600;
+    font-size: 0.75rem;
     font-family: var(--font-main);
-    text-align: left;
+    color: var(--text-muted);
+    transition: color 0.15s ease;
 }
+.live-logs-toggle:hover { color: var(--text-secondary); }
 .live-logs-toggle-left {
     display: flex;
     align-items: center;
-    gap: 7px;
-    flex: 1;
+    gap: 5px;
 }
 .live-logs-toggle-left i {
-    color: var(--accent-light);
-    font-size: 0.8rem;
+    font-size: 0.65rem;
     transition: transform 0.2s ease;
     flex-shrink: 0;
 }
-.live-logs-toggle-hint {
-    font-size: 0.72rem;
-    font-weight: 400;
-    color: var(--text-muted);
-}
-.live-logs-toggle:hover { background: rgba(124,92,255,0.20); }
+.live-logs-toggle-hint { display: none; }
 .live-logs-panel:not(.collapsed) .live-logs-toggle-left i { transform: rotate(180deg); }
 .live-logs-unread {
-    min-width: 18px;
-    height: 18px;
-    border-radius: 9px;
-    background: rgba(124, 92, 255, 0.25);
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    background: rgba(124,92,255,0.35);
     color: var(--accent-light);
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 6px;
+    padding: 0 5px;
 }
 .live-logs-panel.collapsed .live-logs-body { display: none; }
 .live-logs-body {
-    border-top: 1px solid var(--glass-border);
+    margin-top: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.02);
     padding: 8px 10px;
 }
 .live-logs-actions {
@@ -708,7 +697,7 @@ body {
     cursor: pointer;
 }
 .live-logs-list {
-    max-height: 150px;
+    max-height: 180px;
     overflow: auto;
     display: flex;
     flex-direction: column;
