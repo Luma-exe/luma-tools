@@ -281,6 +281,8 @@ function applyTemplatePack(packId, sourcePage = 'template_pack') {
     showToast(`Template applied: ${pack.label}`, 'success', 1800);
 }
 
+let _tpDropdownListenerAdded = false;
+
 function injectTemplatePackSelectors() {
     Object.entries(TOOL_TEMPLATE_PACKS).forEach(([toolId, packIds]) => {
         const toolBody = document.querySelector(`#tool-${toolId} .tool-body`);
@@ -292,25 +294,63 @@ function injectTemplatePackSelectors() {
         wrap.innerHTML = `
             <label class="option-label">Template Pack</label>
             <div class="template-pack-row">
-                <select class="template-pack-select" data-tool="${toolId}">
-                    <option value="">Choose a pack...</option>
-                    ${packIds.map(id => `<option value="${id}">${TEMPLATE_PACKS[id].label}</option>`).join('')}
-                </select>
+                <div class="tp-dropdown" data-tool="${toolId}" data-selected="">
+                    <button type="button" class="tp-dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="tp-dropdown-value">Choose a pack...</span>
+                        <i class="fas fa-chevron-down tp-dropdown-chevron"></i>
+                    </button>
+                    <div class="tp-dropdown-menu" role="listbox">
+                        ${packIds.map(id => `<div class="tp-dropdown-option" role="option" data-value="${id}">${TEMPLATE_PACKS[id].label}</div>`).join('')}
+                    </div>
+                </div>
                 <button type="button" class="template-pack-apply-btn" data-tool="${toolId}">
                     <i class="fas fa-bolt"></i> Apply
                 </button>
             </div>
         `;
         toolBody.insertBefore(wrap, firstOptions);
-        const selectEl = wrap.querySelector('.template-pack-select');
+
+        const dropdownEl = wrap.querySelector('.tp-dropdown');
+        const triggerEl = wrap.querySelector('.tp-dropdown-trigger');
+        const valueEl = wrap.querySelector('.tp-dropdown-value');
         const btnEl = wrap.querySelector('.template-pack-apply-btn');
+
+        triggerEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = dropdownEl.classList.toggle('open');
+            triggerEl.setAttribute('aria-expanded', isOpen);
+        });
+
+        wrap.querySelectorAll('.tp-dropdown-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                wrap.querySelectorAll('.tp-dropdown-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                dropdownEl.dataset.selected = opt.dataset.value;
+                valueEl.textContent = opt.textContent;
+                triggerEl.classList.add('has-value');
+                dropdownEl.classList.remove('open');
+                triggerEl.setAttribute('aria-expanded', 'false');
+            });
+        });
+
         btnEl?.addEventListener('click', () => {
-            const selected = selectEl?.value || '';
+            const selected = dropdownEl?.dataset.selected || '';
             if (!selected) return;
             applyTemplatePack(selected, 'template_pack_selector');
         });
+
         lvTrack('template_pack_viewed', { tool_id: toolId, source_page: 'tool_panel' }, { dedupeKey: `template_pack_viewed:${toolId}`, debounceMs: 120000 });
     });
+
+    if (!_tpDropdownListenerAdded) {
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.tp-dropdown.open').forEach(d => {
+                d.classList.remove('open');
+                d.querySelector('.tp-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
+            });
+        });
+        _tpDropdownListenerAdded = true;
+    }
 }
 
 function ensureLiveLogsPanel(panel) {
