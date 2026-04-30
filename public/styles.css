@@ -508,11 +508,13 @@ body {
 .tier-table thead th:first-child {
     text-align: left;
     width: 38%;
+    border-right: 1px solid rgba(255,255,255,0.1);
 }
 .tier-table td:first-child {
     color: var(--text-primary);
     text-align: left;
     font-size: 0.8rem;
+    border-right: 1px solid rgba(255,255,255,0.07);
 }
 .tier-table td:not(:first-child),
 .tier-table th:not(:first-child) {
@@ -630,22 +632,22 @@ body {
     background: rgba(124,92,255,0.2);
 }
 .live-logs-panel {
-    margin-top: 14px;
+    margin-top: 4px;
     border-radius: 10px;
-    border: 1px solid rgba(124,92,255,0.5);
-    border-left: 3px solid var(--accent);
+    border: 1px solid rgba(124,92,255,0.6);
+    border-left: 4px solid var(--accent);
     background: rgba(124,92,255,0.08);
     overflow: hidden;
 }
 .live-logs-toggle {
     width: 100%;
     border: none;
-    background: rgba(124,92,255,0.10);
-    color: var(--text-primary);
+    background: rgba(124,92,255,0.15);
+    color: var(--accent-light);
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 14px;
+    padding: 11px 14px;
     cursor: pointer;
     font-size: 0.84rem;
     font-weight: 600;
