@@ -493,6 +493,22 @@
                         <button class="landing-cta-btn" onclick="switchTool('ai-study-notes')"><i class="fas fa-rocket"></i> Try AI Study Tools</button>
                         <button class="landing-install-btn" id="landingInstallBtn" onclick="installPWA()"><i class="fas fa-download"></i> Install App</button>
                     </div>
+                    <div class="landing-pricing" id="landingPricing">
+                        <h3>Support the project, unlock faster workflow</h3>
+                        <p class="landing-pricing-sub">Experimenting with a simple freemium model. Core tools stay free.</p>
+                        <div class="landing-pricing-grid">
+                            <button class="landing-price-card" data-plan="starter" data-price="4.99" onclick="openUpgradeModal('starter')">
+                                <span class="lp-name">Starter</span>
+                                <span class="lp-price">$4.99<span>/mo</span></span>
+                                <span class="lp-feature">Higher daily limits</span>
+                            </button>
+                            <button class="landing-price-card is-featured" data-plan="pro" data-price="9.99" onclick="openUpgradeModal('pro')">
+                                <span class="lp-name">Pro</span>
+                                <span class="lp-price">$9.99<span>/mo</span></span>
+                                <span class="lp-feature">Priority processing + batch tools</span>
+                            </button>
+                        </div>
+                    </div>
 
                     <div class="landing-privacy-notice">
                         <i class="fas fa-shield-halved"></i>
@@ -2619,6 +2635,16 @@
             </div>
         </div>
     </div>
+    <!-- Upgrade modal -->
+    <div class="disabled-tool-backdrop" id="upgradeBackdrop" onclick="closeUpgradeModal(event)">
+        <div class="disabled-tool-modal">
+            <div class="dtm-icon"><i class="fas fa-bolt"></i></div>
+            <h3 id="upgradeTitle">Upgrade for faster workflows</h3>
+            <p id="upgradeBody">Unlock higher limits, bigger batches, and priority processing while keeping core tools free for everyone.</p>
+            <button class="dtm-close" id="upgradeCtaBtn" onclick="openSupportCheckout()"><i class="fas fa-mug-hot"></i> Continue to support</button>
+            <button class="dtm-close" onclick="closeUpgradeModal()"><i class="fas fa-times"></i> Maybe later</button>
+        </div>
+    </div>
 
     <!-- Batch processing overlay -->
     <div class="batch-overlay hidden" id="batchOverlay">
@@ -2669,33 +2695,20 @@
     <!-- Click event tracking -->
     <script>
     (function() {
-        function trackEvent(name) {
-            var body = JSON.stringify({ name: name });
-            // sendBeacon survives navigation (target="_blank" opens before fetch completes)
-            if (navigator.sendBeacon) {
-                var blob = new Blob([body], { type: 'application/json' });
-                navigator.sendBeacon('/api/stats/event', blob);
-            } else {
-                fetch('/api/stats/event', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: body,
-                    keepalive: true
-                }).catch(() => {});
-            }
-        }
         document.addEventListener('click', function(e) {
             var el = e.target.closest('a');
             if (!el) return;
             var href = el.getAttribute('href') || '';
             if (href.includes('ko-fi.com')) {
                 if (el.classList.contains('kofi-float')) {
-                    trackEvent('kofi_float_click');
+                    lvTrack('share_clicked', { source_page: 'floating_support', share_target: 'kofi_float' });
                 } else {
-                    trackEvent('kofi_footer_click');
+                    lvTrack('share_clicked', { source_page: 'footer_support', share_target: 'kofi_footer' });
                 }
             } else if (href.includes('github.com/Luma-exe')) {
-                trackEvent('github_click');
+                lvTrack('share_clicked', { source_page: 'github_profile', share_target: 'github_profile' });
+            } else if (href.includes('planner.lumaplayground.com')) {
+                lvTrack('signup_started', { source_page: 'landing_planner', signup_type: 'planner_referral' });
             }
         }, true);
     })();

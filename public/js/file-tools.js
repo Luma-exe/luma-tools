@@ -572,6 +572,9 @@ function showProcessing(toolId, show) {
     const btn = panel?.querySelector('.process-btn');
 
     if (btn) btn.disabled = show;
+    if (show) {
+        lvTrack('tool_process_started', { tool_id: toolId, source_page: 'tool_panel' }, { dedupeKey: `tool_process_started:${toolId}`, debounceMs: 800 });
+    }
 }
 
 const IMAGE_EXTS = /\.(png|jpe?g|webp|gif|bmp|tiff?|ico|avif|heic|heif|svg)$/i;
@@ -581,6 +584,18 @@ function showResult(toolId, blob, filename, jobId = null) {
     const result = document.querySelector(`.result-section[data-tool="${toolId}"]`);
 
     if (!result) return;
+    trackFirstValueAction(toolId, {
+        source_page: 'tool_result',
+        output_size_bytes: blob?.size || 0,
+        output_type: blob?.type || 'application/octet-stream',
+    });
+    lvTrack('tool_process_succeeded', {
+        tool_id: toolId,
+        source_page: 'tool_result',
+        output_size_bytes: blob?.size || 0,
+        output_name: filename || 'output',
+        has_job_id: !!jobId,
+    }, { dedupeKey: `tool_process_succeeded:${toolId}:${filename || 'output'}`, debounceMs: 800 });
     result.classList.remove('hidden');
     result.classList.remove('has-multi');
     const tagged = lumaTag(filename);
@@ -620,6 +635,12 @@ function showResult(toolId, blob, filename, jobId = null) {
         state.droppedFiles = [fakeFile];
         state.droppedCategory = category;
         showQuickActionModal(category, [fakeFile]);
+        lvTrack('share_clicked', {
+            tool_id: toolId,
+            source_page: 'result_actions',
+            share_target: 'send_to_tool',
+            shared_file_type: fakeFile.type || 'unknown',
+        }, { dedupeKey: `share_send_to_tool:${toolId}` });
     });
     actions.appendChild(sendBtn);
 

@@ -107,6 +107,11 @@ async function analyzeURL() {
 
     showDlSection('loading');
     $('analyzeBtn').disabled = true;
+    lvTrack('tool_process_started', {
+        tool_id: 'downloader',
+        tool_category: 'media',
+        source_page: 'downloader_analyze',
+    }, { dedupeKey: 'downloader_analyze_start', debounceMs: 600 });
 
     try {
         const data = await apiCall('/api/analyze', { url: state.url });
@@ -119,6 +124,13 @@ async function analyzeURL() {
 
         if (data.type === 'playlist') { renderPlaylist(data); showDlSection('playlist'); resolveUnknownTitles(); }
         else { renderMediaInfo(data); showDlSection('media'); }
+        lvTrack('tool_process_succeeded', {
+            tool_id: 'downloader',
+            tool_category: 'media',
+            source_page: 'downloader_analyze',
+            media_type: data.type || 'single',
+            platform: data.platform?.id || state.platform?.id || 'unknown',
+        }, { dedupeKey: `downloader_analyze_success:${data.type || 'single'}`, debounceMs: 600 });
     } catch (err) {
         let msg = err.message || 'Failed to analyze URL';
         msg = msg.replace(/^ERROR:\s*/, '').replace(/\[\w+\]\s*\w+:\s*/, '');
@@ -126,6 +138,12 @@ async function analyzeURL() {
         if (msg.length > 150) msg = msg.substring(0, 150) + '...';
         $('errorText').textContent = msg;
         showDlSection('error');
+        lvTrack('tool_process_failed', {
+            tool_id: 'downloader',
+            tool_category: 'media',
+            source_page: 'downloader_analyze',
+            error: msg,
+        }, { dedupeKey: 'downloader_analyze_fail', debounceMs: 600 });
     } finally { $('analyzeBtn').disabled = false; const db = $('downloadBtn'); if (db) db.disabled = false; }
 }
 
@@ -196,6 +214,13 @@ async function startDownload() {
     $('downloadBtn').disabled = true;
     state.downloadLastProgress = 0;
     showDlSection('progress');
+    lvTrack('tool_process_started', {
+        tool_id: 'downloader',
+        tool_category: 'media',
+        source_page: 'downloader_download',
+        selected_format: state.selectedFormat,
+        selected_quality: state.selectedQuality,
+    }, { dedupeKey: 'downloader_download_start', debounceMs: 600 });
 
     try {
         const data = await apiCall('/api/download', { url: state.url, format: state.selectedFormat, quality: state.selectedQuality, title: state.mediaInfo?.title || '' });
@@ -221,12 +246,30 @@ function pollDownloadStatus() {
                 clearInterval(state.pollInterval); state.pollInterval = null;
                 $('progressBar').classList.remove('processing');
                 $('progressBar').style.width = '100%'; $('progressTitle').textContent = 'Complete!'; $('progressStatus').textContent = 'Preparing file...';
+                trackFirstValueAction('downloader', {
+                    source_page: 'downloader_download',
+                    selected_format: state.selectedFormat,
+                    selected_quality: state.selectedQuality,
+                });
+                lvTrack('tool_process_succeeded', {
+                    tool_id: 'downloader',
+                    tool_category: 'media',
+                    source_page: 'downloader_download',
+                    selected_format: state.selectedFormat,
+                    selected_quality: state.selectedQuality,
+                }, { dedupeKey: `downloader_download_success:${state.downloadId || 'na'}`, debounceMs: 600 });
                 setTimeout(() => { $('saveBtn').href = data.download_url; $('saveBtn').download = lumaTag(data.filename || 'download'); showDlSection('complete'); }, 600);
             } else if (data.status === 'error') {
                 clearInterval(state.pollInterval); state.pollInterval = null;
                 $('progressBar').classList.remove('processing');
                 showToast('Download error: ' + (data.error || 'Unknown error'), 'error');
                 showDlSection('media'); $('downloadBtn').disabled = false;
+                lvTrack('tool_process_failed', {
+                    tool_id: 'downloader',
+                    tool_category: 'media',
+                    source_page: 'downloader_download',
+                    error: data.error || 'unknown',
+                }, { dedupeKey: `downloader_download_failed:${state.downloadId || 'na'}`, debounceMs: 600 });
             } else {
                 const pct = data.progress || 0;
                 // Monotonic cap: never let displayed progress go backward
