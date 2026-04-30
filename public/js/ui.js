@@ -316,6 +316,7 @@ function injectTemplatePackSelectors() {
 function ensureLiveLogsPanel(panel) {
     if (!panel) return false;
     const toolId = panel.id.replace('tool-', '');
+    if (toolId === 'landing') return false;
     const body = panel.querySelector('.tool-body');
     if (!toolId || !body || body.querySelector('.live-logs-panel')) return false;
 

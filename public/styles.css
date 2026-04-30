@@ -488,7 +488,7 @@ body {
 }
 .tier-table {
     width: 100%;
-    min-width: 460px;
+    min-width: 520px;
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
@@ -507,13 +507,14 @@ body {
 }
 .tier-table thead th:first-child {
     text-align: left;
-    width: 38%;
+    width: 42%;
     border-right: 1px solid rgba(255,255,255,0.1);
 }
 .tier-table td:first-child {
     color: var(--text-primary);
     text-align: left;
     font-size: 0.8rem;
+    white-space: nowrap;
     border-right: 1px solid rgba(255,255,255,0.07);
 }
 .tier-table td:not(:first-child),
@@ -592,7 +593,7 @@ body {
 }
 @media (max-width: 768px) {
     .tier-table {
-        min-width: 360px;
+        min-width: 400px;
         font-size: 0.78rem;
     }
     .tier-table th,
@@ -632,7 +633,7 @@ body {
     background: rgba(124,92,255,0.2);
 }
 .live-logs-panel {
-    margin-top: 4px;
+    margin-top: 8px;
     border-radius: 10px;
     border: 1px solid rgba(124,92,255,0.6);
     border-left: 4px solid var(--accent);
@@ -641,6 +642,7 @@ body {
 }
 .live-logs-toggle {
     width: 100%;
+    min-height: 40px;
     border: none;
     background: rgba(124,92,255,0.15);
     color: var(--accent-light);
