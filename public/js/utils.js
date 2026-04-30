@@ -190,6 +190,16 @@ document.addEventListener('DOMContentLoaded', initLumaVantageTracking);
 // ═══════════════════════════════════════════════════════════════════════════
 // LIVE LOGS (CLIENT + SERVER MERGE)
 // ═══════════════════════════════════════════════════════════════════════════
+function sanitizeLogMsg(msg) {
+    return String(msg)
+        .replace(/\/(?:tmp|home|var|etc|usr|root|proc|srv|opt|run|mnt|media|dev)\b[^\s,]*/gi, '[path]')
+        .replace(/[A-Za-z]:\\[^\s,]*/g, '[path]')
+        .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[ip]')
+        .replace(/\b([0-9a-fA-F]{1,4}:){3,}[0-9a-fA-F:]+\b/g, '[ip]')
+        .replace(/\b(key|token|secret|password|api[_-]?key|auth)\b[^\s]*/gi, '[redacted]')
+        .replace(/\b(groq|openai|anthropic|huggingface|replicate)\b/gi, '[service]');
+}
+
 const LiveLogs = (() => {
     const stateByTool = Object.create(null);
     const MAX_LINES = 220;
@@ -225,7 +235,7 @@ const LiveLogs = (() => {
     function add(toolId, msg, level = 'info') {
         if (!toolId || !msg) return;
         const st = getState(toolId);
-        st.lines.push({ ts: Date.now(), level, msg: String(msg) });
+        st.lines.push({ ts: Date.now(), level, msg: sanitizeLogMsg(msg) });
         if (st.lines.length > MAX_LINES) st.lines.splice(0, st.lines.length - MAX_LINES);
         const panel = document.querySelector(`#tool-${toolId} .live-logs-panel`);
         if (panel?.classList.contains('collapsed')) st.unread += 1;
@@ -240,7 +250,7 @@ const LiveLogs = (() => {
             st.lines.push({
                 ts: Number(l.ts || Date.now()),
                 level: String(l.level || 'info'),
-                msg: `[server] ${String(l.msg || '')}`,
+                msg: `[server] ${sanitizeLogMsg(l.msg || '')}`,
             });
         }
         st.seenSeq = Math.max(st.seenSeq, Number(logSeq || 0));
