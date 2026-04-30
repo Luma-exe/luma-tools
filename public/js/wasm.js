@@ -193,7 +193,13 @@ const WasmProcessor = {
                 const { FFmpeg }     = FFmpegWASM;
                 const { toBlobURL }  = FFmpegUtil;
                 this.ffmpeg = new FFmpeg();
-                this.ffmpeg.on('log', ({ type, message }) => console.log(`[WASM:${type}]`, message));
+                this.ffmpeg.on('log', ({ type, message }) => {
+                    console.log(`[WASM:${type}]`, message);
+                    if (window.LiveLogs && state?.currentTool) {
+                        const level = type === 'stderr' ? 'info' : 'info';
+                        LiveLogs.add(state.currentTool, `[wasm] ${message}`, level);
+                    }
+                });
                 const BASE = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
                 console.log('[WASM] Fetching core files from CDN...');
                 const coreURL = await toBlobURL(`${BASE}/ffmpeg-core.js`,   'text/javascript');

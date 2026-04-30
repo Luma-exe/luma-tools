@@ -112,6 +112,10 @@ function closeDisabledModal(e) {
 
 function openUpgradeModal(planId = 'pro') {
     planId = 'pro';
+    // Remove focus from whatever triggered the modal so it doesn't appear "selected"
+    if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+    }
     const backdrop = $('upgradeBackdrop');
     const title = $('upgradeTitle');
     const body = $('upgradeBody');
@@ -125,9 +129,12 @@ function openUpgradeModal(planId = 'pro') {
 }
 
 function closeUpgradeModal(e) {
-    if (e && e.target !== $('upgradeBackdrop')) return;
+    if (e && e.target !== $('upgradeBackdrop') && !e.target.closest?.('.dtm-close')) return;
     const backdrop = $('upgradeBackdrop');
     if (backdrop) backdrop.classList.remove('open');
+    if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+    }
 }
 
 function showProNoticeModal() {
