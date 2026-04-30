@@ -477,45 +477,6 @@ body {
     font-size: 0.82rem;
     margin-bottom: 12px;
 }
-.landing-pricing-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-.landing-price-card {
-    border: 1px solid var(--glass-border);
-    background: rgba(255,255,255,0.02);
-    color: var(--text-primary);
-    border-radius: 10px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    cursor: pointer;
-    transition: border-color var(--transition), transform var(--transition), background var(--transition);
-}
-.landing-price-card:hover {
-    transform: translateY(-1px);
-    border-color: rgba(124, 92, 255, 0.55);
-}
-.landing-price-card:focus { outline: none; }
-.landing-price-card.is-featured {
-    border-color: rgba(124, 92, 255, 0.7);
-    background: rgba(124, 92, 255, 0.12);
-}
-.lp-name { font-weight: 700; font-size: 0.85rem; }
-.lp-price { font-size: 1.05rem; font-weight: 800; }
-.lp-price span { color: var(--text-secondary); font-weight: 500; font-size: 0.8rem; }
-.lp-feature { color: var(--text-secondary); font-size: 0.76rem; }
-.landing-price-card[data-plan="starter"] {
-    opacity: 0.75;
-    border-style: dashed;
-}
-.landing-price-card[data-plan="starter"] .lp-feature {
-    color: var(--accent-light);
-}
-
 /* ─── Pricing Tier Table ──────────────────────────────────────────────────── */
 .tier-table-wrap {
     width: 100%;
@@ -527,7 +488,7 @@ body {
 }
 .tier-table {
     width: 100%;
-    min-width: 760px;
+    min-width: 460px;
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
@@ -581,6 +542,7 @@ body {
 }
 .tier-table thead .tier-pro-col {
     color: var(--accent-light);
+    border-top: 2px solid var(--accent);
     border-left: 1px solid rgba(124,92,255,0.25);
     border-right: 1px solid rgba(124,92,255,0.25);
 }
@@ -628,7 +590,7 @@ body {
 }
 @media (max-width: 768px) {
     .tier-table {
-        min-width: 680px;
+        min-width: 360px;
         font-size: 0.78rem;
     }
     .tier-table th,
@@ -670,7 +632,7 @@ body {
 .live-logs-panel {
     margin-top: 14px;
     border-radius: 10px;
-    border: 1px solid rgba(124,92,255,0.35);
+    border: 1px solid rgba(124,92,255,0.5);
     border-left: 3px solid var(--accent);
     background: rgba(124,92,255,0.08);
     overflow: hidden;
@@ -678,14 +640,14 @@ body {
 .live-logs-toggle {
     width: 100%;
     border: none;
-    background: transparent;
+    background: rgba(124,92,255,0.10);
     color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
     cursor: pointer;
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     font-weight: 600;
     font-family: var(--font-main);
     text-align: left;
@@ -698,7 +660,7 @@ body {
 }
 .live-logs-toggle-left i {
     color: var(--accent-light);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     transition: transform 0.2s ease;
     flex-shrink: 0;
 }
@@ -707,7 +669,7 @@ body {
     font-weight: 400;
     color: var(--text-muted);
 }
-.live-logs-toggle:hover { background: rgba(124,92,255,0.14); }
+.live-logs-toggle:hover { background: rgba(124,92,255,0.20); }
 .live-logs-panel:not(.collapsed) .live-logs-toggle-left i { transform: rotate(180deg); }
 .live-logs-unread {
     min-width: 18px;
@@ -812,7 +774,6 @@ body {
     .landing-features { grid-template-columns: 1fr; }
     .landing-drop-cta { padding: 24px 16px; }
     .landing-hero { padding-top: 0; }
-    .landing-pricing-grid { grid-template-columns: 1fr; }
 }
 
 .tool-header {
