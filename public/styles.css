@@ -466,7 +466,9 @@ body {
     padding: 16px;
     border-radius: 14px;
     border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 .landing-pricing h3 {
     font-size: 1rem;
