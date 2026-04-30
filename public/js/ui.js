@@ -27,6 +27,7 @@ function switchTool(toolId) {
     const panel = document.getElementById('tool-' + toolId);
 
     if (navItem && panel) {
+        ensureLiveLogsPanel(panel);
         const loc = navItem.dataset.location; // 'browser' | 'server'
         panel.querySelectorAll('.tool-location-badge, .tool-fav-btn, .tool-model-badge').forEach(b => b.remove());
 
@@ -312,56 +313,62 @@ function injectTemplatePackSelectors() {
     });
 }
 
-function initLiveLogsPanels() {
-    document.querySelectorAll('.tool-panel[id^="tool-"]').forEach(panel => {
-        const toolId = panel.id.replace('tool-', '');
-        const body = panel.querySelector('.tool-body');
-        if (!toolId || !body || body.querySelector('.live-logs-panel')) return;
-        const panelEl = document.createElement('div');
-        panelEl.className = 'live-logs-panel collapsed';
-        panelEl.innerHTML = `
-            <button type="button" class="live-logs-toggle">
-                <span class="live-logs-toggle-left">
-                    <i class="fas fa-chevron-down"></i>
-                    Show logs
-                    <span class="live-logs-unread hidden"></span>
-                </span>
-                <span class="live-logs-toggle-hint">Processing activity</span>
-            </button>
-            <div class="live-logs-body">
-                <div class="live-logs-actions">
-                    <button type="button" class="live-logs-action-copy"><i class="fas fa-copy"></i> Copy logs</button>
-                    <button type="button" class="live-logs-action-clear"><i class="fas fa-trash-alt"></i> Clear view</button>
-                </div>
-                <div class="live-logs-list"></div>
+function ensureLiveLogsPanel(panel) {
+    if (!panel) return false;
+    const toolId = panel.id.replace('tool-', '');
+    const body = panel.querySelector('.tool-body');
+    if (!toolId || !body || body.querySelector('.live-logs-panel')) return false;
+
+    const panelEl = document.createElement('div');
+    panelEl.className = 'live-logs-panel collapsed';
+    panelEl.innerHTML = `
+        <button type="button" class="live-logs-toggle">
+            <span class="live-logs-toggle-left">
+                <i class="fas fa-chevron-down"></i>
+                Show logs
+                <span class="live-logs-unread hidden"></span>
+            </span>
+            <span class="live-logs-toggle-hint">Processing activity</span>
+        </button>
+        <div class="live-logs-body">
+            <div class="live-logs-actions">
+                <button type="button" class="live-logs-action-copy"><i class="fas fa-copy"></i> Copy logs</button>
+                <button type="button" class="live-logs-action-clear"><i class="fas fa-trash-alt"></i> Clear view</button>
             </div>
-        `;
-        body.appendChild(panelEl);
-        const toggle = panelEl.querySelector('.live-logs-toggle');
-        const list = panelEl.querySelector('.live-logs-list');
-        toggle?.addEventListener('click', () => {
-            panelEl.classList.toggle('collapsed');
-            const isCollapsed = panelEl.classList.contains('collapsed');
-            if (!isCollapsed) {
-                LiveLogs.markRead(toolId);
-                lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'expand' }, { dedupeKey: `live_logs_expand:${toolId}`, debounceMs: 500 });
-            }
-        });
-        list?.addEventListener('scroll', () => {
-            const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 10;
-            LiveLogs.setAutoScroll(toolId, nearBottom);
-        });
-        panelEl.querySelector('.live-logs-action-copy')?.addEventListener('click', () => {
-            const text = [...panelEl.querySelectorAll('.ll-line')].map(n => n.innerText).join('\n');
-            navigator.clipboard.writeText(text || '').then(() => showToast('Logs copied', 'success')).catch(() => showToast('Copy failed', 'error'));
-            lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'copy' }, { dedupeKey: `live_logs_copy:${toolId}`, debounceMs: 500 });
-        });
-        panelEl.querySelector('.live-logs-action-clear')?.addEventListener('click', () => {
-            LiveLogs.clearView(toolId);
-            lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'clear_view' }, { dedupeKey: `live_logs_clear:${toolId}`, debounceMs: 500 });
-        });
-        LiveLogs.render(toolId);
+            <div class="live-logs-list"></div>
+        </div>
+    `;
+
+    body.appendChild(panelEl);
+    const toggle = panelEl.querySelector('.live-logs-toggle');
+    const list = panelEl.querySelector('.live-logs-list');
+    toggle?.addEventListener('click', () => {
+        panelEl.classList.toggle('collapsed');
+        const isCollapsed = panelEl.classList.contains('collapsed');
+        if (!isCollapsed) {
+            LiveLogs.markRead(toolId);
+            lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'expand' }, { dedupeKey: `live_logs_expand:${toolId}`, debounceMs: 500 });
+        }
     });
+    list?.addEventListener('scroll', () => {
+        const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 10;
+        LiveLogs.setAutoScroll(toolId, nearBottom);
+    });
+    panelEl.querySelector('.live-logs-action-copy')?.addEventListener('click', () => {
+        const text = [...panelEl.querySelectorAll('.ll-line')].map(n => n.innerText).join('\n');
+        navigator.clipboard.writeText(text || '').then(() => showToast('Logs copied', 'success')).catch(() => showToast('Copy failed', 'error'));
+        lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'copy' }, { dedupeKey: `live_logs_copy:${toolId}`, debounceMs: 500 });
+    });
+    panelEl.querySelector('.live-logs-action-clear')?.addEventListener('click', () => {
+        LiveLogs.clearView(toolId);
+        lvTrack('live_logs_interaction', { tool_id: toolId, source_page: 'live_logs', action: 'clear_view' }, { dedupeKey: `live_logs_clear:${toolId}`, debounceMs: 500 });
+    });
+    LiveLogs.render(toolId);
+    return true;
+}
+
+function initLiveLogsPanels() {
+    document.querySelectorAll('.tool-panel[id^="tool-"]').forEach(panel => ensureLiveLogsPanel(panel));
 }
 
 function selectWmPos(btn) {

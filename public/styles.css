@@ -516,105 +516,128 @@ body {
     color: var(--accent-light);
 }
 
-/* ─── Pricing Comparison Grid ──────────────────────────────────────────────── */
-.ptc-wrap {
+/* ─── Pricing Tier Table ──────────────────────────────────────────────────── */
+.tier-table-wrap {
     width: 100%;
-    margin-top: 18px;
+    margin-top: 14px;
     overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.02);
 }
-.ptc-grid {
-    display: grid;
-    grid-template-columns: 1.6fr 1fr 1fr 1fr;
-    min-width: 380px;
-}
-.ptc-col {
-    display: flex;
-    flex-direction: column;
-}
-.ptc-col--labels .ptc-row {
-    text-align: left;
-    color: var(--text-primary);
-    font-size: 0.8rem;
-    justify-content: flex-start;
-}
-.ptc-col--labels .ptc-header {
-    min-height: 56px;
-}
-.ptc-col--pro {
-    background: rgba(124,92,255,0.07);
-    border: 1px solid rgba(124,92,255,0.4);
-    border-radius: 10px;
-}
-.ptc-header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    padding: 10px 8px 12px;
-    border-bottom: 1px solid var(--glass-border);
-    min-height: 56px;
-}
-.ptc-col--pro .ptc-header {
-    border-bottom: 1px solid rgba(124,92,255,0.3);
-}
-.ptc-plan-name {
-    font-weight: 700;
+.tier-table {
+    width: 100%;
+    min-width: 760px;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 0.82rem;
-    color: var(--text-primary);
 }
-.ptc-col--pro .ptc-plan-name { color: var(--accent-light); }
-.ptc-plan-price {
-    font-size: 1rem;
+.tier-table th,
+.tier-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.tier-table thead th {
+    background: rgba(255,255,255,0.03);
+    color: var(--text-primary);
+    text-align: center;
+    font-weight: 700;
+}
+.tier-table thead th:first-child {
+    text-align: left;
+    width: 38%;
+}
+.tier-table td:first-child {
+    color: var(--text-primary);
+    text-align: left;
+    font-size: 0.8rem;
+}
+.tier-table td:not(:first-child),
+.tier-table th:not(:first-child) {
+    text-align: center;
+    color: var(--text-secondary);
+}
+.tier-plan-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+.tier-plan-price {
+    margin-top: 2px;
+    font-size: 1.02rem;
     font-weight: 800;
     color: var(--text-primary);
+    line-height: 1.2;
 }
-.ptc-plan-price span { font-size: 0.7rem; font-weight: 400; color: var(--text-secondary); }
-.ptc-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 7px 6px;
-    font-size: 0.78rem;
+.tier-plan-price span {
+    font-size: 0.74rem;
+    font-weight: 500;
     color: var(--text-secondary);
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    text-align: center;
 }
-.ptc-col--labels .ptc-header--empty { border-bottom: none; }
-.ptc-row--btn {
+.tier-pro-col {
+    background: rgba(124,92,255,0.08);
+}
+.tier-table thead .tier-pro-col {
+    color: var(--accent-light);
+    border-left: 1px solid rgba(124,92,255,0.25);
+    border-right: 1px solid rgba(124,92,255,0.25);
+}
+.tier-table tbody .tier-pro-col {
+    border-left: 1px solid rgba(124,92,255,0.2);
+    border-right: 1px solid rgba(124,92,255,0.2);
+}
+.tier-check {
+    color: #7ee5b0;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+.tier-dash { color: var(--text-muted); }
+.tier-cta-row td {
     border-bottom: none;
     padding-top: 12px;
-    padding-bottom: 10px;
+    padding-bottom: 12px;
 }
-.pt-check { color: #7ee5b0; font-weight: 700; font-size: 0.88rem; }
-.pt-dash { color: var(--text-muted); }
-.pt-join-btn {
-    display: inline-block;
-    padding: 7px 14px;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
+.tier-join-btn {
     border: 1px solid var(--glass-border);
     background: rgba(255,255,255,0.05);
     color: var(--text-primary);
-    transition: all var(--transition);
+    border-radius: 8px;
+    padding: 7px 12px;
     font-family: var(--font-main);
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
     white-space: nowrap;
 }
-.pt-join-btn:hover {
+.tier-join-btn:hover {
     border-color: rgba(124,92,255,0.55);
     background: rgba(124,92,255,0.1);
 }
-.pt-join-btn:focus { outline: none; }
-.pt-join-btn.pt-join-pro {
+.tier-join-btn:focus { outline: none; }
+.tier-join-pro {
     background: rgba(124,92,255,0.2);
-    border-color: rgba(124,92,255,0.55);
+    border-color: rgba(124,92,255,0.52);
     color: var(--accent-light);
 }
-.pt-join-btn.pt-join-pro:hover {
-    background: rgba(124,92,255,0.32);
-    border-color: rgba(124,92,255,0.85);
+.tier-join-pro:hover {
+    background: rgba(124,92,255,0.3);
+    border-color: rgba(124,92,255,0.8);
+}
+@media (max-width: 768px) {
+    .tier-table {
+        min-width: 680px;
+        font-size: 0.78rem;
+    }
+    .tier-table th,
+    .tier-table td {
+        padding: 9px 10px;
+    }
+    .live-logs-toggle-hint {
+        display: none;
+    }
 }
 
 .template-pack-row {
@@ -645,11 +668,11 @@ body {
     background: rgba(124,92,255,0.2);
 }
 .live-logs-panel {
-    margin-top: 12px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.1);
+    margin-top: 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(124,92,255,0.35);
     border-left: 3px solid var(--accent);
-    background: rgba(255,255,255,0.035);
+    background: rgba(124,92,255,0.08);
     overflow: hidden;
 }
 .live-logs-toggle {
@@ -662,7 +685,7 @@ body {
     gap: 8px;
     padding: 10px 14px;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 600;
     font-family: var(--font-main);
     text-align: left;
@@ -684,7 +707,7 @@ body {
     font-weight: 400;
     color: var(--text-muted);
 }
-.live-logs-toggle:hover { background: rgba(124,92,255,0.08); }
+.live-logs-toggle:hover { background: rgba(124,92,255,0.14); }
 .live-logs-panel:not(.collapsed) .live-logs-toggle-left i { transform: rotate(180deg); }
 .live-logs-unread {
     min-width: 18px;
