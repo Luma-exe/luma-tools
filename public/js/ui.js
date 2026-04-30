@@ -14,10 +14,11 @@ function switchTool(toolId) {
     if (toolId !== 'landing') {
         const _navItem2 = document.querySelector(`.nav-item[data-tool="${toolId}"]`);
         const category = _navItem2?.closest('.nav-category')?.querySelector('.nav-category-title')?.textContent?.trim() || null;
-        window.LumaVantage?.track('tool_open', { tool: toolId, category })
+        lvTrack('tool_open', { tool_id: toolId, tool_category: category || 'general', source_page: 'sidebar_navigation' }, { dedupeKey: `tool_open:${toolId}` });
     }
 
     state.currentTool = toolId;
+    try { localStorage.setItem('lt_last_tool', toolId); } catch {}
     $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tool === toolId));
     $$('.tool-panel').forEach(el => el.classList.toggle('active', el.id === 'tool-' + toolId));
 
@@ -106,6 +107,33 @@ function closeDisabledModal(e) {
     if (e && e.target !== $('disabledToolBackdrop') && !e.target.closest('.dtm-close')) return;
     const bd = $('disabledToolBackdrop');
     if (bd) bd.classList.remove('open');
+}
+
+function openUpgradeModal(planId = 'pro') {
+    const backdrop = $('upgradeBackdrop');
+    const title = $('upgradeTitle');
+    const body = $('upgradeBody');
+    if (title) title.textContent = planId === 'starter' ? 'Starter unlocks daily productivity' : 'Pro unlocks faster workflows';
+    if (body) body.textContent = planId === 'starter'
+        ? 'Starter gives you higher daily usage limits while keeping all essential tools free.'
+        : 'Pro gives you higher limits, bigger batches, and priority processing.';
+    try { localStorage.setItem('lt_selected_plan', planId); } catch {}
+    if (backdrop) backdrop.classList.add('open');
+    lvTrack('paywall_viewed', { source_page: 'landing_pricing', selected_plan: planId }, { dedupeKey: `paywall_viewed:${planId}`, debounceMs: 1500 });
+}
+
+function closeUpgradeModal(e) {
+    if (e && e.target !== $('upgradeBackdrop')) return;
+    const backdrop = $('upgradeBackdrop');
+    if (backdrop) backdrop.classList.remove('open');
+}
+
+function openSupportCheckout() {
+    const selectedPlan = localStorage.getItem('lt_selected_plan') || 'pro';
+    lvTrack('pricing_plan_selected', { source_page: 'upgrade_modal', selected_plan: selectedPlan }, { dedupeKey: `pricing_plan_selected:${selectedPlan}`, debounceMs: 800 });
+    lvTrack('share_clicked', { source_page: 'upgrade_modal', share_target: 'kofi_checkout', selected_plan: selectedPlan }, { dedupeKey: `support_checkout:${selectedPlan}`, debounceMs: 800 });
+    window.open('https://ko-fi.com/lumaexe', '_blank', 'noopener');
+    closeUpgradeModal();
 }
 
 function toggleSidebar(forceState) {
@@ -252,6 +280,12 @@ function toggleFav(toolId, e) {
         btn.title = isStarred ? 'Remove from favourites' : 'Add to favourites';
         btn.innerHTML = isStarred ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
     });
+    lvTrack('activation_action', {
+        tool_id: toolId,
+        tool_category: 'favourites',
+        source_page: 'tool_header',
+        action: isStarred ? 'favourite_added' : 'favourite_removed',
+    }, { dedupeKey: `fav:${toolId}:${isStarred ? 'add' : 'remove'}` });
 }
 function renderFavs() {
     const favs = getFavs();
@@ -324,6 +358,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ─ Render favourites category ─
     renderFavs();
+    const persistedPlan = localStorage.getItem('lt_selected_plan');
+    if (persistedPlan) {
+        document.querySelectorAll('.landing-price-card').forEach(card => {
+            card.classList.toggle('is-featured', card.dataset.plan === persistedPlan);
+        });
+    }
+    document.querySelectorAll('.landing-price-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const plan = card.dataset.plan || 'pro';
+            try { localStorage.setItem('lt_selected_plan', plan); } catch {}
+            document.querySelectorAll('.landing-price-card').forEach(c => c.classList.toggle('is-featured', c === card));
+            lvTrack('pricing_plan_selected', { source_page: 'landing_pricing', selected_plan: plan, price_usd: card.dataset.price || '' }, { dedupeKey: `landing_pricing:${plan}`, debounceMs: 1000 });
+        });
+    });
 
     // ─ Deep-link: restore tool from URL hash ─
     // Hash format may include extra data: #toolId/mode/encodedText — only use the tool id part.

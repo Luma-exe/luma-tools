@@ -39,3 +39,150 @@ function showToast(message, type = 'info', duration = 3500) {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), duration);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LUMA VANTAGE ANALYTICS
+// ═══════════════════════════════════════════════════════════════════════════
+const LV_KEYS = {
+    sessionId: 'lv_session_id',
+    sessionStartedAt: 'lv_session_started_at',
+    firstTouch: 'lv_first_touch',
+    lastSeenAt: 'lv_last_seen_at',
+    firstValueCount: 'lv_first_value_count',
+};
+
+const LV_TRACK_DEBOUNCE = Object.create(null);
+
+function randomId(prefix) {
+    const rand = Math.random().toString(36).slice(2, 10);
+    return `${prefix}_${Date.now().toString(36)}_${rand}`;
+}
+
+function getSessionId() {
+    try {
+        let sid = sessionStorage.getItem(LV_KEYS.sessionId);
+        if (!sid) {
+            sid = randomId('sess');
+            sessionStorage.setItem(LV_KEYS.sessionId, sid);
+            sessionStorage.setItem(LV_KEYS.sessionStartedAt, String(Date.now()));
+        }
+        return sid;
+    } catch {
+        return randomId('sess');
+    }
+}
+
+function getFirstTouch() {
+    const nowParams = new URLSearchParams(window.location.search || '');
+    const next = {
+        utm_source: nowParams.get('utm_source') || '(direct)',
+        utm_medium: nowParams.get('utm_medium') || '(none)',
+        utm_campaign: nowParams.get('utm_campaign') || '(none)',
+    };
+    try {
+        const savedRaw = localStorage.getItem(LV_KEYS.firstTouch);
+        if (savedRaw) return JSON.parse(savedRaw);
+        localStorage.setItem(LV_KEYS.firstTouch, JSON.stringify(next));
+    } catch {}
+    return next;
+}
+
+function getReferrerDomain() {
+    try {
+        if (!document.referrer) return '(direct)';
+        return new URL(document.referrer).hostname || '(direct)';
+    } catch {
+        return '(direct)';
+    }
+}
+
+function getDeviceType() {
+    const w = window.innerWidth || 1280;
+    if (w <= 768) return 'mobile';
+    if (w <= 1024) return 'tablet';
+    return 'desktop';
+}
+
+function getBehaviorSegment() {
+    const count = Number(localStorage.getItem(LV_KEYS.firstValueCount) || '0');
+    if (count >= 8) return 'power_user';
+    if (count >= 2) return 'casual_user';
+    return 'new_user';
+}
+
+function isReturningUser() {
+    const lastSeen = Number(localStorage.getItem(LV_KEYS.lastSeenAt) || '0');
+    return !!lastSeen && Date.now() - lastSeen > 1000 * 60 * 60 * 12;
+}
+
+function buildAnalyticsProps(extra) {
+    const firstTouch = getFirstTouch();
+    const defaults = {
+        session_id: getSessionId(),
+        tool_id: state?.currentTool || 'landing',
+        tool_category: document.querySelector(`.nav-item[data-tool="${state?.currentTool || 'landing'}"]`)?.closest('.nav-category')?.querySelector('.nav-category-title')?.textContent?.trim() || 'general',
+        source_page: window.location.pathname || '/',
+        utm_source: firstTouch.utm_source,
+        utm_medium: firstTouch.utm_medium,
+        utm_campaign: firstTouch.utm_campaign,
+        is_returning_user: isReturningUser(),
+        experiment_variant: localStorage.getItem('lt_paywall_variant') || 'control',
+        referrer_domain: getReferrerDomain(),
+        device_type: getDeviceType(),
+        behavior_segment: getBehaviorSegment(),
+    };
+    return Object.assign(defaults, extra || {});
+}
+
+function lvTrack(eventName, props = {}, opts = {}) {
+    if (!eventName) return;
+    const debounceMs = typeof opts.debounceMs === 'number' ? opts.debounceMs : 900;
+    const dedupeKey = opts.dedupeKey || `${eventName}:${props.tool_id || state?.currentTool || 'landing'}`;
+    const now = Date.now();
+    if (LV_TRACK_DEBOUNCE[dedupeKey] && now - LV_TRACK_DEBOUNCE[dedupeKey] < debounceMs) return;
+    LV_TRACK_DEBOUNCE[dedupeKey] = now;
+
+    const finalProps = buildAnalyticsProps(props);
+    const required = ['session_id', 'tool_id', 'tool_category', 'source_page', 'utm_source', 'utm_medium', 'utm_campaign', 'is_returning_user'];
+    for (const key of required) {
+        if (finalProps[key] == null || finalProps[key] === '') return;
+    }
+
+    try {
+        if (window.LumaVantage?.track) {
+            window.LumaVantage.track(eventName, finalProps);
+            return;
+        }
+        if (window._lvProxy?.track) {
+            window._lvProxy.track(eventName, finalProps);
+            return;
+        }
+    } catch {}
+}
+
+function initLumaVantageTracking() {
+    const wasReturningUser = isReturningUser();
+    window._lvWasReturningUser = wasReturningUser;
+    try { localStorage.setItem(LV_KEYS.lastSeenAt, String(Date.now())); } catch {}
+    lvTrack('landing_view', { tool_id: 'landing', tool_category: 'landing', source_page: 'landing' }, { dedupeKey: 'landing_view', debounceMs: 60000 });
+    if (wasReturningUser) {
+        lvTrack('return_visit', { tool_id: 'landing', tool_category: 'landing', source_page: 'landing' }, { dedupeKey: 'return_visit', debounceMs: 60000 });
+    }
+    lvTrack('user_segment_evaluated', {
+        tool_id: 'landing',
+        tool_category: 'segmentation',
+        source_page: 'session_start',
+        behavior_segment: getBehaviorSegment(),
+        first_value_actions: Number(localStorage.getItem(LV_KEYS.firstValueCount) || '0'),
+    }, { dedupeKey: 'user_segment_evaluated', debounceMs: 60000 });
+}
+
+function trackFirstValueAction(toolId, meta = {}) {
+    try {
+        const current = Number(localStorage.getItem(LV_KEYS.firstValueCount) || '0') + 1;
+        localStorage.setItem(LV_KEYS.firstValueCount, String(current));
+    } catch {}
+    lvTrack('first_value_action', Object.assign({ tool_id: toolId || state?.currentTool || 'landing' }, meta), { dedupeKey: `first_value_action:${toolId || state?.currentTool || 'landing'}`, debounceMs: 1200 });
+}
+
+document.addEventListener('DOMContentLoaded', initLumaVantageTracking);

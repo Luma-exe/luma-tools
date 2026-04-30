@@ -32,9 +32,11 @@ function initInstallPrompt() {
 }
 
 function installPWA() {
+    lvTrack('signup_started', { source_page: 'pwa_install', signup_type: 'pwa_install' }, { dedupeKey: 'signup_started:pwa_install', debounceMs: 4000 });
     if (_deferredInstallPrompt) {
         _deferredInstallPrompt.prompt();
         _deferredInstallPrompt.userChoice.then(() => {
+            lvTrack('signup_completed', { source_page: 'pwa_install', signup_type: 'pwa_install' }, { dedupeKey: 'signup_completed:pwa_install', debounceMs: 4000 });
             _deferredInstallPrompt = null;
         });
     } else {
@@ -148,6 +150,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Always start on landing, then immediately override if luma-planner sent a deep-link.
     // This 'last write wins' approach is immune to script load order and SW caching.
     switchTool('landing');
+    setTimeout(function () {
+        try {
+            var hasDeepLink = !!sessionStorage.getItem('lt_deeplink');
+            var lastTool = localStorage.getItem('lt_last_tool');
+            if (!hasDeepLink && lastTool && lastTool !== 'landing' && window._lvWasReturningUser) {
+                switchTool(lastTool);
+                showToast('Welcome back - restored your last tool.', 'info', 2600);
+                lvTrack('activation_action', {
+                    tool_id: lastTool,
+                    source_page: 'session_restore',
+                    action: 'resume_last_tool',
+                }, { dedupeKey: `resume_last_tool:${lastTool}`, debounceMs: 60000 });
+            }
+        } catch (_) {}
+    }, 220);
 
     setTimeout(function () {
         try {
