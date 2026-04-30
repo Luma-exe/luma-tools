@@ -496,79 +496,74 @@
                     <div class="landing-pricing" id="landingPricing">
                         <h3>Support the project, unlock faster workflow</h3>
                         <p class="landing-pricing-sub">Core tools are free forever. Supporter tiers help keep the servers running.</p>
-                        <div class="pricing-table-wrap">
-                            <table class="pricing-table">
-                                <thead>
-                                    <tr class="pt-price-row">
-                                        <th></th>
-                                        <th>Free<br><span>$0 / mo</span></th>
-                                        <th>Starter<br><span>$4.99 / mo</span></th>
-                                        <th class="pt-pro">Pro<br><span>$9.99 / mo</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>All 50+ tools</td>
-                                        <td><span class="pt-check">✓</span></td>
-                                        <td><span class="pt-check">✓</span></td>
-                                        <td class="pt-pro"><span class="pt-check">✓</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Browser-side processing</td>
-                                        <td><span class="pt-check">✓</span></td>
-                                        <td><span class="pt-check">✓</span></td>
-                                        <td class="pt-pro"><span class="pt-check">✓</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>AI study tools</td>
-                                        <td><span class="pt-check">✓</span></td>
-                                        <td><span class="pt-check">✓</span></td>
-                                        <td class="pt-pro"><span class="pt-check">✓</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Daily AI requests</td>
-                                        <td>20 / day</td>
-                                        <td>100 / day</td>
-                                        <td class="pt-pro">Unlimited</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Max file size</td>
-                                        <td>100 MB</td>
-                                        <td>500 MB</td>
-                                        <td class="pt-pro">2 GB</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Batch processing</td>
-                                        <td><span class="pt-dash">—</span></td>
-                                        <td>Basic</td>
-                                        <td class="pt-pro">Full</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Priority queue</td>
-                                        <td><span class="pt-dash">—</span></td>
-                                        <td><span class="pt-dash">—</span></td>
-                                        <td class="pt-pro"><span class="pt-check">✓</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Template packs</td>
-                                        <td><span class="pt-dash">—</span></td>
-                                        <td><span class="pt-check">✓</span></td>
-                                        <td class="pt-pro"><span class="pt-check">✓</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Support</td>
-                                        <td>Community</td>
-                                        <td>Priority</td>
-                                        <td class="pt-pro">Priority+</td>
-                                    </tr>
-                                    <tr class="pt-join-row">
-                                        <td></td>
-                                        <td><button class="pt-join-btn" onclick="this.blur()">Get started</button></td>
-                                        <td><button class="pt-join-btn" onclick="openUpgradeModal('starter');this.blur()">Join Starter</button></td>
-                                        <td class="pt-pro"><button class="pt-join-btn pt-join-pro" onclick="openUpgradeModal('pro');this.blur()">Join Pro</button></td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <div class="ptc-wrap">
+                            <div class="ptc-grid">
+                                <!-- Label column -->
+                                <div class="ptc-col ptc-col--labels">
+                                    <div class="ptc-header ptc-header--empty"></div>
+                                    <div class="ptc-row">All 50+ tools</div>
+                                    <div class="ptc-row">In-browser processing</div>
+                                    <div class="ptc-row">AI study tools</div>
+                                    <div class="ptc-row">Daily AI requests</div>
+                                    <div class="ptc-row">Max file size</div>
+                                    <div class="ptc-row">Batch processing</div>
+                                    <div class="ptc-row">Priority queue</div>
+                                    <div class="ptc-row">Template packs</div>
+                                    <div class="ptc-row">Support</div>
+                                    <div class="ptc-row ptc-row--btn"></div>
+                                </div>
+                                <!-- Free column -->
+                                <div class="ptc-col">
+                                    <div class="ptc-header">
+                                        <span class="ptc-plan-name">Free</span>
+                                        <span class="ptc-plan-price">$0<span>/mo</span></span>
+                                    </div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row">20 / day</div>
+                                    <div class="ptc-row">100 MB</div>
+                                    <div class="ptc-row"><span class="pt-dash">—</span></div>
+                                    <div class="ptc-row"><span class="pt-dash">—</span></div>
+                                    <div class="ptc-row"><span class="pt-dash">—</span></div>
+                                    <div class="ptc-row">Community</div>
+                                    <div class="ptc-row ptc-row--btn"><button class="pt-join-btn" onclick="this.blur()">Get started</button></div>
+                                </div>
+                                <!-- Starter column -->
+                                <div class="ptc-col">
+                                    <div class="ptc-header">
+                                        <span class="ptc-plan-name">Starter</span>
+                                        <span class="ptc-plan-price">$4.99<span>/mo</span></span>
+                                    </div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row">100 / day</div>
+                                    <div class="ptc-row">500 MB</div>
+                                    <div class="ptc-row">Basic</div>
+                                    <div class="ptc-row"><span class="pt-dash">—</span></div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row">Priority</div>
+                                    <div class="ptc-row ptc-row--btn"><button class="pt-join-btn" onclick="openUpgradeModal('starter');this.blur()">Join Starter</button></div>
+                                </div>
+                                <!-- Pro column -->
+                                <div class="ptc-col ptc-col--pro">
+                                    <div class="ptc-header">
+                                        <span class="ptc-plan-name">Pro</span>
+                                        <span class="ptc-plan-price">$9.99<span>/mo</span></span>
+                                    </div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row">Unlimited</div>
+                                    <div class="ptc-row">2 GB</div>
+                                    <div class="ptc-row">Full</div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row"><span class="pt-check">✓</span></div>
+                                    <div class="ptc-row">Priority+</div>
+                                    <div class="ptc-row ptc-row--btn"><button class="pt-join-btn pt-join-pro" onclick="openUpgradeModal('pro');this.blur()">Join Pro</button></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

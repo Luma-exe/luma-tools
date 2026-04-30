@@ -321,8 +321,12 @@ function initLiveLogsPanels() {
         panelEl.className = 'live-logs-panel collapsed';
         panelEl.innerHTML = `
             <button type="button" class="live-logs-toggle">
-                <span><i class="fas fa-chevron-down"></i> Feature logs</span>
-                <span class="live-logs-unread hidden"></span>
+                <span class="live-logs-toggle-left">
+                    <i class="fas fa-chevron-down"></i>
+                    Show logs
+                    <span class="live-logs-unread hidden"></span>
+                </span>
+                <span class="live-logs-toggle-hint">Processing activity</span>
             </button>
             <div class="live-logs-body">
                 <div class="live-logs-actions">

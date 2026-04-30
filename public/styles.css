@@ -516,71 +516,91 @@ body {
     color: var(--accent-light);
 }
 
-/* ─── Pricing Comparison Table ──────────────────────────────────────────────── */
-.pricing-table-wrap {
+/* ─── Pricing Comparison Grid ──────────────────────────────────────────────── */
+.ptc-wrap {
     width: 100%;
-    margin-top: 20px;
+    margin-top: 18px;
     overflow-x: auto;
 }
-.pricing-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.82rem;
+.ptc-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    min-width: 380px;
 }
-.pricing-table th {
-    padding: 12px 14px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    text-align: center;
-    border-bottom: 1px solid var(--glass-border);
-    color: var(--text-primary);
-    background: rgba(255,255,255,0.02);
+.ptc-col {
+    display: flex;
+    flex-direction: column;
 }
-.pricing-table th:first-child { text-align: left; }
-.pricing-table th.pt-pro {
-    background: rgba(124,92,255,0.1);
-    border: 1px solid rgba(124,92,255,0.3);
-    border-bottom: none;
-    border-radius: 8px 8px 0 0;
-    color: var(--accent-light);
-}
-.pricing-table td {
-    padding: 9px 14px;
-    text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    color: var(--text-secondary);
-}
-.pricing-table td:first-child {
+.ptc-col--labels .ptc-row {
     text-align: left;
     color: var(--text-primary);
     font-size: 0.8rem;
+    justify-content: flex-start;
 }
-.pricing-table td.pt-pro {
-    background: rgba(124,92,255,0.06);
-    border-left: 1px solid rgba(124,92,255,0.2);
-    border-right: 1px solid rgba(124,92,255,0.2);
+.ptc-col--labels .ptc-header {
+    min-height: 56px;
 }
-.pricing-table tr:last-child td.pt-pro {
-    border-bottom: 1px solid rgba(124,92,255,0.2);
-    border-radius: 0 0 8px 8px;
+.ptc-col--pro {
+    background: rgba(124,92,255,0.07);
+    border: 1px solid rgba(124,92,255,0.4);
+    border-radius: 10px;
 }
-.pt-check { color: #7ee5b0; font-weight: 700; }
+.ptc-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 10px 8px 12px;
+    border-bottom: 1px solid var(--glass-border);
+    min-height: 56px;
+}
+.ptc-col--pro .ptc-header {
+    border-bottom: 1px solid rgba(124,92,255,0.3);
+}
+.ptc-plan-name {
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+}
+.ptc-col--pro .ptc-plan-name { color: var(--accent-light); }
+.ptc-plan-price {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+.ptc-plan-price span { font-size: 0.7rem; font-weight: 400; color: var(--text-secondary); }
+.ptc-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    text-align: center;
+}
+.ptc-col--labels .ptc-header--empty { border-bottom: none; }
+.ptc-row--btn {
+    border-bottom: none;
+    padding-top: 12px;
+    padding-bottom: 10px;
+}
+.pt-check { color: #7ee5b0; font-weight: 700; font-size: 0.88rem; }
 .pt-dash { color: var(--text-muted); }
-.pt-price-row th { font-size: 1.05rem; font-weight: 800; }
-.pt-price-row th span { font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
-.pt-join-row td, .pt-join-row th { padding-top: 14px; border-bottom: none; }
 .pt-join-btn {
     display: inline-block;
-    padding: 7px 18px;
+    padding: 7px 14px;
     border-radius: 8px;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     border: 1px solid var(--glass-border);
-    background: rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.05);
     color: var(--text-primary);
     transition: all var(--transition);
     font-family: var(--font-main);
+    white-space: nowrap;
 }
 .pt-join-btn:hover {
     border-color: rgba(124,92,255,0.55);
@@ -588,13 +608,13 @@ body {
 }
 .pt-join-btn:focus { outline: none; }
 .pt-join-btn.pt-join-pro {
-    background: rgba(124,92,255,0.18);
-    border-color: rgba(124,92,255,0.5);
+    background: rgba(124,92,255,0.2);
+    border-color: rgba(124,92,255,0.55);
     color: var(--accent-light);
 }
 .pt-join-btn.pt-join-pro:hover {
-    background: rgba(124,92,255,0.28);
-    border-color: rgba(124,92,255,0.8);
+    background: rgba(124,92,255,0.32);
+    border-color: rgba(124,92,255,0.85);
 }
 
 .template-pack-row {
@@ -625,34 +645,47 @@ body {
     background: rgba(124,92,255,0.2);
 }
 .live-logs-panel {
-    margin-top: 4px;
-    border: 1px solid rgba(124,92,255,0.28);
-    border-top: 2px solid rgba(124,92,255,0.45);
-    border-radius: 10px;
-    background: rgba(124,92,255,0.05);
+    margin-top: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-left: 3px solid var(--accent);
+    background: rgba(255,255,255,0.035);
+    overflow: hidden;
 }
 .live-logs-toggle {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--accent-light);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 13px;
+    gap: 8px;
+    padding: 10px 14px;
     cursor: pointer;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 600;
     font-family: var(--font-main);
-    letter-spacing: 0.01em;
-    border-radius: 10px;
+    text-align: left;
 }
-.live-logs-toggle i { margin-right: 7px; font-size: 0.72rem; }
-.live-logs-toggle:hover { background: rgba(124,92,255,0.1); border-radius: 10px; }
-.live-logs-panel:not(.collapsed) .live-logs-toggle {
-    border-radius: 10px 10px 0 0;
+.live-logs-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 1;
 }
-.live-logs-panel:not(.collapsed) .live-logs-toggle i { transform: rotate(180deg); }
+.live-logs-toggle-left i {
+    color: var(--accent-light);
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+.live-logs-toggle-hint {
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+.live-logs-toggle:hover { background: rgba(124,92,255,0.08); }
+.live-logs-panel:not(.collapsed) .live-logs-toggle-left i { transform: rotate(180deg); }
 .live-logs-unread {
     min-width: 18px;
     height: 18px;
