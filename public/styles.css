@@ -546,21 +546,23 @@ body {
     margin-top: 8px;
     border: 1px solid var(--glass-border);
     border-radius: 10px;
-    background: rgba(255,255,255,0.02);
+    background: rgba(255,255,255,0.04);
 }
 .live-logs-toggle {
     width: 100%;
     border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 9px 11px;
     cursor: pointer;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
+    font-weight: 600;
 }
 .live-logs-toggle i { margin-right: 6px; }
+.live-logs-toggle:hover { background: rgba(124,92,255,0.08); }
 .live-logs-panel:not(.collapsed) .live-logs-toggle i { transform: rotate(180deg); }
 .live-logs-unread {
     min-width: 18px;

@@ -314,7 +314,7 @@ function initLiveLogsPanels() {
         panelEl.className = 'live-logs-panel collapsed';
         panelEl.innerHTML = `
             <button type="button" class="live-logs-toggle">
-                <span><i class="fas fa-chevron-down"></i> Live logs</span>
+                <span><i class="fas fa-chevron-down"></i> Feature logs</span>
                 <span class="live-logs-unread hidden"></span>
             </button>
             <div class="live-logs-body">
@@ -523,17 +523,10 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFavs();
     initLiveLogsPanels();
     injectTemplatePackSelectors();
-    const persistedPlan = 'pro';
-    if (persistedPlan) {
-        document.querySelectorAll('.landing-price-card').forEach(card => {
-            card.classList.toggle('is-featured', card.dataset.plan === persistedPlan);
-        });
-    }
     document.querySelectorAll('.landing-price-card').forEach(card => {
         card.addEventListener('click', () => {
             const plan = 'pro';
             try { localStorage.setItem('lt_selected_plan', 'pro'); } catch {}
-            document.querySelectorAll('.landing-price-card').forEach(c => c.classList.toggle('is-featured', c.dataset.plan === 'pro'));
             lvTrack('pricing_plan_selected', { source_page: 'landing_pricing', selected_plan: plan, price_usd: card.dataset.plan === 'pro' ? (card.dataset.price || '') : '9.99' }, { dedupeKey: 'landing_pricing:pro', debounceMs: 1000 });
         });
     });
