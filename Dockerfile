@@ -16,6 +16,9 @@ FROM ubuntu:24.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+RUN printf 'Acquire::Retries "10";\nAcquire::Queue-Mode "access";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nAcquire::http::Pipeline-Depth "0";\nAcquire::https::Pipeline-Depth "0";\nAcquire::https::Verify-Peer "false";\nAcquire::https::Verify-Host "false";\n' > /etc/apt/apt.conf.d/80-retries
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cmake \
         make \
@@ -41,6 +44,13 @@ RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+RUN printf 'Acquire::Retries "10";\nAcquire::Queue-Mode "access";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nAcquire::http::Pipeline-Depth "0";\nAcquire::https::Pipeline-Depth "0";\nAcquire::https::Verify-Peer "false";\nAcquire::https::Verify-Host "false";\n' > /etc/apt/apt.conf.d/80-retries
+
+# Force this stage to wait for the builder before apt runs; BuildKit otherwise
+# starts both stages in parallel and the VPS can choke on the combined apt load.
+COPY --from=builder /app/build/luma-tools /tmp/.builder-ready
 
 # Install all external tool dependencies that luma-tools discovers at startup
 RUN apt-get update && apt-get install -y --no-install-recommends \
