@@ -2642,8 +2642,8 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                 return;
             }
 
-            // Truncate to ~24 000 chars to stay within token limits
-            if (text.size() > 24000) text = text.substr(0, 24000) + "\n\n[... truncated ...]";
+            // Keep the input compact enough that the full AI request stays under TPM limits.
+            if (text.size() > 14000) text = text.substr(0, 14000) + "\n\n[... truncated ...]";
 
             // Store raw text in memory so the client can fetch it for comparison
             update_job_raw_text(jid, text);
@@ -3196,13 +3196,17 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
                     + text;
             }
 
+            // The final request includes both the prompt instructions and the completion budget.
+            // Keep the completion cap lower so the model request stays within the on-demand TPM limit.
+            int max_tokens = (depth == "simple") ? 3072 : 4096;
+
             json payload = {
                 {"model", "llama-3.3-70b-versatile"},
                 {"messages", json::array({
                     {{"role","system"}, {"content", system_prompt}},
                     {{"role","user"},   {"content", user_prompt}}
                 })},
-                {"max_tokens", 8192},
+                {"max_tokens", max_tokens},
                 {"temperature", 0.3}
             };
 
