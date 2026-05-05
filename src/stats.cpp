@@ -767,47 +767,18 @@ bool account_upsert_user(const string& email, const string& display_name, const 
     string password_salt = password.empty() ? "" : random_token_hex(16);
     string password_hash = password.empty() ? "" : hash_password(password, password_salt);
     
-    // Check if user exists
-    bool user_exists = false;
-    const char* check_sql = "SELECT id FROM users WHERE email = ?";
-    sqlite3_stmt* check_stmt = nullptr;
-    if (sqlite3_prepare_v2(g_db, check_sql, -1, &check_stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(check_stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(check_stmt) == SQLITE_ROW) user_exists = true;
-        sqlite3_finalize(check_stmt);
-    }
-    
+    const char* sql =
+        "INSERT INTO users (email, display_name, password_hash, password_salt, account_status, created_ts, updated_ts, stripe_customer_id, stripe_price_id, stripe_subscription_id, plan) "
+        "VALUES (?, ?, ?, ?, 'active', ?, ?, '', '', '', 'free')";
     bool ok = false;
-    if (user_exists) {
-        // Update existing user (only display_name, password if provided)
-        const char* sql = password.empty() 
-            ? "UPDATE users SET display_name=?, updated_ts=? WHERE email=?"
-            : "UPDATE users SET display_name=?, password_hash=?, password_salt=?, updated_ts=? WHERE email=?";
-        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-            int param = 1;
-            sqlite3_bind_text(stmt, param++, display_name.c_str(), -1, SQLITE_TRANSIENT);
-            if (!password.empty()) {
-                sqlite3_bind_text(stmt, param++, password_hash.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_text(stmt, param++, password_salt.c_str(), -1, SQLITE_TRANSIENT);
-            }
-            sqlite3_bind_int64(stmt, param++, now);
-            sqlite3_bind_text(stmt, param++, email.c_str(), -1, SQLITE_TRANSIENT);
-            if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
-        }
-    } else {
-        // Insert new user
-        const char* sql =
-            "INSERT INTO users (email, display_name, password_hash, password_salt, account_status, created_ts, updated_ts, stripe_customer_id, stripe_price_id, stripe_subscription_id, plan) "
-            "VALUES (?, ?, ?, ?, 'active', ?, ?, '', '', '', 'free')";
-        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-            sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 2, display_name.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 3, password_hash.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 4, password_salt.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int64(stmt, 5, now);
-            sqlite3_bind_int64(stmt, 6, now);
-            if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
-        }
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, display_name.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, password_hash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, password_salt.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 5, now);
+        sqlite3_bind_int64(stmt, 6, now);
+        if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
     }
     if (stmt) sqlite3_finalize(stmt);
     if (!ok) return false;
