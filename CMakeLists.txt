@@ -48,6 +48,7 @@ add_executable(luma-tools
     src/routes_download.cpp
     src/routes_tools.cpp
     src/routes_stats.cpp
+    src/routes_account.cpp
 )
 
 target_link_libraries(luma-tools PRIVATE httplib::httplib nlohmann_json::nlohmann_json sqlite3_lib)

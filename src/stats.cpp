@@ -47,6 +47,68 @@ static string hash_ip(const string& ip) {
     return string(buf, 10);
 }
 
+static string hash_text(const string& text) {
+    uint64_t h = 14695981039346656037ULL;
+    for (unsigned char c : text) {
+        h ^= c;
+        h *= 1099511628211ULL;
+    }
+    char buf[17];
+    snprintf(buf, sizeof(buf), "%016llx", (unsigned long long)h);
+    return buf;
+}
+
+static string random_token_hex(size_t byte_count = 32) {
+    static thread_local std::mt19937_64 rng{std::random_device{}()};
+    static constexpr char HEX[] = "0123456789abcdef";
+    std::uniform_int_distribution<int> nibble_dist(0, 15);
+    string out;
+    out.reserve(byte_count * 2);
+    for (size_t i = 0; i < byte_count * 2; ++i) {
+        out.push_back(HEX[nibble_dist(rng)]);
+    }
+    return out;
+}
+
+static void bind_text_or_null(sqlite3_stmt* stmt, int index, const string& value) {
+    if (value.empty()) sqlite3_bind_null(stmt, index);
+    else sqlite3_bind_text(stmt, index, value.c_str(), -1, SQLITE_TRANSIENT);
+}
+
+static bool load_account_user_row(sqlite3_stmt* stmt, AccountUser& user) {
+    if (!stmt) return false;
+    auto text_at = [&](int idx) -> string {
+        auto ptr = sqlite3_column_text(stmt, idx);
+        return ptr ? reinterpret_cast<const char*>(ptr) : "";
+    };
+    user.id = sqlite3_column_int(stmt, 0);
+    user.email = text_at(1);
+    user.display_name = text_at(2);
+    user.account_status = text_at(3);
+    user.created_ts = sqlite3_column_int64(stmt, 4);
+    user.updated_ts = sqlite3_column_int64(stmt, 5);
+    user.stripe_customer_id = text_at(6);
+    user.stripe_price_id = text_at(7);
+    user.stripe_subscription_id = text_at(8);
+    user.plan = text_at(9);
+    return !user.email.empty();
+}
+
+static bool load_user_by_sql(const string& sql, const string& value, AccountUser& user) {
+    if (!g_db) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, value.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            ok = load_account_user_row(stmt, user);
+        }
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
 // Format a UTC unix timestamp as "YYYY-MM-DD"
 static string unix_to_date(int64_t ts) {
     time_t t = (time_t)ts;
@@ -172,6 +234,50 @@ void stat_init_db() {
         );
         CREATE INDEX IF NOT EXISTS idx_ai_ts    ON ai_calls(ts);
         CREATE INDEX IF NOT EXISTS idx_ai_model ON ai_calls(model);
+        CREATE TABLE IF NOT EXISTS users (
+            id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+            email                  TEXT    NOT NULL UNIQUE,
+            display_name           TEXT    NOT NULL DEFAULT '',
+            account_status         TEXT    NOT NULL DEFAULT 'active',
+            created_ts             INTEGER NOT NULL,
+            updated_ts             INTEGER NOT NULL,
+            stripe_customer_id     TEXT    NOT NULL DEFAULT '',
+            stripe_price_id        TEXT    NOT NULL DEFAULT '',
+            stripe_subscription_id  TEXT    NOT NULL DEFAULT '',
+            plan                   TEXT    NOT NULL DEFAULT 'free'
+        );
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+        CREATE TABLE IF NOT EXISTS sessions (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id       INTEGER NOT NULL,
+            token_hash    TEXT    NOT NULL UNIQUE,
+            created_ts    INTEGER NOT NULL,
+            expires_ts    INTEGER NOT NULL,
+            last_seen_ts  INTEGER NOT NULL,
+            ip_hash       TEXT,
+            user_agent    TEXT    NOT NULL DEFAULT '',
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id                   INTEGER NOT NULL,
+            provider                  TEXT    NOT NULL DEFAULT 'stripe',
+            provider_customer_id      TEXT    NOT NULL DEFAULT '',
+            provider_subscription_id   TEXT    NOT NULL DEFAULT '',
+            plan                      TEXT    NOT NULL DEFAULT 'free',
+            status                    TEXT    NOT NULL DEFAULT 'inactive',
+            started_ts                INTEGER NOT NULL DEFAULT 0,
+            current_period_end_ts     INTEGER NOT NULL DEFAULT 0,
+            canceled_ts               INTEGER NOT NULL DEFAULT 0,
+            raw_json                  TEXT    NOT NULL DEFAULT '',
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_customer_id ON subscriptions(provider_customer_id);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_subscription_id ON subscriptions(provider_subscription_id);
     )";
     char* errmsg = nullptr;
     if (sqlite3_exec(g_db, schema, nullptr, nullptr, &errmsg) != SQLITE_OK) {
@@ -584,4 +690,214 @@ vector<ToolConfig> get_all_tool_configs() {
         sqlite3_finalize(stmt);
     }
     return out;
+}
+
+// === Account / billing storage ==============================================
+
+bool account_get_user_by_id(int user_id, AccountUser& out_user) {
+    if (!g_db || user_id <= 0) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT id, email, display_name, account_status, created_ts, updated_ts, "
+        "stripe_customer_id, stripe_price_id, stripe_subscription_id, plan "
+        "FROM users WHERE id = ?";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, user_id);
+        if (sqlite3_step(stmt) == SQLITE_ROW) ok = load_account_user_row(stmt, out_user);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_get_user_by_email(const string& email, AccountUser& out_user) {
+    if (!g_db || email.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT id, email, display_name, account_status, created_ts, updated_ts, "
+        "stripe_customer_id, stripe_price_id, stripe_subscription_id, plan "
+        "FROM users WHERE email = ?";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) ok = load_account_user_row(stmt, out_user);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_upsert_user(const string& email, const string& display_name, AccountUser& out_user) {
+    if (!g_db || email.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    const int64_t now = now_unix();
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "INSERT INTO users (email, display_name, account_status, created_ts, updated_ts, stripe_customer_id, stripe_price_id, stripe_subscription_id, plan) "
+        "VALUES (?, ?, 'active', ?, ?, '', '', '', 'free') "
+        "ON CONFLICT(email) DO UPDATE SET display_name=excluded.display_name, updated_ts=excluded.updated_ts";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, display_name.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 3, now);
+        sqlite3_bind_int64(stmt, 4, now);
+        if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    if (!ok) return false;
+    return account_get_user_by_email(email, out_user);
+}
+
+bool account_create_session(int user_id, const string& ip, const string& user_agent, string& out_token, int64_t& out_expires_ts) {
+    if (!g_db || user_id <= 0) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    out_token = random_token_hex();
+    out_expires_ts = now_unix() + 60LL * 60LL * 24LL * 30LL;
+    const int64_t now = now_unix();
+    const string token_hash = hash_text(out_token);
+    const string ip_hash = hash_ip(ip);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "INSERT INTO sessions (user_id, token_hash, created_ts, expires_ts, last_seen_ts, ip_hash, user_agent) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, user_id);
+        sqlite3_bind_text(stmt, 2, token_hash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 3, now);
+        sqlite3_bind_int64(stmt, 4, out_expires_ts);
+        sqlite3_bind_int64(stmt, 5, now);
+        bind_text_or_null(stmt, 6, ip_hash);
+        sqlite3_bind_text(stmt, 7, user_agent.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_get_user_by_session(const string& token, AccountUser& out_user) {
+    if (!g_db || token.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT u.id, u.email, u.display_name, u.account_status, u.created_ts, u.updated_ts, "
+        "u.stripe_customer_id, u.stripe_price_id, u.stripe_subscription_id, u.plan "
+        "FROM sessions s JOIN users u ON u.id = s.user_id "
+        "WHERE s.token_hash = ? AND s.expires_ts >= ?";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, hash_text(token).c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 2, now_unix());
+        if (sqlite3_step(stmt) == SQLITE_ROW) ok = load_account_user_row(stmt, out_user);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_delete_session(const string& token) {
+    if (!g_db || token.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "DELETE FROM sessions WHERE token_hash = ?";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, hash_text(token).c_str(), -1, SQLITE_TRANSIENT);
+        ok = sqlite3_step(stmt) == SQLITE_DONE;
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_upsert_subscription(
+    int user_id,
+    const string& plan,
+    const string& status,
+    const string& stripe_customer_id,
+    const string& stripe_subscription_id,
+    const string& stripe_price_id,
+    int64_t current_period_end_ts,
+    const string& raw_json
+) {
+    if (!g_db || user_id <= 0) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    const int64_t now = now_unix();
+    bool ok = false;
+
+    sqlite3_exec(g_db, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* upsert_sql =
+        "INSERT INTO subscriptions (user_id, provider, provider_customer_id, provider_subscription_id, plan, status, started_ts, current_period_end_ts, canceled_ts, raw_json) "
+        "VALUES (?, 'stripe', ?, ?, ?, ?, ?, ?, 0, ?) "
+        "ON CONFLICT(provider_subscription_id) DO UPDATE SET "
+        "provider_customer_id=excluded.provider_customer_id, plan=excluded.plan, status=excluded.status, "
+        "current_period_end_ts=excluded.current_period_end_ts, raw_json=excluded.raw_json";
+    if (sqlite3_prepare_v2(g_db, upsert_sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, user_id);
+        sqlite3_bind_text(stmt, 2, stripe_customer_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, stripe_subscription_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, plan.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 5, status.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 6, now);
+        sqlite3_bind_int64(stmt, 7, current_period_end_ts);
+        sqlite3_bind_text(stmt, 8, raw_json.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
+    }
+    if (stmt) sqlite3_finalize(stmt);
+
+    if (ok) {
+        sqlite3_stmt* user_stmt = nullptr;
+        const char* user_sql =
+            "UPDATE users SET account_status=?, updated_ts=?, stripe_customer_id=?, stripe_price_id=?, stripe_subscription_id=?, plan=? WHERE id=?";
+        if (sqlite3_prepare_v2(g_db, user_sql, -1, &user_stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_text(user_stmt, 1, status.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int64(user_stmt, 2, now);
+            sqlite3_bind_text(user_stmt, 3, stripe_customer_id.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(user_stmt, 4, stripe_price_id.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(user_stmt, 5, stripe_subscription_id.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(user_stmt, 6, plan.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(user_stmt, 7, user_id);
+            sqlite3_step(user_stmt);
+        }
+        if (user_stmt) sqlite3_finalize(user_stmt);
+    }
+
+    sqlite3_exec(g_db, ok ? "COMMIT" : "ROLLBACK", nullptr, nullptr, nullptr);
+    return ok;
+}
+
+bool account_find_user_by_stripe_customer_id(const string& stripe_customer_id, AccountUser& out_user) {
+    if (!g_db || stripe_customer_id.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT id, email, display_name, account_status, created_ts, updated_ts, "
+        "stripe_customer_id, stripe_price_id, stripe_subscription_id, plan "
+        "FROM users WHERE stripe_customer_id = ?";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, stripe_customer_id.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) ok = load_account_user_row(stmt, out_user);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_find_user_by_stripe_subscription_id(const string& stripe_subscription_id, AccountUser& out_user) {
+    if (!g_db || stripe_subscription_id.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT u.id, u.email, u.display_name, u.account_status, u.created_ts, u.updated_ts, "
+        "u.stripe_customer_id, u.stripe_price_id, u.stripe_subscription_id, u.plan "
+        "FROM subscriptions s JOIN users u ON u.id = s.user_id WHERE s.provider_subscription_id = ?";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, stripe_subscription_id.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) ok = load_account_user_row(stmt, out_user);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
 }

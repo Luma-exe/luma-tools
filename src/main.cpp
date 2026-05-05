@@ -474,6 +474,7 @@ int main() {
     register_download_routes(svr, dl_dir);
     register_tool_routes(svr, dl_dir);
     register_stats_routes(svr);
+    register_account_routes(svr);
 
     // ── Start the server ────────────────────────────────────────────────────
     int port = 8080;
@@ -518,6 +519,17 @@ int main() {
         cerr << "[Luma Tools]          Set it to enable: set STATS_PASSWORD=yourpassword" << endl;
     } else {
         cout << "[Luma Tools] Stats dashboard enabled at /stats" << endl;
+    }
+
+    // Billing/account scaffolding for the upcoming paid tiers.
+    if (!std::getenv("SESSION_SECRET")) {
+        cerr << "[Luma Tools] WARNING: SESSION_SECRET not set. Account sessions will not be enabled yet." << endl;
+    }
+    if (!std::getenv("STRIPE_SECRET_KEY")) {
+        cerr << "[Luma Tools] WARNING: STRIPE_SECRET_KEY not set. Paid checkout will be disabled until billing is configured." << endl;
+    }
+    if (!std::getenv("STRIPE_WEBHOOK_SECRET")) {
+        cerr << "[Luma Tools] WARNING: STRIPE_WEBHOOK_SECRET not set. Stripe webhook syncing will be disabled." << endl;
     }
 
     if (!std::getenv("DISCORD_WEBHOOK_URL")) {

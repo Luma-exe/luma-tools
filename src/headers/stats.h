@@ -84,6 +84,40 @@ struct ToolConfig {
     string note;
 };
 
+struct AccountUser {
+    int    id = 0;
+    string email;
+    string display_name;
+    string account_status;
+    int64_t created_ts = 0;
+    int64_t updated_ts = 0;
+    string stripe_customer_id;
+    string stripe_price_id;
+    string stripe_subscription_id;
+    string plan;
+};
+
 ToolConfig             get_tool_config(const string& tool_id);
 void                   set_tool_config(const ToolConfig& cfg);
 vector<ToolConfig>     get_all_tool_configs();
+
+// --- Account / billing storage ----------------------------------------------
+
+bool account_get_user_by_id(int user_id, AccountUser& out_user);
+bool account_get_user_by_email(const string& email, AccountUser& out_user);
+bool account_upsert_user(const string& email, const string& display_name, AccountUser& out_user);
+bool account_create_session(int user_id, const string& ip, const string& user_agent, string& out_token, int64_t& out_expires_ts);
+bool account_get_user_by_session(const string& token, AccountUser& out_user);
+bool account_delete_session(const string& token);
+bool account_upsert_subscription(
+    int user_id,
+    const string& plan,
+    const string& status,
+    const string& stripe_customer_id,
+    const string& stripe_subscription_id,
+    const string& stripe_price_id,
+    int64_t current_period_end_ts,
+    const string& raw_json
+);
+bool account_find_user_by_stripe_customer_id(const string& stripe_customer_id, AccountUser& out_user);
+bool account_find_user_by_stripe_subscription_id(const string& stripe_subscription_id, AccountUser& out_user);

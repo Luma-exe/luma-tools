@@ -301,6 +301,8 @@ Luma Tools includes a built-in analytics dashboard at `/stats` — no external s
 
 Set the `STATS_PASSWORD` and `DISCORD_WEBHOOK_URL` environment variables before starting the server. The dashboard and Discord logs are **disabled** if these variables are not set.
 
+For the upcoming account and paid-tier work, also set `SESSION_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`, and `APP_BASE_URL`.
+
 **Local / dev:**
 ```powershell
 $env:STATS_PASSWORD      = "your-password"
