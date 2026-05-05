@@ -105,7 +105,8 @@ vector<ToolConfig>     get_all_tool_configs();
 
 bool account_get_user_by_id(int user_id, AccountUser& out_user);
 bool account_get_user_by_email(const string& email, AccountUser& out_user);
-bool account_upsert_user(const string& email, const string& display_name, AccountUser& out_user);
+bool account_upsert_user(const string& email, const string& display_name, const string& password, AccountUser& out_user);
+bool account_verify_password(const string& email, const string& password, AccountUser& out_user);
 bool account_create_session(int user_id, const string& ip, const string& user_agent, string& out_token, int64_t& out_expires_ts);
 bool account_get_user_by_session(const string& token, AccountUser& out_user);
 bool account_delete_session(const string& token);

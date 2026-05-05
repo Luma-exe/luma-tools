@@ -70,6 +70,22 @@ static string random_token_hex(size_t byte_count = 32) {
     return out;
 }
 
+static string hash_password(const string& password, const string& salt) {
+    // Use iterative FNV-64 with salt for password hashing (PBKDF2-like approach)
+    string salted = salt + password;
+    uint64_t h = 14695981039346656037ULL;
+    // Apply hash 10000 times for password stretching
+    for (int iter = 0; iter < 10000; ++iter) {
+        for (unsigned char c : salted) {
+            h ^= c;
+            h *= 1099511628211ULL;
+        }
+    }
+    char buf[17];
+    snprintf(buf, sizeof(buf), "%016llx", (unsigned long long)h);
+    return buf;
+}
+
 static void bind_text_or_null(sqlite3_stmt* stmt, int index, const string& value) {
     if (value.empty()) sqlite3_bind_null(stmt, index);
     else sqlite3_bind_text(stmt, index, value.c_str(), -1, SQLITE_TRANSIENT);
@@ -92,6 +108,17 @@ static bool load_account_user_row(sqlite3_stmt* stmt, AccountUser& user) {
     user.stripe_subscription_id = text_at(8);
     user.plan = text_at(9);
     return !user.email.empty();
+}
+
+static bool load_account_user_row_with_password(sqlite3_stmt* stmt, AccountUser& user, string& out_password_hash, string& out_password_salt) {
+    if (!load_account_user_row(stmt, user)) return false;
+    auto text_at = [&](int idx) -> string {
+        auto ptr = sqlite3_column_text(stmt, idx);
+        return ptr ? reinterpret_cast<const char*>(ptr) : "";
+    };
+    out_password_hash = text_at(3);
+    out_password_salt = text_at(4);
+    return true;
 }
 
 static bool load_user_by_sql(const string& sql, const string& value, AccountUser& user) {
@@ -238,6 +265,8 @@ void stat_init_db() {
             id                     INTEGER PRIMARY KEY AUTOINCREMENT,
             email                  TEXT    NOT NULL UNIQUE,
             display_name           TEXT    NOT NULL DEFAULT '',
+            password_hash          TEXT    NOT NULL DEFAULT '',
+            password_salt          TEXT    NOT NULL DEFAULT '',
             account_status         TEXT    NOT NULL DEFAULT 'active',
             created_ts             INTEGER NOT NULL,
             updated_ts             INTEGER NOT NULL,
@@ -728,26 +757,103 @@ bool account_get_user_by_email(const string& email, AccountUser& out_user) {
     return ok;
 }
 
-bool account_upsert_user(const string& email, const string& display_name, AccountUser& out_user) {
+bool account_upsert_user(const string& email, const string& display_name, const string& password, AccountUser& out_user) {
     if (!g_db || email.empty()) return false;
     lock_guard<mutex> lk(g_stats_mutex);
     const int64_t now = now_unix();
     sqlite3_stmt* stmt = nullptr;
-    const char* sql =
-        "INSERT INTO users (email, display_name, account_status, created_ts, updated_ts, stripe_customer_id, stripe_price_id, stripe_subscription_id, plan) "
-        "VALUES (?, ?, 'active', ?, ?, '', '', '', 'free') "
-        "ON CONFLICT(email) DO UPDATE SET display_name=excluded.display_name, updated_ts=excluded.updated_ts";
+    
+    // Generate password salt and hash
+    string password_salt = password.empty() ? "" : random_token_hex(16);
+    string password_hash = password.empty() ? "" : hash_password(password, password_salt);
+    
+    // Check if user exists
+    bool user_exists = false;
+    const char* check_sql = "SELECT id FROM users WHERE email = ?";
+    sqlite3_stmt* check_stmt = nullptr;
+    if (sqlite3_prepare_v2(g_db, check_sql, -1, &check_stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(check_stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(check_stmt) == SQLITE_ROW) user_exists = true;
+        sqlite3_finalize(check_stmt);
+    }
+    
     bool ok = false;
-    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 2, display_name.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(stmt, 3, now);
-        sqlite3_bind_int64(stmt, 4, now);
-        if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
+    if (user_exists) {
+        // Update existing user (only display_name, password if provided)
+        const char* sql = password.empty() 
+            ? "UPDATE users SET display_name=?, updated_ts=? WHERE email=?"
+            : "UPDATE users SET display_name=?, password_hash=?, password_salt=?, updated_ts=? WHERE email=?";
+        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            int param = 1;
+            sqlite3_bind_text(stmt, param++, display_name.c_str(), -1, SQLITE_TRANSIENT);
+            if (!password.empty()) {
+                sqlite3_bind_text(stmt, param++, password_hash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_bind_text(stmt, param++, password_salt.c_str(), -1, SQLITE_TRANSIENT);
+            }
+            sqlite3_bind_int64(stmt, param++, now);
+            sqlite3_bind_text(stmt, param++, email.c_str(), -1, SQLITE_TRANSIENT);
+            if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
+        }
+    } else {
+        // Insert new user
+        const char* sql =
+            "INSERT INTO users (email, display_name, password_hash, password_salt, account_status, created_ts, updated_ts, stripe_customer_id, stripe_price_id, stripe_subscription_id, plan) "
+            "VALUES (?, ?, ?, ?, 'active', ?, ?, '', '', '', 'free')";
+        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 2, display_name.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 3, password_hash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 4, password_salt.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int64(stmt, 5, now);
+            sqlite3_bind_int64(stmt, 6, now);
+            if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
+        }
     }
     if (stmt) sqlite3_finalize(stmt);
     if (!ok) return false;
     return account_get_user_by_email(email, out_user);
+}
+
+bool account_verify_password(const string& email, const string& password, AccountUser& out_user) {
+    if (!g_db || email.empty() || password.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT id, email, display_name, password_hash, password_salt, account_status, created_ts, updated_ts, "
+        "stripe_customer_id, stripe_price_id, stripe_subscription_id, plan "
+        "FROM users WHERE email = ?";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            auto text_at = [&](int idx) -> string {
+                auto ptr = sqlite3_column_text(stmt, idx);
+                return ptr ? reinterpret_cast<const char*>(ptr) : "";
+            };
+            string stored_hash = text_at(3);
+            string stored_salt = text_at(4);
+            
+            // Verify password
+            if (!stored_hash.empty() && !stored_salt.empty()) {
+                string computed_hash = hash_password(password, stored_salt);
+                if (computed_hash == stored_hash) {
+                    out_user.id = sqlite3_column_int(stmt, 0);
+                    out_user.email = text_at(1);
+                    out_user.display_name = text_at(2);
+                    out_user.account_status = text_at(5);
+                    out_user.created_ts = sqlite3_column_int64(stmt, 6);
+                    out_user.updated_ts = sqlite3_column_int64(stmt, 7);
+                    out_user.stripe_customer_id = text_at(8);
+                    out_user.stripe_price_id = text_at(9);
+                    out_user.stripe_subscription_id = text_at(10);
+                    out_user.plan = text_at(11);
+                    ok = true;
+                }
+            }
+        }
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
 }
 
 bool account_create_session(int user_id, const string& ip, const string& user_agent, string& out_token, int64_t& out_expires_ts) {

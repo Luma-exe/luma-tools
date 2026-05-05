@@ -107,7 +107,7 @@ body{margin:0;min-height:100vh;background:#0b0b12;color:#e7e7ee;font-family:Sego
 .hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
 h1{margin:0 0 6px;font-size:2rem}
 p{margin:0;color:#a7a7b5;line-height:1.5}
-.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:22px}
+.grid{display:grid;grid-template-columns:1fr 1fr .8fr;gap:18px;margin-top:22px}
 .panel{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px}
 label{display:block;font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:#9c9caf;margin:0 0 8px}
 input{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff;margin-bottom:12px}
@@ -116,7 +116,7 @@ button,a.btn{display:inline-flex;align-items:center;justify-content:center;paddi
 .chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(124,92,255,.14);color:#d8d2ff;font-size:.8rem;margin-right:6px;margin-bottom:6px}
 .error{color:#fca5a5;margin-top:10px}
 .ok{color:#86efac;margin-top:10px}
-@media (max-width: 760px){.grid{grid-template-columns:1fr}}
+@media (max-width: 1000px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -124,7 +124,7 @@ button,a.btn{display:inline-flex;align-items:center;justify-content:center;paddi
   <div class="hero">
     <div>
       <h1>Account</h1>
-      <p>Create a local account now. Stripe billing will attach to this account once checkout is wired up.</p>
+      <p>Create a local account or sign in with email and password.</p>
     </div>
     <div>
       <span class="chip">Plan: )HTML";
@@ -138,15 +138,12 @@ button,a.btn{display:inline-flex;align-items:center;justify-content:center;paddi
 
   <div class="grid">
     <div class="panel">
-      <label>Create or update account</label>
+      <label>Create Account</label>
       <form method="POST" action="/account/register">
-        <input type="email" name="email" placeholder="you@example.com" value=")HTML";
-    html << html_escape(user ? user->email : "");
-    html << R"HTML(" required>
-        <input type="text" name="display_name" placeholder="Display name" value=")HTML";
-    html << html_escape(user ? user->display_name : "");
-    html << R"HTML(">
-        <button type="submit">Create account</button>
+        <input type="email" name="email" placeholder="you@example.com" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <input type="text" name="display_name" placeholder="Display name (optional)">
+        <button type="submit">Register</button>
       </form>
 )HTML";
     if (!message.empty()) {
@@ -159,17 +156,23 @@ button,a.btn{display:inline-flex;align-items:center;justify-content:center;paddi
     </div>
 
     <div class="panel">
-      <label>Current account</label>
+      <label>Sign In</label>
+      <form method="POST" action="/account/login">
+        <input type="email" name="email" placeholder="you@example.com" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Sign In</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <label>Current Session</label>
       <p class="muted">Email: )HTML";
     html << html_escape(user ? user->email : "Not signed in");
     html << R"HTML(</p>
-      <p class="muted">Display name: )HTML";
+      <p class="muted">Name: )HTML";
     html << html_escape(user ? user->display_name : "-");
     html << R"HTML(</p>
-      <p class="muted">Account status: )HTML";
-    html << html_escape(user ? user->account_status : "signed out");
-    html << R"HTML(</p>
-      <p class="muted">Paid plan: )HTML";
+      <p class="muted">Plan: )HTML";
     html << html_escape(user ? user->plan : "free");
     html << R"HTML(</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
@@ -207,15 +210,22 @@ void register_account_routes(httplib::Server& svr) {
 
     svr.Post("/account/register", [](const httplib::Request& req, httplib::Response& res) {
         string email = normalize_email(form_value(req.body, "email"));
+        string password = form_value(req.body, "password");
         string display_name = trim_copy(form_value(req.body, "display_name"));
+        
         if (email.empty() || email.find('@') == string::npos) {
             res.set_header("Location", "/account?err=invalid_email");
             res.status = 302;
             return;
         }
+        if (password.empty() || password.length() < 4) {
+            res.set_header("Location", "/account?err=password_too_short");
+            res.status = 302;
+            return;
+        }
 
         AccountUser user;
-        if (!account_upsert_user(email, display_name, user)) {
+        if (!account_upsert_user(email, display_name, password, user)) {
             res.status = 500;
             res.set_content(R"({"error":"Could not create account."})", "application/json");
             return;
@@ -232,7 +242,44 @@ void register_account_routes(httplib::Server& svr) {
         int max_age = (int)std::max<int64_t>(0, expires_ts - std::time(nullptr));
         string cookie = session_cookie_name() + "=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age);
         res.set_header("Set-Cookie", cookie);
-        res.set_header("Location", "/account?msg=account_ready");
+        res.set_header("Location", "/account?msg=registered_and_signed_in");
+        res.status = 302;
+    });
+
+    svr.Post("/account/login", [](const httplib::Request& req, httplib::Response& res) {
+        string email = normalize_email(form_value(req.body, "email"));
+        string password = form_value(req.body, "password");
+        
+        if (email.empty() || email.find('@') == string::npos) {
+            res.set_header("Location", "/account?err=invalid_credentials");
+            res.status = 302;
+            return;
+        }
+        if (password.empty()) {
+            res.set_header("Location", "/account?err=invalid_credentials");
+            res.status = 302;
+            return;
+        }
+
+        AccountUser user;
+        if (!account_verify_password(email, password, user)) {
+            res.set_header("Location", "/account?err=invalid_credentials");
+            res.status = 302;
+            return;
+        }
+
+        string token;
+        int64_t expires_ts = 0;
+        if (!account_create_session(user.id, req.remote_addr, req.get_header_value("User-Agent"), token, expires_ts)) {
+            res.status = 500;
+            res.set_content(R"({"error":"Could not create session."})", "application/json");
+            return;
+        }
+
+        int max_age = (int)std::max<int64_t>(0, expires_ts - std::time(nullptr));
+        string cookie = session_cookie_name() + "=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age);
+        res.set_header("Set-Cookie", cookie);
+        res.set_header("Location", "/account?msg=signed_in");
         res.status = 302;
     });
 
