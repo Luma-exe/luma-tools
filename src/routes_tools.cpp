@@ -1928,6 +1928,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         string input_path = save_upload(file, jid);
         json hashes;
 
+#ifdef _WIN32
         for (const auto& algo : {"MD5", "SHA1", "SHA256"}) {
             int code; string output = exec_command("certutil -hashfile " + escape_arg(input_path) + " " + algo, code);
             istringstream iss(output); string line;
@@ -1935,9 +1936,18 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             line.erase(std::remove(line.begin(), line.end(), ' '), line.end());
             line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
             line.erase(std::remove(line.begin(), line.end(), '\n'), line.end());
-
             if (code == 0 && !line.empty() && line.find("CertUtil") == string::npos) hashes[algo] = line;
         }
+#else
+        for (const auto& [algo_name, cmd] : vector<pair<string,string>>{
+            {"MD5", "md5sum"}, {"SHA1", "sha1sum"}, {"SHA256", "sha256sum"}
+        }) {
+            int code; string output = exec_command(cmd + " " + escape_arg(input_path), code);
+            istringstream iss(output); string hash;
+            iss >> hash;
+            if (code == 0 && !hash.empty()) hashes[algo_name] = hash;
+        }
+#endif
 
         try { fs::remove(input_path); } catch (...) {}
         res.set_content(json({{"filename", file.filename}, {"size", (long long)file.content.size()}, {"hashes", hashes}}).dump(), "application/json");
@@ -2292,17 +2302,25 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             " -V geometry:margin=2.5cm"
             " -V fontsize=11pt"
             " 2>&1";
-        // Fallback to wkhtmltopdf if xelatex not available
         int code = 0;
         exec_command(cmd, code);
         if (code != 0 || !fs::exists(pdf_path) || fs::file_size(pdf_path) == 0) {
-            // Try without explicit engine (pandoc picks available one)
+            // Fallback 1: weasyprint (no LaTeX needed, HTML-based PDF engine)
             string cmd2 = escape_arg(g_pandoc_path) +
+                " " + escape_arg(md_path) +
+                " -o " + escape_arg(pdf_path) +
+                " --pdf-engine=weasyprint"
+                " 2>&1";
+            exec_command(cmd2, code);
+        }
+        if (code != 0 || !fs::exists(pdf_path) || fs::file_size(pdf_path) == 0) {
+            // Fallback 2: let pandoc pick any available engine
+            string cmd3 = escape_arg(g_pandoc_path) +
                 " " + escape_arg(md_path) +
                 " -o " + escape_arg(pdf_path) +
                 " -V geometry:margin=2.5cm"
                 " 2>&1";
-            exec_command(cmd2, code);
+            exec_command(cmd3, code);
         }
 
         if (fs::exists(pdf_path) && fs::file_size(pdf_path) > 0) {

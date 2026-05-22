@@ -63,13 +63,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         # Python (yt-dlp and rembg)
         python3 \
         python3-pip \
+        # weasyprint system deps (for markdown-to-pdf)
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libpangocairo-1.0-0 \
         # Misc
         ca-certificates \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python-based tools globally
-RUN pip3 install --no-cache-dir --break-system-packages yt-dlp rembg
+RUN pip3 install --no-cache-dir --break-system-packages yt-dlp rembg weasyprint
 
 WORKDIR /app
 

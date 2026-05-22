@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v17'; // bumped: fix download button re-enable after analyze
+const CACHE_NAME = 'lumatools-v18'; // bumped: fix hash-generate Linux, markdown-to-pdf weasyprint, favicon nav label
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
