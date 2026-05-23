@@ -1120,59 +1120,61 @@ function clearBulkSelection() {
 function generateBulkInstallScript() {
     if (bulkSelected.size === 0) { showToast('Select at least one program', 'error'); return; }
     const selected = BULK_PROGRAMS.filter(p => bulkSelected.has(p.id));
+    const n = selected.length;
     const lines = [
-        '# Luma Tools — Bulk Program Installer',
-        '# Generated: ' + new Date().toISOString().slice(0, 19).replace('T', ' '),
-        '# Programs: ' + selected.map(p => p.name).join(', '),
-        '#',
-        '# This script uses winget (Windows Package Manager) to install programs.',
-        '# Run this script in PowerShell as Administrator.',
+        '@echo off',
+        'REM ============================================',
+        'REM  Luma Tools - Bulk Program Installer',
+        'REM  Generated: ' + new Date().toISOString().slice(0, 19).replace('T', ' '),
+        'REM  Programs: ' + selected.map(p => p.name).join(', '),
+        'REM ============================================',
         '',
-        '$ErrorActionPreference = "Continue"',
+        'REM --- Auto-elevate to Administrator ---',
+        'net session >nul 2>&1',
+        'if %errorlevel% neq 0 (',
+        '    echo Requesting administrator privileges...',
+        '    powershell -Command "Start-Process cmd -ArgumentList \'/c \\"%~f0\\"\' -Verb RunAs"',
+        '    exit /b',
+        ')',
         '',
-        '# Check for winget',
-        'if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {',
-        '    Write-Host "ERROR: winget is not installed. Please install App Installer from the Microsoft Store." -ForegroundColor Red',
-        '    Read-Host "Press Enter to exit"',
-        '    exit 1',
-        '}',
+        'REM --- Check for winget ---',
+        'where winget >nul 2>&1',
+        'if %errorlevel% neq 0 (',
+        '    echo.',
+        '    echo  ERROR: winget is not installed.',
+        '    echo  Please install "App Installer" from the Microsoft Store.',
+        '    echo.',
+        '    pause',
+        '    exit /b 1',
+        ')',
         '',
-        'Write-Host ""',
-        'Write-Host "========================================" -ForegroundColor Cyan',
-        'Write-Host "  Luma Tools - Bulk Program Installer" -ForegroundColor Cyan',
-        'Write-Host "  Installing ' + selected.length + ' program(s)..." -ForegroundColor Cyan',
-        'Write-Host "========================================" -ForegroundColor Cyan',
-        'Write-Host ""',
-        '',
-        '$total = ' + selected.length,
-        '$current = 0',
-        '$failed = @()',
+        'echo.',
+        'echo  ========================================',
+        'echo   Luma Tools - Bulk Program Installer',
+        'echo   Installing ' + n + ' program(s)...',
+        'echo  ========================================',
+        'echo.',
         '',
     ];
+    let i = 0;
     for (const p of selected) {
-        lines.push(`$current++`);
-        lines.push(`Write-Host "[$current/$total] Installing ${p.name}..." -ForegroundColor Yellow`);
+        i++;
+        lines.push(`echo [${i}/${n}] Installing ${p.name}...`);
         lines.push(`winget install --id ${p.winget} --accept-source-agreements --accept-package-agreements -e -h`);
-        lines.push(`if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) { $failed += "${p.name}" }`);
-        lines.push(`Write-Host ""`);
+        lines.push('echo.');
     }
-    lines.push('Write-Host "========================================" -ForegroundColor Cyan');
-    lines.push('if ($failed.Count -eq 0) {');
-    lines.push('    Write-Host "  All ' + selected.length + ' programs installed successfully!" -ForegroundColor Green');
-    lines.push('} else {');
-    lines.push('    Write-Host "  Completed with $($failed.Count) failure(s):" -ForegroundColor Yellow');
-    lines.push('    $failed | ForEach-Object { Write-Host "    - $_" -ForegroundColor Red }');
-    lines.push('}');
-    lines.push('Write-Host "========================================" -ForegroundColor Cyan');
-    lines.push('Write-Host ""');
-    lines.push('Read-Host "Press Enter to exit"');
+    lines.push('echo  ========================================');
+    lines.push('echo   All done! ' + n + ' program(s) processed.');
+    lines.push('echo  ========================================');
+    lines.push('echo.');
+    lines.push('pause');
 
-    const blob = new Blob([lines.join('\r\n')], { type: 'text/plain' });
+    const blob = new Blob([lines.join('\r\n')], { type: 'application/bat' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'luma-install.ps1';
+    a.download = 'luma-install.bat';
     a.click();
     URL.revokeObjectURL(url);
-    showToast(`Install script downloaded (${selected.length} programs)`, 'success');
+    showToast(`Install script downloaded (${n} programs)`, 'success');
 }
