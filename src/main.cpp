@@ -343,6 +343,18 @@ int main() {
     svr.set_mount_point("/", public_dir);
     svr.set_mount_point("/downloads", dl_dir);
 
+    // Prevent Cloudflare/browser from caching local JS/CSS/HTML indefinitely.
+    // Static files served via mount_point have no Cache-Control by default.
+    svr.set_post_routing_handler([](const httplib::Request& req, httplib::Response& res) {
+        const auto& p = req.path;
+        if ((p.size() > 3 && (p.rfind(".js") == p.size()-3 || p.rfind(".css") == p.size()-4)) ||
+            p == "/" || p.rfind(".html") == p.size()-5) {
+            if (res.get_header_value("Cache-Control").empty()) {
+                res.set_header("Cache-Control", "no-cache, must-revalidate");
+            }
+        }
+    });
+
     // Allow large file uploads (500 MB) and generous timeouts for video processing
     svr.set_payload_max_length(500 * 1024 * 1024);
     svr.set_read_timeout(300, 0);
