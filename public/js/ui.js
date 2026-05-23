@@ -107,6 +107,9 @@ function switchTool(toolId) {
         const inp = document.getElementById('jwtInput');
         if (inp && inp.value) { if (typeof decodeJWT === 'function') decodeJWT(); }
     }
+    if (toolId === 'bulk-install') {
+        setTimeout(() => { if (typeof renderBulkGrid === 'function') renderBulkGrid(); }, 50);
+    }
 }
 
 function showDisabledModal() {

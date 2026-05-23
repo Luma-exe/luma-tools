@@ -289,6 +289,25 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
+
+        // HEIC/HEIF input: convert to PNG first since ffmpeg can't decode it
+        string heic_tmp;
+        {
+            string el = ext;
+            std::transform(el.begin(), el.end(), el.begin(), ::tolower);
+            if (el == ".heic" || el == ".heif") {
+                string png_path = get_processing_dir() + "/" + jid + "_heic.png";
+                bool ok = false; int rc;
+                string hc = find_executable("heif-convert", {"/usr/bin/heif-convert", "/usr/local/bin/heif-convert"});
+                if (!hc.empty()) { exec_command(escape_arg(hc) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok && !g_imagemagick_path.empty()) { exec_command(escape_arg(g_imagemagick_path) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok) { try { fs::remove(input_path); } catch (...) {} res.status = 500; res.set_content(json({{"error","HEIC/HEIF conversion requires libheif."}}).dump(),"application/json"); return; }
+                heic_tmp = input_path;
+                input_path = png_path;
+                ext = ".png";
+            }
+        }
+
         string output_path = get_processing_dir() + "/" + jid + "_out" + ext;
 
         string qarg;
@@ -323,7 +342,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "Image compression failed"}}).dump(), "application/json");
         }
 
-        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+        try { fs::remove(input_path); fs::remove(output_path); if (!heic_tmp.empty()) fs::remove(heic_tmp); } catch (...) {}
     });
 
     // ── POST /api/tools/image-resize ────────────────────────────────────────
@@ -380,6 +399,25 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
+
+        // HEIC/HEIF input: convert to PNG first
+        string heic_tmp;
+        {
+            string el = ext;
+            std::transform(el.begin(), el.end(), el.begin(), ::tolower);
+            if (el == ".heic" || el == ".heif") {
+                string png_path = get_processing_dir() + "/" + jid + "_heic.png";
+                bool ok = false; int rc;
+                string hc = find_executable("heif-convert", {"/usr/bin/heif-convert", "/usr/local/bin/heif-convert"});
+                if (!hc.empty()) { exec_command(escape_arg(hc) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok && !g_imagemagick_path.empty()) { exec_command(escape_arg(g_imagemagick_path) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok) { try { fs::remove(input_path); } catch (...) {} res.status = 500; res.set_content(json({{"error","HEIC/HEIF conversion requires libheif."}}).dump(),"application/json"); return; }
+                heic_tmp = input_path;
+                input_path = png_path;
+                ext = ".png";
+            }
+        }
+
         string output_path = get_processing_dir() + "/" + jid + "_out" + ext;
         string filter = "scale=" + sw + ":" + sh;
 
@@ -399,7 +437,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
             res.set_content(json({{"error", "Image resize failed"}}).dump(), "application/json");
         }
 
-        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+        try { fs::remove(input_path); fs::remove(output_path); if (!heic_tmp.empty()) fs::remove(heic_tmp); } catch (...) {}
     });
 
     // ── POST /api/tools/image-convert ───────────────────────────────────────
@@ -415,7 +453,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         // Allowlist to prevent unexpected formats/paths
         static const set<string> ALLOWED_IMG_FMT = {
-            "png","jpg","jpeg","webp","bmp","tiff","tif","gif","avif","ico"
+            "png","jpg","jpeg","webp","bmp","tiff","tif","gif","avif","ico","heic","heif"
         };
         if (ALLOWED_IMG_FMT.find(format) == ALLOWED_IMG_FMT.end()) {
             res.status = 400;
@@ -545,10 +583,55 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         }
         // ── End SVG rasterisation ──────────────────────────────────────────
 
+        // ── HEIC/HEIF output ──────────────────────────────────────────────────
+        // ffmpeg cannot encode HEIC natively. Convert to PNG first, then use
+        // heif-enc (libheif) or ImageMagick to produce the final HEIC file.
+        if (format == "heic" || format == "heif") {
+            string png_intermediate = get_processing_dir() + "/" + jid + "_tmp.png";
+            string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(ffmpeg_input) + " " + escape_arg(png_intermediate);
+            cout << "[Luma Tools] Image convert (HEIC out, step 1 ffmpeg->PNG): " << cmd << endl;
+            int code; exec_command(cmd, code);
+            if (!fs::exists(png_intermediate) || fs::file_size(png_intermediate) == 0) {
+                try { fs::remove(input_path); fs::remove(png_intermediate); } catch (...) {}
+                string rp = get_processing_dir() + "/" + jid + "_raster.png";
+                try { if (fs::exists(rp)) fs::remove(rp); } catch (...) {}
+                res.status = 500;
+                res.set_content(json({{"error","Image conversion to HEIC failed (intermediate step)"}}).dump(), "application/json");
+                return;
+            }
+            bool encoded = false;
+            string heif_enc = find_executable("heif-enc", {"/usr/bin/heif-enc", "/usr/local/bin/heif-enc"});
+            if (!heif_enc.empty()) {
+                string enc_cmd = escape_arg(heif_enc) + " " + escape_arg(png_intermediate) + " -o " + escape_arg(output_path);
+                cout << "[Luma Tools] HEIC encode (heif-enc): " << enc_cmd << endl;
+                exec_command(enc_cmd, code);
+                if (fs::exists(output_path) && fs::file_size(output_path) > 0) encoded = true;
+            }
+            if (!encoded && !g_imagemagick_path.empty()) {
+                string enc_cmd = escape_arg(g_imagemagick_path) + " " + escape_arg(png_intermediate) + " " + escape_arg(output_path);
+                cout << "[Luma Tools] HEIC encode (ImageMagick): " << enc_cmd << endl;
+                exec_command(enc_cmd, code);
+                if (fs::exists(output_path) && fs::file_size(output_path) > 0) encoded = true;
+            }
+            try { fs::remove(png_intermediate); } catch (...) {}
+            string raster_path = get_processing_dir() + "/" + jid + "_raster.png";
+            if (encoded) {
+                string label = file.filename + " -> heic";
+                discord_log_tool("Image Convert", label, req.remote_addr);
+                string out_name = fs::path(file.filename).stem().string() + ".heic";
+                send_file_response(res, output_path, out_name);
+            } else {
+                discord_log_error("Image Convert", "HEIC encode failed for: " + mask_filename(file.filename));
+                res.status = 500;
+                res.set_content(json({{"error","HEIC encoding requires heif-enc or ImageMagick with HEIF support."}}).dump(), "application/json");
+            }
+            try { fs::remove(input_path); fs::remove(output_path); if (fs::exists(raster_path)) fs::remove(raster_path); } catch (...) {}
+            return;
+        }
+
         // Build codec flags per format
         string codec_flags;
         if (format == "avif") {
-            // AV1 encoder; -cpu-used 6 trades quality for much faster encoding
             codec_flags = "-c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 6 -pix_fmt yuv420p";
         }
 
@@ -1759,9 +1842,27 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
+
+        // HEIC/HEIF input: convert to PNG first
+        string heic_tmp;
+        {
+            string el = ext;
+            std::transform(el.begin(), el.end(), el.begin(), ::tolower);
+            if (el == ".heic" || el == ".heif") {
+                string png_path = get_processing_dir() + "/" + jid + "_heic.png";
+                bool ok = false; int rc;
+                string hc = find_executable("heif-convert", {"/usr/bin/heif-convert", "/usr/local/bin/heif-convert"});
+                if (!hc.empty()) { exec_command(escape_arg(hc) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok && !g_imagemagick_path.empty()) { exec_command(escape_arg(g_imagemagick_path) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok) { try { fs::remove(input_path); } catch (...) {} res.status = 500; res.set_content(json({{"error","HEIC/HEIF conversion requires libheif."}}).dump(),"application/json"); return; }
+                heic_tmp = input_path;
+                input_path = png_path;
+                ext = ".png";
+            }
+        }
+
         string output_path = get_processing_dir() + "/" + jid + "_cropped" + ext;
 
-        // ffmpeg crop filter: crop=w:h:x:y  — use integer strings (safe from injection)
         string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
             + " -vf crop=" + to_string(w_v) + ":" + to_string(h_v) + ":" + to_string(x_v) + ":" + to_string(y_v)
             + " " + escape_arg(output_path);
@@ -1778,7 +1879,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             res.set_content(json({{"error", "Image crop failed"}}).dump(), "application/json");
         }
 
-        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+        try { fs::remove(input_path); fs::remove(output_path); if (!heic_tmp.empty()) fs::remove(heic_tmp); } catch (...) {}
     });
 
     // ── POST /api/tools/image-bg-remove ─────────────────────────────────────
@@ -1811,18 +1912,34 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
+
+        // HEIC/HEIF input: convert to PNG first
+        string heic_tmp;
+        {
+            string el = fs::path(file.filename).extension().string();
+            std::transform(el.begin(), el.end(), el.begin(), ::tolower);
+            if (el == ".heic" || el == ".heif") {
+                string png_path = get_processing_dir() + "/" + jid + "_heic.png";
+                bool ok = false; int rc;
+                string hc = find_executable("heif-convert", {"/usr/bin/heif-convert", "/usr/local/bin/heif-convert"});
+                if (!hc.empty()) { exec_command(escape_arg(hc) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok && !g_imagemagick_path.empty()) { exec_command(escape_arg(g_imagemagick_path) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok) { try { fs::remove(input_path); } catch (...) {} res.status = 500; res.set_content(json({{"error","HEIC/HEIF conversion requires libheif."}}).dump(),"application/json"); return; }
+                heic_tmp = input_path;
+                input_path = png_path;
+            }
+        }
+
         string output_path = get_processing_dir() + "/" + jid + "_nobg.png";
 
         int code;
         string cmd;
 
         if (method == "auto") {
-            // Try rembg (Python AI-based background removal)
             cmd = "rembg i " + escape_arg(input_path) + " " + escape_arg(output_path);
             cout << "[Luma Tools] BG remove (rembg): " << cmd << endl;
             exec_command(cmd, code);
 
-            // Fallback: use ffmpeg colorkey on white if rembg not available
             if (!fs::exists(output_path) || fs::file_size(output_path) == 0) {
                 cout << "[Luma Tools] rembg not available, falling back to colorkey white" << endl;
                 cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path)
@@ -1853,7 +1970,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             res.set_content(json({{"error", "Background removal failed. If using Auto mode, ensure rembg is installed."}}).dump(), "application/json");
         }
 
-        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+        try { fs::remove(input_path); fs::remove(output_path); if (!heic_tmp.empty()) fs::remove(heic_tmp); } catch (...) {}
     });
 
     // ── POST /api/tools/redact-video ─────────────────────────────────────
@@ -2267,6 +2384,25 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
+
+        // HEIC/HEIF input: convert to PNG first
+        string heic_tmp;
+        {
+            string el = ext;
+            std::transform(el.begin(), el.end(), el.begin(), ::tolower);
+            if (el == ".heic" || el == ".heif") {
+                string png_path = get_processing_dir() + "/" + jid + "_heic.png";
+                bool ok = false; int rc;
+                string hc = find_executable("heif-convert", {"/usr/bin/heif-convert", "/usr/local/bin/heif-convert"});
+                if (!hc.empty()) { exec_command(escape_arg(hc) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok && !g_imagemagick_path.empty()) { exec_command(escape_arg(g_imagemagick_path) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+                if (!ok) { try { fs::remove(input_path); } catch (...) {} res.status = 500; res.set_content(json({{"error","HEIC/HEIF conversion requires libheif."}}).dump(),"application/json"); return; }
+                heic_tmp = input_path;
+                input_path = png_path;
+                ext = ".png";
+            }
+        }
+
         if (ext == ".jpg" || ext == ".jpeg") ext = ".jpg";
         else if (ext != ".png" && ext != ".webp" && ext != ".tiff") ext = ".png";
         string output_path = get_processing_dir() + "/" + jid + "_wm" + ext;
@@ -2290,7 +2426,7 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             discord_log_error("Image Watermark", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Watermark failed. Check that FFmpeg has freetype support."}}).dump(), "application/json");
         }
-        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+        try { fs::remove(input_path); fs::remove(output_path); if (!heic_tmp.empty()) fs::remove(heic_tmp); } catch (...) {}
     });
 
     // ── POST /api/tools/markdown-to-pdf ─────────────────────────────────────
@@ -4453,6 +4589,21 @@ CRITICAL RULES:
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
+
+        // HEIC/HEIF input: convert to PNG first
+        string heic_tmp;
+        if (in_ext == ".heic" || in_ext == ".heif") {
+            string png_path = get_processing_dir() + "/" + jid + "_heic.png";
+            bool ok = false; int rc;
+            string hc = find_executable("heif-convert", {"/usr/bin/heif-convert", "/usr/local/bin/heif-convert"});
+            if (!hc.empty()) { exec_command(escape_arg(hc) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+            if (!ok && !g_imagemagick_path.empty()) { exec_command(escape_arg(g_imagemagick_path) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+            if (!ok) { try { fs::remove(input_path); } catch (...) {} res.status = 500; res.set_content(json({{"error","HEIC/HEIF conversion requires libheif."}}).dump(),"application/json"); return; }
+            heic_tmp = input_path;
+            input_path = png_path;
+            in_ext = ".png";
+        }
+
         string output_path = get_processing_dir() + "/" + jid + "_upscaled" + in_ext;
 
         string vf = "scale=iw*" + to_string(scale) + ":ih*" + to_string(scale) + ":flags=lanczos";
@@ -4468,7 +4619,7 @@ CRITICAL RULES:
             discord_log_error("Image Upscale", "Failed for: " + mask_filename(file.filename));
             res.set_content(json({{"error", "Image upscale failed"}}).dump(), "application/json");
         }
-        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+        try { fs::remove(input_path); fs::remove(output_path); if (!heic_tmp.empty()) fs::remove(heic_tmp); } catch (...) {}
     });
 
     // ── POST /api/tools/ocr ───────────────────────────────────────────────────
@@ -4505,6 +4656,19 @@ CRITICAL RULES:
 
         vector<string> temp_files = {input_path};
         string text;
+
+        // HEIC/HEIF input: convert to PNG so Tesseract can read it
+        if (in_ext == ".heic" || in_ext == ".heif") {
+            string png_path = proc + "/" + jid + "_heic.png";
+            bool ok = false; int rc;
+            string hc = find_executable("heif-convert", {"/usr/bin/heif-convert", "/usr/local/bin/heif-convert"});
+            if (!hc.empty()) { exec_command(escape_arg(hc) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+            if (!ok && !g_imagemagick_path.empty()) { exec_command(escape_arg(g_imagemagick_path) + " " + escape_arg(input_path) + " " + escape_arg(png_path), rc); if (fs::exists(png_path) && fs::file_size(png_path) > 0) ok = true; }
+            if (!ok) { for (auto& t : temp_files) try { fs::remove(t); } catch (...) {} res.status = 500; res.set_content(json({{"error","HEIC/HEIF conversion requires libheif."}}).dump(),"application/json"); return; }
+            temp_files.push_back(png_path);
+            input_path = png_path;
+            in_ext = ".png";
+        }
 
         if (in_ext == ".pdf") {
             // Convert each PDF page to PNG, then OCR each

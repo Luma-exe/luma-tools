@@ -133,6 +133,9 @@
                     <a class="nav-item" data-tool="downloader" data-location="server" onclick="switchTool('downloader')">
                         <i class="fas fa-download"></i><span>Media Downloader</span>
                     </a>
+                    <a class="nav-item" data-tool="bulk-install" data-location="browser" onclick="switchTool('bulk-install')">
+                        <i class="fas fa-boxes-stacked"></i><span>Bulk Installer</span>
+                    </a>
                 </div>
                 <div class="nav-category">
                     <div class="nav-category-title">IMAGE</div>
@@ -445,7 +448,7 @@
                     </div>
 
                     <div class="landing-tools-overview">
-                        <h2>50+ Tools, Zero Ads</h2>
+                        <h2>55+ Tools, Zero Ads</h2>
                         <div class="landing-tool-chips">
                             <span class="landing-chip" onclick="switchTool('ai-study-notes')"><i class="fas fa-brain"></i> AI Study Notes</span>
                             <span class="landing-chip" onclick="switchTool('ai-flashcards')"><i class="fas fa-clone"></i> Flashcards</span>
@@ -507,6 +510,7 @@
                             <span class="landing-chip" onclick="switchTool('audio-separate')"><i class="fas fa-guitar"></i> Vocal Separator</span>
                             <span class="landing-chip" onclick="switchTool('password-gen')"><i class="fas fa-key"></i> Password Generator</span>
                             <span class="landing-chip" onclick="switchTool('jwt-decode')"><i class="fas fa-shield-alt"></i> JWT Decoder</span>
+                            <span class="landing-chip" onclick="switchTool('bulk-install')"><i class="fas fa-boxes-stacked"></i> Bulk Installer</span>
                         </div>
                     </div>
                     <div class="landing-cta-row">
@@ -707,6 +711,43 @@
                 </div>
             </div>
 
+            <!-- ──────────── BULK INSTALLER ──────────── -->
+            <div class="tool-panel" id="tool-bulk-install">
+                <div class="tool-header">
+                    <h2><i class="fas fa-boxes-stacked"></i> Bulk Program Installer</h2>
+                    <p>Select programs to install, then download a script that installs them all at once</p>
+                </div>
+                <div class="tool-body">
+                    <div class="info-box"><i class="fas fa-info-circle"></i> Select the programs you want, then download a PowerShell script. Run it on your Windows PC to install everything automatically.</div>
+                    <div class="bulk-install-search">
+                        <div class="search-input-wrap">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="bulkInstallSearch" placeholder="Search programs..." oninput="filterBulkPrograms()" autocomplete="off" spellcheck="false">
+                        </div>
+                    </div>
+                    <div class="bulk-install-categories" id="bulkInstallCategories">
+                        <button class="bulk-cat-btn active" data-cat="all" onclick="filterBulkCategory('all')">All</button>
+                        <button class="bulk-cat-btn" data-cat="browsers" onclick="filterBulkCategory('browsers')">Browsers</button>
+                        <button class="bulk-cat-btn" data-cat="messaging" onclick="filterBulkCategory('messaging')">Messaging</button>
+                        <button class="bulk-cat-btn" data-cat="media" onclick="filterBulkCategory('media')">Media</button>
+                        <button class="bulk-cat-btn" data-cat="dev" onclick="filterBulkCategory('dev')">Developer</button>
+                        <button class="bulk-cat-btn" data-cat="gaming" onclick="filterBulkCategory('gaming')">Gaming</button>
+                        <button class="bulk-cat-btn" data-cat="utilities" onclick="filterBulkCategory('utilities')">Utilities</button>
+                        <button class="bulk-cat-btn" data-cat="security" onclick="filterBulkCategory('security')">Security</button>
+                        <button class="bulk-cat-btn" data-cat="documents" onclick="filterBulkCategory('documents')">Documents</button>
+                        <button class="bulk-cat-btn" data-cat="runtimes" onclick="filterBulkCategory('runtimes')">Runtimes</button>
+                    </div>
+                    <div class="bulk-install-grid" id="bulkInstallGrid"></div>
+                    <div class="bulk-install-footer">
+                        <div class="bulk-selected-count"><i class="fas fa-check-circle"></i> <span id="bulkSelectedCount">0</span> programs selected</div>
+                        <div class="bulk-install-actions">
+                            <button class="btn-secondary" onclick="clearBulkSelection()"><i class="fas fa-times"></i> Clear</button>
+                            <button class="process-btn" onclick="generateBulkInstallScript()"><i class="fas fa-download"></i> Download Install Script</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ──────────── IMAGE COMPRESS ──────────── -->
             <div class="tool-panel" id="tool-image-compress">
                 <div class="tool-header">
@@ -715,8 +756,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-compress" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC, SVG &mdash; Max 50 MB</small></div>
-                        <input type="file" class="upload-input" accept="image/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,.heic,.heif">
                     </div>
                     <div class="file-preview hidden" data-tool="image-compress">
                         <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -744,8 +785,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-resize" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC, SVG &mdash; Max 50 MB</small></div>
-                        <input type="file" class="upload-input" accept="image/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,.heic,.heif">
                     </div>
                     <div class="file-preview hidden" data-tool="image-resize">
                         <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -773,7 +814,7 @@
             <div class="tool-panel" id="tool-image-convert">
                 <div class="tool-header">
                     <h2><i class="fas fa-exchange-alt"></i> Image Convert</h2>
-                    <p>Convert between PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, ICO and more</p>
+                    <p>Convert between PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, ICO, HEIC and more</p>
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-convert" data-accept="image/*" data-max="52428800">
@@ -795,6 +836,7 @@
                             <button class="fmt-btn" data-fmt="bmp" onclick="selectOutputFmt(this)">BMP</button>
                             <button class="fmt-btn" data-fmt="tiff" onclick="selectOutputFmt(this)">TIFF</button>
                             <button class="fmt-btn" data-fmt="ico" onclick="selectOutputFmt(this)">ICO</button>
+                            <button class="fmt-btn" data-fmt="heic" onclick="selectOutputFmt(this)">HEIC</button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFile('image-convert')"><i class="fas fa-exchange-alt"></i> Convert Image</button>
@@ -814,8 +856,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-watermark" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC, SVG &mdash; Max 50 MB</small></div>
-                        <input type="file" class="upload-input" accept="image/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,.heic,.heif">
                     </div>
                     <div class="file-preview hidden" data-tool="image-watermark">
                         <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -1766,8 +1808,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-crop" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC, SVG &mdash; Max 50 MB</small></div>
-                        <input type="file" class="upload-input" accept="image/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,.heic,.heif">
                     </div>
                     <div class="file-preview hidden" data-tool="image-crop">
                         <span class="file-name"></span><span class="file-size"></span>
@@ -1840,8 +1882,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-bg-remove" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC, SVG &mdash; Max 50 MB</small></div>
-                        <input type="file" class="upload-input" accept="image/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, AVIF, GIF, HEIC &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,.heic,.heif">
                     </div>
                     <div class="file-preview hidden" data-tool="image-bg-remove">
                         <span class="file-name"></span><span class="file-size"></span>
@@ -2641,7 +2683,7 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-upscale" data-accept="image/*" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF &mdash; Max 50 MB</small></div>
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, HEIC &mdash; Max 50 MB</small></div>
                         <input type="file" class="upload-input" accept="image/*,.heic,.heif">
                     </div>
                     <div class="file-preview hidden" data-tool="image-upscale">
@@ -2674,8 +2716,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-ocr" data-accept="image/*,.pdf" data-max="52428800">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop an image or PDF here</p><span>or click to browse</span><small>PNG, JPEG, WebP, TIFF, PDF &mdash; Max 50 MB</small></div>
-                        <input type="file" class="upload-input" accept="image/*,.pdf,application/pdf">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop an image or PDF here</p><span>or click to browse</span><small>PNG, JPEG, WebP, TIFF, HEIC, PDF &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,.pdf,application/pdf,.heic,.heif">
                     </div>
                     <div class="file-preview hidden" data-tool="ocr">
                         <div class="file-info"><i class="fas fa-file-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>

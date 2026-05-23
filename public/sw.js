@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v20'; // bumped: OCR, vocal separator, password gen, JWT decoder, image upscale, HEIC, error msgs
+const CACHE_NAME = 'lumatools-v21'; // bumped: HEIC output, format symmetry, bulk program installer
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

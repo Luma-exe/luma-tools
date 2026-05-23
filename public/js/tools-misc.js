@@ -987,3 +987,192 @@ function copyJWTPart(part) {
     if (!el) return;
     navigator.clipboard.writeText(el.textContent).then(() => showToast('Copied!', 'success'));
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BULK PROGRAM INSTALLER
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BULK_PROGRAMS = [
+    // Browsers
+    { id:'chrome',       name:'Google Chrome',       cat:'browsers',  icon:'fab fa-chrome',        winget:'Google.Chrome' },
+    { id:'firefox',      name:'Mozilla Firefox',     cat:'browsers',  icon:'fab fa-firefox',       winget:'Mozilla.Firefox' },
+    { id:'brave',        name:'Brave Browser',       cat:'browsers',  icon:'fab fa-brave',         winget:'Brave.Brave' },
+    { id:'edge',         name:'Microsoft Edge',      cat:'browsers',  icon:'fab fa-edge',          winget:'Microsoft.Edge' },
+    { id:'opera',        name:'Opera Browser',       cat:'browsers',  icon:'fab fa-opera',         winget:'Opera.Opera' },
+    { id:'operagx',      name:'Opera GX',            cat:'browsers',  icon:'fab fa-opera',         winget:'Opera.OperaGX' },
+    { id:'vivaldi',      name:'Vivaldi',             cat:'browsers',  icon:'fas fa-globe',         winget:'VivaldiTechnologies.Vivaldi' },
+    { id:'tor',          name:'Tor Browser',         cat:'browsers',  icon:'fas fa-user-secret',   winget:'TorProject.TorBrowser' },
+    // Messaging
+    { id:'discord',      name:'Discord',             cat:'messaging', icon:'fab fa-discord',       winget:'Discord.Discord' },
+    { id:'slack',        name:'Slack',               cat:'messaging', icon:'fab fa-slack',         winget:'SlackTechnologies.Slack' },
+    { id:'telegram',     name:'Telegram',            cat:'messaging', icon:'fab fa-telegram',      winget:'Telegram.TelegramDesktop' },
+    { id:'whatsapp',     name:'WhatsApp',            cat:'messaging', icon:'fab fa-whatsapp',      winget:'WhatsApp.WhatsApp' },
+    { id:'signal',       name:'Signal',              cat:'messaging', icon:'fas fa-comment-dots',  winget:'OpenWhisperSystems.Signal' },
+    { id:'teams',        name:'Microsoft Teams',     cat:'messaging', icon:'fas fa-users',         winget:'Microsoft.Teams' },
+    { id:'zoom',         name:'Zoom',                cat:'messaging', icon:'fas fa-video',         winget:'Zoom.Zoom' },
+    // Media
+    { id:'vlc',          name:'VLC Media Player',    cat:'media',     icon:'fas fa-play-circle',   winget:'VideoLAN.VLC' },
+    { id:'spotify',      name:'Spotify',             cat:'media',     icon:'fab fa-spotify',       winget:'Spotify.Spotify' },
+    { id:'obs',          name:'OBS Studio',          cat:'media',     icon:'fas fa-circle',        winget:'OBSProject.OBSStudio' },
+    { id:'audacity',     name:'Audacity',            cat:'media',     icon:'fas fa-headphones',    winget:'Audacity.Audacity' },
+    { id:'handbrake',    name:'HandBrake',           cat:'media',     icon:'fas fa-film',          winget:'HandBrake.HandBrake' },
+    { id:'gimp',         name:'GIMP',                cat:'media',     icon:'fas fa-paint-brush',   winget:'GIMP.GIMP' },
+    { id:'inkscape',     name:'Inkscape',            cat:'media',     icon:'fas fa-pen-nib',       winget:'Inkscape.Inkscape' },
+    { id:'itunes',       name:'iTunes',              cat:'media',     icon:'fab fa-itunes',        winget:'Apple.iTunes' },
+    { id:'imageglass',   name:'ImageGlass',          cat:'media',     icon:'fas fa-image',         winget:'DuongDieuPhap.ImageGlass' },
+    // Developer
+    { id:'vscode',       name:'VS Code',             cat:'dev',       icon:'fas fa-code',          winget:'Microsoft.VisualStudioCode' },
+    { id:'git',          name:'Git',                 cat:'dev',       icon:'fab fa-git-alt',       winget:'Git.Git' },
+    { id:'nodejs',       name:'Node.js (LTS)',       cat:'dev',       icon:'fab fa-node-js',       winget:'OpenJS.NodeJS.LTS' },
+    { id:'python',       name:'Python 3',            cat:'dev',       icon:'fab fa-python',        winget:'Python.Python.3.12' },
+    { id:'docker',       name:'Docker Desktop',      cat:'dev',       icon:'fab fa-docker',        winget:'Docker.DockerDesktop' },
+    { id:'postman',      name:'Postman',             cat:'dev',       icon:'fas fa-paper-plane',   winget:'Postman.Postman' },
+    { id:'wt',           name:'Windows Terminal',    cat:'dev',       icon:'fas fa-terminal',      winget:'Microsoft.WindowsTerminal' },
+    { id:'notepadpp',    name:'Notepad++',           cat:'dev',       icon:'fas fa-file-code',     winget:'Notepad++.Notepad++' },
+    { id:'sublimetext',  name:'Sublime Text',        cat:'dev',       icon:'fas fa-feather-alt',   winget:'SublimeHQ.SublimeText.4' },
+    { id:'filezilla',    name:'FileZilla',           cat:'dev',       icon:'fas fa-server',        winget:'TimKosse.FileZilla.Client' },
+    { id:'putty',        name:'PuTTY',               cat:'dev',       icon:'fas fa-plug',          winget:'PuTTY.PuTTY' },
+    { id:'cursor',       name:'Cursor',              cat:'dev',       icon:'fas fa-i-cursor',      winget:'Anysphere.Cursor' },
+    // Gaming
+    { id:'steam',        name:'Steam',               cat:'gaming',    icon:'fab fa-steam',         winget:'Valve.Steam' },
+    { id:'epicgames',    name:'Epic Games Launcher', cat:'gaming',    icon:'fas fa-gamepad',       winget:'EpicGames.EpicGamesLauncher' },
+    { id:'ea',           name:'EA App',              cat:'gaming',    icon:'fas fa-futbol',        winget:'ElectronicArts.EADesktop' },
+    { id:'gog',          name:'GOG Galaxy',          cat:'gaming',    icon:'fas fa-rocket',        winget:'GOG.Galaxy' },
+    { id:'battle',       name:'Battle.net',          cat:'gaming',    icon:'fas fa-dragon',        winget:'Blizzard.BattleNet' },
+    // Utilities
+    { id:'7zip',         name:'7-Zip',               cat:'utilities', icon:'fas fa-file-archive',  winget:'7zip.7zip' },
+    { id:'qbittorrent',  name:'qBittorrent',         cat:'utilities', icon:'fas fa-magnet',        winget:'qBittorrent.qBittorrent' },
+    { id:'sharex',       name:'ShareX',              cat:'utilities', icon:'fas fa-camera',        winget:'ShareX.ShareX' },
+    { id:'everything',   name:'Everything',          cat:'utilities', icon:'fas fa-search',        winget:'voidtools.Everything' },
+    { id:'powertoys',    name:'PowerToys',           cat:'utilities', icon:'fas fa-bolt',          winget:'Microsoft.PowerToys' },
+    { id:'winrar',       name:'WinRAR',              cat:'utilities', icon:'fas fa-box-open',      winget:'RARLab.WinRAR' },
+    { id:'bleachbit',    name:'BleachBit',           cat:'utilities', icon:'fas fa-broom',         winget:'BleachBit.BleachBit' },
+    { id:'cpuz',         name:'CPU-Z',               cat:'utilities', icon:'fas fa-microchip',     winget:'CPUID.CPU-Z' },
+    { id:'hwinfo',       name:'HWiNFO',              cat:'utilities', icon:'fas fa-thermometer',   winget:'REALiX.HWiNFO' },
+    { id:'treesizefree', name:'TreeSize Free',       cat:'utilities', icon:'fas fa-tree',          winget:'JAMSoftware.TreeSize.Free' },
+    // Security
+    { id:'bitwarden',    name:'Bitwarden',           cat:'security',  icon:'fas fa-shield-alt',    winget:'Bitwarden.Bitwarden' },
+    { id:'keepassxc',    name:'KeePassXC',           cat:'security',  icon:'fas fa-key',           winget:'KeePassXCTeam.KeePassXC' },
+    { id:'malwarebytes', name:'Malwarebytes',        cat:'security',  icon:'fas fa-bug',           winget:'Malwarebytes.Malwarebytes' },
+    { id:'nordvpn',      name:'NordVPN',             cat:'security',  icon:'fas fa-lock',          winget:'NordSecurity.NordVPN' },
+    { id:'protonvpn',    name:'ProtonVPN',           cat:'security',  icon:'fas fa-user-shield',   winget:'ProtonTechnologies.ProtonVPN' },
+    // Documents
+    { id:'libreoffice',  name:'LibreOffice',         cat:'documents', icon:'fas fa-file-alt',      winget:'TheDocumentFoundation.LibreOffice' },
+    { id:'obsidian',     name:'Obsidian',            cat:'documents', icon:'fas fa-gem',           winget:'Obsidian.Obsidian' },
+    { id:'notion',       name:'Notion',              cat:'documents', icon:'fas fa-sticky-note',   winget:'Notion.Notion' },
+    { id:'adobereader',  name:'Adobe Acrobat Reader',cat:'documents', icon:'fas fa-file-pdf',      winget:'Adobe.Acrobat.Reader.64-bit' },
+    { id:'sumatrapdf',   name:'SumatraPDF',          cat:'documents', icon:'fas fa-book-open',     winget:'SumatraPDF.SumatraPDF' },
+    // Runtimes
+    { id:'dotnet8',      name:'.NET 8 Runtime',      cat:'runtimes',  icon:'fas fa-cogs',          winget:'Microsoft.DotNet.Runtime.8' },
+    { id:'vcredist',     name:'VC++ Redistributable',cat:'runtimes',  icon:'fas fa-wrench',        winget:'Microsoft.VCRedist.2015+.x64' },
+    { id:'directx',      name:'DirectX Runtime',     cat:'runtimes',  icon:'fas fa-cube',          winget:'Microsoft.DirectX' },
+    { id:'java',         name:'Java (Adoptium 21)',  cat:'runtimes',  icon:'fab fa-java',          winget:'EclipseAdoptium.Temurin.21.JRE' },
+];
+
+let bulkSelected = new Set();
+
+function renderBulkGrid(filter = 'all', search = '') {
+    const grid = document.getElementById('bulkInstallGrid');
+    if (!grid) return;
+    const s = search.toLowerCase();
+    const progs = BULK_PROGRAMS.filter(p =>
+        (filter === 'all' || p.cat === filter) &&
+        (!s || p.name.toLowerCase().includes(s) || p.cat.includes(s))
+    );
+    grid.innerHTML = progs.map(p => `
+        <div class="bulk-prog-card ${bulkSelected.has(p.id) ? 'selected' : ''}" data-id="${p.id}" onclick="toggleBulkProg('${p.id}')">
+            <div class="bulk-prog-check"><i class="fas ${bulkSelected.has(p.id) ? 'fa-check-circle' : 'fa-circle'}"></i></div>
+            <i class="${p.icon} bulk-prog-icon"></i>
+            <span class="bulk-prog-name">${p.name}</span>
+        </div>
+    `).join('');
+}
+
+function toggleBulkProg(id) {
+    if (bulkSelected.has(id)) bulkSelected.delete(id);
+    else bulkSelected.add(id);
+    renderBulkGrid(
+        document.querySelector('.bulk-cat-btn.active')?.dataset.cat || 'all',
+        document.getElementById('bulkInstallSearch')?.value || ''
+    );
+    document.getElementById('bulkSelectedCount').textContent = bulkSelected.size;
+}
+
+function filterBulkCategory(cat) {
+    document.querySelectorAll('.bulk-cat-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+    renderBulkGrid(cat, document.getElementById('bulkInstallSearch')?.value || '');
+}
+
+function filterBulkPrograms() {
+    const cat = document.querySelector('.bulk-cat-btn.active')?.dataset.cat || 'all';
+    renderBulkGrid(cat, document.getElementById('bulkInstallSearch')?.value || '');
+}
+
+function clearBulkSelection() {
+    bulkSelected.clear();
+    document.getElementById('bulkSelectedCount').textContent = '0';
+    renderBulkGrid(
+        document.querySelector('.bulk-cat-btn.active')?.dataset.cat || 'all',
+        document.getElementById('bulkInstallSearch')?.value || ''
+    );
+}
+
+function generateBulkInstallScript() {
+    if (bulkSelected.size === 0) { showToast('Select at least one program', 'error'); return; }
+    const selected = BULK_PROGRAMS.filter(p => bulkSelected.has(p.id));
+    const lines = [
+        '# Luma Tools — Bulk Program Installer',
+        '# Generated: ' + new Date().toISOString().slice(0, 19).replace('T', ' '),
+        '# Programs: ' + selected.map(p => p.name).join(', '),
+        '#',
+        '# This script uses winget (Windows Package Manager) to install programs.',
+        '# Run this script in PowerShell as Administrator.',
+        '',
+        '$ErrorActionPreference = "Continue"',
+        '',
+        '# Check for winget',
+        'if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {',
+        '    Write-Host "ERROR: winget is not installed. Please install App Installer from the Microsoft Store." -ForegroundColor Red',
+        '    Read-Host "Press Enter to exit"',
+        '    exit 1',
+        '}',
+        '',
+        'Write-Host ""',
+        'Write-Host "========================================" -ForegroundColor Cyan',
+        'Write-Host "  Luma Tools - Bulk Program Installer" -ForegroundColor Cyan',
+        'Write-Host "  Installing ' + selected.length + ' program(s)..." -ForegroundColor Cyan',
+        'Write-Host "========================================" -ForegroundColor Cyan',
+        'Write-Host ""',
+        '',
+        '$total = ' + selected.length,
+        '$current = 0',
+        '$failed = @()',
+        '',
+    ];
+    for (const p of selected) {
+        lines.push(`$current++`);
+        lines.push(`Write-Host "[$current/$total] Installing ${p.name}..." -ForegroundColor Yellow`);
+        lines.push(`winget install --id ${p.winget} --accept-source-agreements --accept-package-agreements -e -h`);
+        lines.push(`if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) { $failed += "${p.name}" }`);
+        lines.push(`Write-Host ""`);
+    }
+    lines.push('Write-Host "========================================" -ForegroundColor Cyan');
+    lines.push('if ($failed.Count -eq 0) {');
+    lines.push('    Write-Host "  All ' + selected.length + ' programs installed successfully!" -ForegroundColor Green');
+    lines.push('} else {');
+    lines.push('    Write-Host "  Completed with $($failed.Count) failure(s):" -ForegroundColor Yellow');
+    lines.push('    $failed | ForEach-Object { Write-Host "    - $_" -ForegroundColor Red }');
+    lines.push('}');
+    lines.push('Write-Host "========================================" -ForegroundColor Cyan');
+    lines.push('Write-Host ""');
+    lines.push('Read-Host "Press Enter to exit"');
+
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'luma-install.ps1';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Install script downloaded (${selected.length} programs)`, 'success');
+}
