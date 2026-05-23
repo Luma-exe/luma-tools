@@ -236,9 +236,15 @@ static string extract_text_from_upload(
                 text = ss.str();
             }
         }
-    } else if (file_ext == ".docx") {
+    } else if (file_ext == ".docx" || file_ext == ".pptx" || file_ext == ".odt" || file_ext == ".epub") {
+        // pandoc handles docx, pptx, odt, epub → plain text
         string pandoc_exe = g_pandoc_path.empty() ? "pandoc" : g_pandoc_path;
-        string cmd = escape_arg(pandoc_exe) + " -f docx -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
+        string in_fmt;
+        if      (file_ext == ".docx") in_fmt = "docx";
+        else if (file_ext == ".pptx") in_fmt = "pptx";
+        else if (file_ext == ".odt")  in_fmt = "odt";
+        else if (file_ext == ".epub") in_fmt = "epub";
+        string cmd = escape_arg(pandoc_exe) + " -f " + in_fmt + " -t plain " + escape_arg(input_path) + " -o " + escape_arg(txt_path);
         int code; exec_command(cmd, code);
         if (fs::exists(txt_path)) {
             ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
@@ -551,7 +557,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
 
         // Allowlist: prevent path traversal and unknown format injection
-        static const set<string> ALLOWED_AUDIO_FMT = {"mp3","aac","m4a","wav","flac","ogg","wma"};
+        static const set<string> ALLOWED_AUDIO_FMT = {"mp3","aac","m4a","wav","flac","ogg","wma","opus","aiff","mp2","alac"};
         if (ALLOWED_AUDIO_FMT.find(format) == ALLOWED_AUDIO_FMT.end()) {
             res.status = 400;
             res.set_content(json({{"error", "Unsupported audio format: " + format}}).dump(), "application/json");
@@ -562,17 +568,22 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
-        string out_ext = "." + format;
+        // alac uses m4a container; opus uses .opus extension
+        string out_ext = (format == "alac") ? ".m4a" : "." + format;
         string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
 
         string codec;
 
-        if (format == "mp3") codec = "-c:a libmp3lame -q:a 2";
+        if (format == "mp3")                         codec = "-c:a libmp3lame -q:a 2";
         else if (format == "aac" || format == "m4a") codec = "-c:a aac -b:a 192k";
-        else if (format == "wav") codec = "-c:a pcm_s16le";
-        else if (format == "flac") codec = "-c:a flac";
-        else if (format == "ogg") codec = "-c:a libvorbis -q:a 6";
-        else if (format == "wma") codec = "-c:a wmav2 -b:a 192k";
+        else if (format == "wav")                    codec = "-c:a pcm_s16le";
+        else if (format == "flac")                   codec = "-c:a flac";
+        else if (format == "ogg")                    codec = "-c:a libvorbis -q:a 6";
+        else if (format == "wma")                    codec = "-c:a wmav2 -b:a 192k";
+        else if (format == "opus")                   codec = "-c:a libopus -b:a 128k";
+        else if (format == "aiff")                   codec = "-c:a pcm_s16be";
+        else if (format == "mp2")                    codec = "-c:a mp2 -b:a 192k";
+        else if (format == "alac")                   codec = "-c:a alac";
 
         string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " " + codec + " " + escape_arg(output_path);
         cout << "[Luma Tools] Audio convert: " << cmd << endl;
@@ -732,7 +743,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp4";
 
         // Allowlist: prevent path traversal and unknown format injection
-        static const set<string> ALLOWED_VIDEO_FMT = {"mp4","webm","mkv","avi","mov","gif"};
+        static const set<string> ALLOWED_VIDEO_FMT = {"mp4","webm","mkv","avi","mov","gif","flv","wmv","ts","3gp","m4v"};
         if (ALLOWED_VIDEO_FMT.find(format) == ALLOWED_VIDEO_FMT.end()) {
             res.status = 400;
             res.set_content(json({{"error", "Unsupported video format: " + format}}).dump(), "application/json");
@@ -752,12 +763,16 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         thread([jid, input_path, output_path, format, out_ext, orig_name]() {
             string codec;
 
-            if (format == "mp4")       codec = "-c:v libx264 -c:a aac";
+            if (format == "mp4" || format == "m4v") codec = "-c:v libx264 -c:a aac";
             else if (format == "webm") codec = "-c:v libvpx-vp9 -c:a libopus";
             else if (format == "mkv")  codec = "-c:v libx264 -c:a aac";
             else if (format == "avi")  codec = "-c:v libx264 -c:a mp3";
             else if (format == "mov")  codec = "-c:v libx264 -c:a aac";
             else if (format == "gif")  codec = "-vf \"fps=15,scale=480:-1:flags=lanczos\" -loop 0";
+            else if (format == "flv")  codec = "-c:v libx264 -c:a aac -ar 44100";
+            else if (format == "wmv")  codec = "-c:v wmv2 -c:a wmav2 -b:v 1000k -b:a 128k";
+            else if (format == "ts")   codec = "-c:v libx264 -c:a aac";
+            else if (format == "3gp")  codec = "-c:v libx264 -c:a aac -movflags +faststart";
 
             string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
                 " " + codec + " " + escape_arg(output_path);
@@ -791,7 +806,7 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string format = req.has_file("format") ? req.get_file_value("format").content : "mp3";
 
         // Allowlist: prevent path traversal and unknown format injection
-        static const set<string> ALLOWED_EXTRACT_FMT = {"mp3","aac","m4a","wav","flac","ogg"};
+        static const set<string> ALLOWED_EXTRACT_FMT = {"mp3","aac","m4a","wav","flac","ogg","opus","aiff","mp2"};
         if (ALLOWED_EXTRACT_FMT.find(format) == ALLOWED_EXTRACT_FMT.end()) {
             res.status = 400;
             res.set_content(json({{"error", "Unsupported audio format: " + format}}).dump(), "application/json");
@@ -811,11 +826,14 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         thread([jid, input_path, output_path, format, out_ext, orig_name]() {
             string codec;
 
-            if (format == "mp3")                      codec = "-c:a libmp3lame -q:a 2";
+            if (format == "mp3")                         codec = "-c:a libmp3lame -q:a 2";
             else if (format == "aac" || format == "m4a") codec = "-c:a aac -b:a 192k";
-            else if (format == "wav")                 codec = "-c:a pcm_s16le";
-            else if (format == "flac")                codec = "-c:a flac";
-            else if (format == "ogg")                 codec = "-c:a libvorbis -q:a 6";
+            else if (format == "wav")                    codec = "-c:a pcm_s16le";
+            else if (format == "flac")                   codec = "-c:a flac";
+            else if (format == "ogg")                    codec = "-c:a libvorbis -q:a 6";
+            else if (format == "opus")                   codec = "-c:a libopus -b:a 128k";
+            else if (format == "aiff")                   codec = "-c:a pcm_s16be";
+            else if (format == "mp2")                    codec = "-c:a mp2 -b:a 192k";
 
             string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
                 " -vn " + codec + " " + escape_arg(output_path);
@@ -1155,10 +1173,10 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         string dpi    = req.has_file("dpi")    ? req.get_file_value("dpi").content    : "200";
 
         // Allowlist for format; parse dpi as integer (prevent GhostScript injection)
-        static const set<string> ALLOWED_PDF2IMG_FMT = {"png","jpg","jpeg","tiff","tif"};
+        static const set<string> ALLOWED_PDF2IMG_FMT = {"png","jpg","jpeg","tiff","tif","webp"};
         if (ALLOWED_PDF2IMG_FMT.find(format) == ALLOWED_PDF2IMG_FMT.end()) {
             res.status = 400;
-            res.set_content(json({{"error", "Unsupported image format. Use: png, jpg, tiff."}}).dump(), "application/json");
+            res.set_content(json({{"error", "Unsupported image format. Use: png, jpg, tiff, webp."}}).dump(), "application/json");
             return;
         }
         {
@@ -1174,12 +1192,14 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string proc_dir = get_processing_dir();
-        string out_pattern = proc_dir + "/" + jid + "_page_%03d." + format;
+        // WebP: Ghostscript can't output webp natively; render to PNG first, convert via ffmpeg
+        bool webp_mode = (format == "webp");
+        string gs_fmt = webp_mode ? "png" : format;
+        string out_pattern = proc_dir + "/" + jid + "_page_%03d." + gs_fmt;
 
         string device = "png16m";
-
-        if (format == "jpg" || format == "jpeg") device = "jpeg";
-        else if (format == "tiff" || format == "tif") device = "tiff24nc";
+        if (gs_fmt == "jpg" || gs_fmt == "jpeg") device = "jpeg";
+        else if (gs_fmt == "tiff" || gs_fmt == "tif") device = "tiff24nc";
 
         string cmd = escape_arg(g_ghostscript_path) +
             " -dNOPAUSE -dBATCH -sDEVICE=" + device +
@@ -1195,10 +1215,20 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         for (int i = 1; i <= 999; i++) {
             char buf[32];
             snprintf(buf, sizeof(buf), "%03d", i);
-            string page_path = proc_dir + "/" + jid + "_page_" + buf + "." + format;
+            string page_path = proc_dir + "/" + jid + "_page_" + buf + "." + gs_fmt;
 
-            if (fs::exists(page_path)) pages.push_back(page_path);
-            else break;
+            if (fs::exists(page_path)) {
+                if (webp_mode) {
+                    // Convert PNG → WebP via ffmpeg
+                    string webp_path = proc_dir + "/" + jid + "_page_" + buf + ".webp";
+                    string conv = ffmpeg_cmd() + " -y -i " + escape_arg(page_path) + " " + escape_arg(webp_path);
+                    int wrc; exec_command(conv, wrc);
+                    try { fs::remove(page_path); } catch (...) {}
+                    if (fs::exists(webp_path)) pages.push_back(webp_path);
+                } else {
+                    pages.push_back(page_path);
+                }
+            } else break;
         }
 
         if (pages.empty()) {

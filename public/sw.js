@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v18'; // bumped: fix hash-generate Linux, markdown-to-pdf weasyprint, favicon nav label
+const CACHE_NAME = 'lumatools-v19'; // bumped: expanded format support across audio/video/document tools
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

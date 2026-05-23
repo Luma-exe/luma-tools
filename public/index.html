@@ -845,8 +845,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-video-compress" data-accept="video/*" data-max="524288000">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
-                        <input type="file" class="upload-input" accept="video/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV, WMV, TS, 3GP &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.ts,.m2ts,.mts,.flv,.wmv,.3gp,.3g2,.m4v,.asf,.f4v">
                     </div>
                     <div class="file-preview hidden" data-tool="video-compress">
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -877,8 +877,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-video-trim" data-accept="video/*" data-max="524288000">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
-                        <input type="file" class="upload-input" accept="video/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV, WMV, TS, 3GP &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.ts,.m2ts,.mts,.flv,.wmv,.3gp,.3g2,.m4v,.asf,.f4v">
                     </div>
                     <div class="file-preview hidden" data-tool="video-trim">
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -920,8 +920,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-video-convert" data-accept="video/*" data-max="524288000">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV &mdash; Max 500 MB</small></div>
-                        <input type="file" class="upload-input" accept="video/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV, WMV, TS, 3GP &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.ts,.m2ts,.mts,.flv,.wmv,.3gp,.3g2,.m4v,.asf,.f4v">
                     </div>
                     <div class="file-preview hidden" data-tool="video-convert">
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -936,6 +936,11 @@
                             <button class="fmt-btn" data-fmt="mov" onclick="selectOutputFmt(this)">MOV</button>
                             <button class="fmt-btn" data-fmt="mkv" onclick="selectOutputFmt(this)">MKV</button>
                             <button class="fmt-btn" data-fmt="gif" onclick="selectOutputFmt(this)">GIF</button>
+                            <button class="fmt-btn" data-fmt="flv" onclick="selectOutputFmt(this)">FLV</button>
+                            <button class="fmt-btn" data-fmt="wmv" onclick="selectOutputFmt(this)">WMV</button>
+                            <button class="fmt-btn" data-fmt="ts" onclick="selectOutputFmt(this)">TS</button>
+                            <button class="fmt-btn" data-fmt="3gp" onclick="selectOutputFmt(this)">3GP</button>
+                            <button class="fmt-btn" data-fmt="m4v" onclick="selectOutputFmt(this)">M4V</button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFile('video-convert')"><i class="fas fa-film"></i> Convert Video</button>
@@ -955,8 +960,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-video-extract-audio" data-accept="video/*" data-max="524288000">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
-                        <input type="file" class="upload-input" accept="video/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV, WMV, TS &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.ts,.m2ts,.mts,.flv,.wmv,.3gp,.3g2,.m4v,.asf,.f4v">
                     </div>
                     <div class="file-preview hidden" data-tool="video-extract-audio">
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -973,6 +978,9 @@
                             <button class="fmt-btn" data-fmt="flac" onclick="selectOutputFmt(this)">FLAC</button>
                             <button class="fmt-btn" data-fmt="aac" onclick="selectOutputFmt(this)">AAC</button>
                             <button class="fmt-btn" data-fmt="ogg" onclick="selectOutputFmt(this)">OGG</button>
+                            <button class="fmt-btn" data-fmt="opus" onclick="selectOutputFmt(this)">Opus</button>
+                            <button class="fmt-btn" data-fmt="aiff" onclick="selectOutputFmt(this)">AIFF</button>
+                            <button class="fmt-btn" data-fmt="mp2" onclick="selectOutputFmt(this)">MP2</button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFile('video-extract-audio')"><i class="fas fa-volume-up"></i> Extract Audio</button>
@@ -992,8 +1000,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-audio-convert" data-accept="audio/*" data-max="209715200">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your audio file here</p><span>or click to browse</span><small>MP3, WAV, FLAC, OGG, AAC, M4A, WMA &mdash; Max 200 MB</small></div>
-                        <input type="file" class="upload-input" accept="audio/*,.mp3,.wav,.flac,.ogg,.aac,.m4a,.wma">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your audio file here</p><span>or click to browse</span><small>MP3, WAV, FLAC, OGG, AAC, M4A, WMA, Opus, AIFF, MP2 &mdash; Max 200 MB</small></div>
+                        <input type="file" class="upload-input" accept="audio/*,.mp3,.wav,.flac,.ogg,.aac,.m4a,.wma,.opus,.aiff,.aif,.mp2,.alac">
                     </div>
                     <div class="file-preview hidden" data-tool="audio-convert">
                         <div class="file-info"><i class="fas fa-music"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -1011,6 +1019,11 @@
                             <button class="fmt-btn" data-fmt="ogg" onclick="selectOutputFmt(this)">OGG</button>
                             <button class="fmt-btn" data-fmt="aac" onclick="selectOutputFmt(this)">AAC</button>
                             <button class="fmt-btn" data-fmt="m4a" onclick="selectOutputFmt(this)">M4A</button>
+                            <button class="fmt-btn" data-fmt="wma" onclick="selectOutputFmt(this)">WMA</button>
+                            <button class="fmt-btn" data-fmt="opus" onclick="selectOutputFmt(this)">Opus</button>
+                            <button class="fmt-btn" data-fmt="aiff" onclick="selectOutputFmt(this)">AIFF</button>
+                            <button class="fmt-btn" data-fmt="mp2" onclick="selectOutputFmt(this)">MP2</button>
+                            <button class="fmt-btn" data-fmt="alac" onclick="selectOutputFmt(this)">ALAC</button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFile('audio-convert')"><i class="fas fa-headphones"></i> Convert Audio</button>
@@ -1128,6 +1141,8 @@
                         <div class="format-select-grid" data-tool="pdf-to-images">
                             <button class="fmt-btn active" data-fmt="png" onclick="selectOutputFmt(this)">PNG</button>
                             <button class="fmt-btn" data-fmt="jpg" onclick="selectOutputFmt(this)">JPEG</button>
+                            <button class="fmt-btn" data-fmt="webp" onclick="selectOutputFmt(this)">WebP</button>
+                            <button class="fmt-btn" data-fmt="tiff" onclick="selectOutputFmt(this)">TIFF</button>
                         </div>
                         <label class="option-label" style="margin-top:12px">DPI (Resolution)</label>
                         <div class="slider-group"><input type="range" min="72" max="600" value="200" step="1" class="quality-slider" id="pdfDpi" oninput="document.getElementById('pdfDpiVal').textContent=this.value+' DPI'"><span class="slider-value" id="pdfDpiVal">200 DPI</span></div>
@@ -1277,8 +1292,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-video-remove-audio" data-accept="video/*" data-max="524288000">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
-                        <input type="file" class="upload-input" accept="video/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV, WMV, TS, 3GP &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.ts,.m2ts,.mts,.flv,.wmv,.3gp,.3g2,.m4v,.asf,.f4v">
                     </div>
                     <div class="file-preview hidden" data-tool="video-remove-audio">
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -1301,8 +1316,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-video-speed" data-accept="video/*" data-max="524288000">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
-                        <input type="file" class="upload-input" accept="video/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV, WMV, TS, 3GP &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.ts,.m2ts,.mts,.flv,.wmv,.3gp,.3g2,.m4v,.asf,.f4v">
                     </div>
                     <div class="file-preview hidden" data-tool="video-speed">
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -1361,8 +1376,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-video-stabilize" data-accept="video/*" data-max="524288000">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV &mdash; Max 500 MB</small></div>
-                        <input type="file" class="upload-input" accept="video/*">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MP4, WebM, AVI, MOV, MKV, FLV, WMV, TS, 3GP &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.ts,.m2ts,.mts,.flv,.wmv,.3gp,.3g2,.m4v,.asf,.f4v">
                     </div>
                     <div class="file-preview hidden" data-tool="video-stabilize">
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -1385,8 +1400,8 @@
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-subtitle-extract" data-accept="video/*,.mkv,.mp4,.avi" data-max="524288000">
-                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MKV, MP4, AVI (with embedded subs) &mdash; Max 500 MB</small></div>
-                        <input type="file" class="upload-input" accept="video/*,.mkv,.mp4,.avi">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your video here</p><span>or click to browse</span><small>MKV, MP4, AVI, MOV, TS, MKV (with embedded subs) &mdash; Max 500 MB</small></div>
+                        <input type="file" class="upload-input" accept="video/*,.mkv,.mp4,.avi,.mov,.ts,.m2ts,.mts,.wmv,.flv">
                     </div>
                     <div class="file-preview hidden" data-tool="subtitle-extract">
                         <div class="file-info"><i class="fas fa-file-video"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -2014,7 +2029,7 @@
                     </div>
                     <!-- Upload mode -->
                     <div id="study-notes-upload-mode">
-                        <div class="upload-zone multi" id="uz-ai-study-notes" data-accept=".pdf,.doc,.docx,.txt,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/rtf" data-max="20971520"><div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop files here</p><span>or click to browse (select multiple)</span><small>PDF, Word, or Text &mdash; up to 10 files</small></div><input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/rtf" multiple></div><div class="multi-file-list hidden" data-tool="ai-study-notes"></div>
+                        <div class="upload-zone multi" id="uz-ai-study-notes" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md,.pptx,.epub,.odt" data-max="20971520"><div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop files here</p><span>or click to browse (select multiple)</span><small>PDF, Word, PowerPoint, EPUB, ODT, Text &mdash; up to 10 files</small></div><input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md,.pptx,.epub,.odt" multiple></div><div class="multi-file-list hidden" data-tool="ai-study-notes"></div>
                     </div>
                     <!-- Paste mode -->
                     <div id="study-notes-paste-mode" class="hidden">
@@ -2090,7 +2105,7 @@
                         </div>
                     </div>
                     <div id="flashcards-upload-mode">
-                        <div class="upload-zone multi" id="uz-ai-flashcards" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md" data-max="20971520"><div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop files here</p><span>or click to browse (select multiple)</span><small>PDF, Word, Text, or Markdown &mdash; up to 10 files</small></div><input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md" multiple></div><div class="multi-file-list hidden" data-tool="ai-flashcards"></div>
+                        <div class="upload-zone multi" id="uz-ai-flashcards" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md,.pptx,.epub,.odt" data-max="20971520"><div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop files here</p><span>or click to browse (select multiple)</span><small>PDF, Word, PowerPoint, EPUB, ODT, Text, Markdown &mdash; up to 10 files</small></div><input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md,.pptx,.epub,.odt" multiple></div><div class="multi-file-list hidden" data-tool="ai-flashcards"></div>
                     </div>
                     <div id="flashcards-paste-mode" class="hidden">
                         <div class="study-notes-paste-area">
@@ -2133,7 +2148,7 @@
                         </div>
                     </div>
                     <div id="quiz-upload-mode">
-                        <div class="upload-zone multi" id="uz-ai-quiz" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md" data-max="20971520"><div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop files here</p><span>or click to browse (select multiple)</span><small>PDF, Word, Text, or Markdown &mdash; up to 10 files</small></div><input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md" multiple></div><div class="multi-file-list hidden" data-tool="ai-quiz"></div>
+                        <div class="upload-zone multi" id="uz-ai-quiz" data-accept=".pdf,.doc,.docx,.txt,.rtf,.md,.pptx,.epub,.odt" data-max="20971520"><div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag &amp; drop files here</p><span>or click to browse (select multiple)</span><small>PDF, Word, PowerPoint, EPUB, ODT, Text, Markdown &mdash; up to 10 files</small></div><input type="file" class="upload-input" accept=".pdf,.doc,.docx,.txt,.rtf,.md,.pptx,.epub,.odt" multiple></div><div class="multi-file-list hidden" data-tool="ai-quiz"></div>
                     </div>
                     <div id="quiz-paste-mode" class="hidden">
                         <div class="study-notes-paste-area">

@@ -611,7 +611,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
         json response = {
             {"status", "ok"},
-            {"server", "Luma Tools v2.2.5"},
+            {"server", "Luma Tools v2.3.0"},
             {"yt_dlp_version", version.empty() ? "not installed" : version},
             {"yt_dlp_available", !version.empty()},
             {"ffmpeg_available", !g_ffmpeg_exe.empty()},
