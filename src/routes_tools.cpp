@@ -434,7 +434,43 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
         string in_ext = fs::path(file.filename).extension().string();
         std::transform(in_ext.begin(), in_ext.end(), in_ext.begin(), ::tolower);
 
-        string ffmpeg_input = input_path; // may be overridden to rasterised PNG
+        string ffmpeg_input = input_path; // may be overridden after rasterisation
+
+        // ── HEIC/HEIF conversion ───────────────────────────────────────────────
+        // ffmpeg cannot decode HEIC/HEIF without special build. Convert to PNG first
+        // using heif-convert (libheif) or ImageMagick as fallback.
+        if (in_ext == ".heic" || in_ext == ".heif") {
+            string png_path = get_processing_dir() + "/" + jid + "_raster.png";
+            bool rasterised = false;
+            int rc = 1;
+
+            string heif_conv = find_executable("heif-convert", {"/usr/bin/heif-convert", "/usr/local/bin/heif-convert"});
+            if (!heif_conv.empty()) {
+                string cmd = escape_arg(heif_conv) + " " + escape_arg(input_path) + " " + escape_arg(png_path);
+                exec_command(cmd, rc);
+                if (fs::exists(png_path) && fs::file_size(png_path) > 0) rasterised = true;
+            }
+            if (!rasterised && !g_imagemagick_path.empty()) {
+                string cmd = escape_arg(g_imagemagick_path) + " " + escape_arg(input_path) + " " + escape_arg(png_path);
+                exec_command(cmd, rc);
+                if (fs::exists(png_path) && fs::file_size(png_path) > 0) rasterised = true;
+            }
+            if (!rasterised) {
+                try { fs::remove(input_path); } catch (...) {}
+                res.status = 500;
+                res.set_content(json({{"error", "HEIC/HEIF conversion requires libheif. It may not be installed on this server."}}).dump(), "application/json");
+                return;
+            }
+            ffmpeg_input = png_path;
+            if (format == "png") {
+                discord_log_tool("Image Convert", file.filename + " -> png (HEIC rasterised)", req.remote_addr);
+                string out_name = fs::path(file.filename).stem().string() + ".png";
+                send_file_response(res, png_path, out_name);
+                try { fs::remove(input_path); fs::remove(png_path); } catch (...) {}
+                return;
+            }
+        }
+        // ── End HEIC/HEIF conversion ───────────────────────────────────────────
 
         if (in_ext == ".svg") {
             string png_path = get_processing_dir() + "/" + jid + "_raster.png";
@@ -817,6 +853,27 @@ void register_tool_routes(httplib::Server& svr, string dl_dir) {
 
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
+
+        // Pre-check: does this file have an audio stream?
+        {
+            int probe_rc;
+            string probe_out = exec_command(ffmpeg_cmd() + " -v error -i " + escape_arg(input_path) + " -map 0:a -f null - ", probe_rc);
+            bool no_audio = (probe_out.find("Output file is empty") != string::npos ||
+                             probe_out.find("Invalid data") != string::npos ||
+                             probe_rc != 0);
+            // Simpler check: look for absence of "Audio:" in stream info
+            string info_out = exec_command(ffmpeg_cmd() + " -v quiet -i " + escape_arg(input_path) + " 2>&1", probe_rc);
+            // exec_command already does 2>&1, so run without extra redirect
+            string info_cmd = ffmpeg_cmd() + " -v quiet -i " + escape_arg(input_path);
+            info_out = exec_command(info_cmd, probe_rc);
+            if (info_out.find("Audio:") == string::npos) {
+                try { fs::remove(input_path); } catch (...) {}
+                res.status = 400;
+                res.set_content(json({{"error", "No audio track found in this video. The file has video only."}}).dump(), "application/json");
+                return;
+            }
+        }
+
         string out_ext = "." + format;
         string output_path = get_processing_dir() + "/" + jid + "_out" + out_ext;
         string orig_name = fs::path(file.filename).stem().string();
@@ -3797,10 +3854,12 @@ CRITICAL RULES:
         if (text.size() > 5000) text = text.substr(0, 5000);
 
         string tone_instruction;
-        if (tone == "formal") tone_instruction = "Use professional, formal language appropriate for business or academic settings.";
+        if (tone == "formal")      tone_instruction = "Use professional, formal language appropriate for business or academic settings.";
         else if (tone == "casual") tone_instruction = "Use friendly, conversational language as if talking to a friend.";
         else if (tone == "simplified") tone_instruction = "Use simple words and short sentences. Make it easy to understand for everyone.";
-        else if (tone == "academic") tone_instruction = "Use scholarly language with precise terminology appropriate for academic papers.";
+        else if (tone == "academic")   tone_instruction = "Use scholarly language with precise terminology appropriate for academic papers.";
+        else if (tone == "concise")    tone_instruction = "Make the text significantly shorter. Remove all redundancy, filler words, and unnecessary detail while preserving every key point.";
+        else if (tone == "expand")     tone_instruction = "Expand and elaborate on the text. Add relevant context, examples, and explanation to make it more thorough and informative.";
         else tone_instruction = "Rewrite in a clear, neutral tone.";
 
         string system_prompt = "You are an expert writer and editor. Paraphrase the given text while preserving its meaning. " + tone_instruction +
@@ -4371,5 +4430,206 @@ CRITICAL RULES:
         }
 
         try { fs::remove(input_path); fs::remove_all(extract_dir); fs::remove(output_zip); } catch (...) {}
+    });
+
+    // ── POST /api/tools/image-upscale ─────────────────────────────────────────
+    svr.Post("/api/tools/image-upscale", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+
+        int scale = 2;
+        if (req.has_file("scale")) { try { scale = std::stoi(req.get_file_value("scale").content); } catch (...) {} }
+        if (scale != 2 && scale != 3 && scale != 4 && scale != 8) scale = 2;
+
+        string in_ext = fs::path(file.filename).extension().string();
+        std::transform(in_ext.begin(), in_ext.end(), in_ext.begin(), ::tolower);
+        if (in_ext.empty()) in_ext = ".png";
+
+        discord_log_tool("Image Upscale", file.filename + " (" + to_string(scale) + "x)", req.remote_addr);
+
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string output_path = get_processing_dir() + "/" + jid + "_upscaled" + in_ext;
+
+        string vf = "scale=iw*" + to_string(scale) + ":ih*" + to_string(scale) + ":flags=lanczos";
+        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) + " -vf " + escape_arg(vf) + " " + escape_arg(output_path);
+        cout << "[Luma Tools] Image upscale: " << cmd << endl;
+        int code; exec_command(cmd, code);
+
+        if (fs::exists(output_path) && fs::file_size(output_path) > 0) {
+            string out_name = fs::path(file.filename).stem().string() + "_" + to_string(scale) + "x" + in_ext;
+            send_file_response(res, output_path, out_name);
+        } else {
+            res.status = 500;
+            discord_log_error("Image Upscale", "Failed for: " + mask_filename(file.filename));
+            res.set_content(json({{"error", "Image upscale failed"}}).dump(), "application/json");
+        }
+        try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/ocr ───────────────────────────────────────────────────
+    svr.Post("/api/tools/ocr", [](const httplib::Request& req, httplib::Response& res) {
+        string tesseract = find_executable("tesseract", {"/usr/bin/tesseract", "/usr/local/bin/tesseract"});
+        if (tesseract.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error", "Tesseract OCR is not installed on this server."}}).dump(), "application/json");
+            return;
+        }
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+
+        auto file = req.get_file_value("file");
+        string lang = "eng";
+        if (req.has_file("lang")) {
+            string l = req.get_file_value("lang").content;
+            // Allowlist common tesseract language codes
+            static const set<string> ALLOWED_LANGS = {"eng","fra","deu","spa","ita","por","nld","pol","rus","jpn","kor","chi_sim","chi_tra","ara","hin"};
+            if (ALLOWED_LANGS.count(l)) lang = l;
+        }
+
+        discord_log_tool("OCR", file.filename + " (" + lang + ")", req.remote_addr);
+
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+        string in_ext = fs::path(file.filename).extension().string();
+        std::transform(in_ext.begin(), in_ext.end(), in_ext.begin(), ::tolower);
+        string input_path = save_upload(file, jid);
+        string txt_base = proc + "/" + jid + "_ocr";
+
+        vector<string> temp_files = {input_path};
+        string text;
+
+        if (in_ext == ".pdf") {
+            // Convert each PDF page to PNG, then OCR each
+            if (g_ghostscript_path.empty()) {
+                try { fs::remove(input_path); } catch (...) {}
+                res.status = 503;
+                res.set_content(json({{"error", "PDF OCR requires Ghostscript, which is not installed."}}).dump(), "application/json");
+                return;
+            }
+            string page_pattern = proc + "/" + jid + "_page_%03d.png";
+            string gs_cmd = escape_arg(g_ghostscript_path) + " -dNOPAUSE -dBATCH -sDEVICE=png16m -r200 -sOutputFile=" + escape_arg(page_pattern) + " " + escape_arg(input_path);
+            int gc; exec_command(gs_cmd, gc);
+
+            for (int i = 1; i <= 999; i++) {
+                char buf[32]; snprintf(buf, sizeof(buf), "%03d", i);
+                string page_path = proc + "/" + jid + "_page_" + buf + ".png";
+                if (!fs::exists(page_path)) break;
+                temp_files.push_back(page_path);
+                string page_txt_base = proc + "/" + jid + "_page_" + buf;
+                string tess_cmd = escape_arg(tesseract) + " " + escape_arg(page_path) + " " + escape_arg(page_txt_base) + " -l " + lang;
+                int tc; exec_command(tess_cmd, tc);
+                string page_txt = page_txt_base + ".txt";
+                if (fs::exists(page_txt)) {
+                    ifstream f(page_txt); std::ostringstream ss; ss << f.rdbuf();
+                    if (i > 1) text += "\n\n--- Page " + to_string(i) + " ---\n\n";
+                    text += ss.str();
+                    temp_files.push_back(page_txt);
+                }
+            }
+        } else {
+            // Direct image OCR
+            string tess_cmd = escape_arg(tesseract) + " " + escape_arg(input_path) + " " + escape_arg(txt_base) + " -l " + lang;
+            int tc; exec_command(tess_cmd, tc);
+            string txt_path = txt_base + ".txt";
+            temp_files.push_back(txt_path);
+            if (fs::exists(txt_path)) {
+                ifstream f(txt_path); std::ostringstream ss; ss << f.rdbuf();
+                text = ss.str();
+            }
+        }
+
+        for (auto& p : temp_files) try { fs::remove(p); } catch (...) {}
+
+        if (text.empty()) {
+            res.status = 500;
+            discord_log_error("OCR", "No text extracted from: " + mask_filename(file.filename));
+            res.set_content(json({{"error", "No text could be extracted. The image may be too blurry or the selected language may not match the text."}}).dump(), "application/json");
+            return;
+        }
+
+        res.set_content(json({{"text", sanitize_utf8(text)}, {"filename", file.filename}}).dump(), "application/json");
+    });
+
+    // ── POST /api/tools/audio-separate (async) ────────────────────────────────
+    svr.Post("/api/tools/audio-separate", [](const httplib::Request& req, httplib::Response& res) {
+        // Check demucs availability
+        string demucs = find_executable("demucs", {"/usr/local/bin/demucs", "/usr/bin/demucs"});
+        if (demucs.empty()) {
+            // Try python -m demucs
+            int rc; string out = exec_command("python3 -m demucs --help", rc);
+            if (rc != 0) {
+                res.status = 503;
+                res.set_content(json({{"error", "Demucs is not installed on this server."}}).dump(), "application/json");
+                return;
+            }
+            demucs = "python3 -m demucs";
+        }
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        discord_log_tool("Audio Separate", file.filename, req.remote_addr);
+
+        string jid = generate_job_id();
+        string input_path = save_upload(file, jid);
+        string proc = get_processing_dir();
+        string out_dir = proc + "/" + jid + "_separated";
+        string orig_name = fs::path(file.filename).stem().string();
+
+        update_job(jid, {{"status","processing"},{"progress",0},{"stage","Separating audio tracks..."}});
+
+        thread([jid, input_path, out_dir, proc, orig_name, demucs]() {
+            // demucs --two-stems vocals -o <out_dir> <input>
+            string cmd = demucs + " --two-stems vocals -o " + escape_arg(out_dir) + " " + escape_arg(input_path);
+            cout << "[Luma Tools] Audio separate: " << cmd << endl;
+            int code; exec_command(cmd, code);
+
+            // demucs outputs to out_dir/htdemucs/<stem>/vocals.wav and no_vocals.wav
+            string found_vocals, found_instrumental;
+            try {
+                for (auto& entry : fs::recursive_directory_iterator(out_dir)) {
+                    string fn = entry.path().filename().string();
+                    if (fn == "vocals.wav" || fn == "vocals.mp3")       found_vocals       = entry.path().string();
+                    if (fn == "no_vocals.wav" || fn == "no_vocals.mp3") found_instrumental = entry.path().string();
+                }
+            } catch (...) {}
+
+            if (found_vocals.empty() || found_instrumental.empty()) {
+                discord_log_error("Audio Separate", "Demucs failed for: " + mask_filename(orig_name));
+                update_job(jid, {{"status","error"},{"error","Audio separation failed. The file may be corrupt or too short."}});
+                try { fs::remove(input_path); fs::remove_all(out_dir); } catch (...) {}
+                return;
+            }
+
+            // Package into a ZIP
+            string zip_path = proc + "/" + jid + "_separated.zip";
+            string sevenzip = find_executable("7z", {"/usr/bin/7z", "/usr/local/bin/7z"});
+            if (sevenzip.empty()) sevenzip = find_executable("7za", {"/usr/bin/7za", "/usr/local/bin/7za"});
+
+            if (!sevenzip.empty()) {
+                string zip_cmd = escape_arg(sevenzip) + " a " + escape_arg(zip_path) + " " + escape_arg(found_vocals) + " " + escape_arg(found_instrumental);
+                int zrc; exec_command(zip_cmd, zrc);
+            }
+
+            if (fs::exists(zip_path) && fs::file_size(zip_path) > 0) {
+                update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_separated.zip"}}, zip_path);
+            } else {
+                // Fallback: just serve the vocals file
+                update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_vocals.wav"}}, found_vocals);
+            }
+            try { fs::remove(input_path); fs::remove_all(out_dir); } catch (...) {}
+        }).detach();
+
+        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
     });
 }

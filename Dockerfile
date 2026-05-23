@@ -60,20 +60,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pandoc \
         imagemagick \
         p7zip-full \
-        # Python (yt-dlp and rembg)
+        # Python (yt-dlp, rembg, demucs)
         python3 \
         python3-pip \
         # weasyprint system deps (for markdown-to-pdf)
         libpango-1.0-0 \
         libpangoft2-1.0-0 \
         libpangocairo-1.0-0 \
+        # OCR
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        tesseract-ocr-fra \
+        tesseract-ocr-deu \
+        tesseract-ocr-spa \
+        tesseract-ocr-chi-sim \
+        tesseract-ocr-chi-tra \
+        tesseract-ocr-jpn \
+        tesseract-ocr-ara \
+        # HEIC/HEIF support
+        libheif-examples \
         # Misc
         ca-certificates \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python-based tools globally
+# Install Python-based tools globally (demucs last — large install)
 RUN pip3 install --no-cache-dir --break-system-packages yt-dlp rembg weasyprint
+RUN pip3 install --no-cache-dir --break-system-packages demucs
 
 WORKDIR /app
 

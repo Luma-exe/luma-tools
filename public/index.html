@@ -160,6 +160,12 @@
                     <a class="nav-item" data-tool="image-watermark" data-location="server" onclick="switchTool('image-watermark')">
                         <i class="fas fa-stamp"></i><span>Watermark</span>
                     </a>
+                    <a class="nav-item" data-tool="image-upscale" data-location="server" onclick="switchTool('image-upscale')">
+                        <i class="fas fa-expand"></i><span>Upscale</span>
+                    </a>
+                    <a class="nav-item" data-tool="ocr" data-location="server" onclick="switchTool('ocr')">
+                        <i class="fas fa-font"></i><span>OCR / Extract Text</span>
+                    </a>
                     <a class="nav-item" data-tool="redact" data-location="browser" onclick="switchTool('redact')">
                         <i class="fas fa-user-secret"></i><span>Privacy Redaction</span>
                     </a>
@@ -219,6 +225,9 @@
                     </a>
                     <a class="nav-item" data-tool="audio-trim" data-location="server" onclick="switchTool('audio-trim')">
                         <i class="fas fa-cut"></i><span>Trim</span>
+                    </a>
+                    <a class="nav-item" data-tool="audio-separate" data-location="server" onclick="switchTool('audio-separate')">
+                        <i class="fas fa-guitar"></i><span>Vocal Separator</span>
                     </a>
                 </div>
                 <div class="nav-category">
@@ -297,6 +306,12 @@
                     </a>
                     <a class="nav-item" data-tool="url-encode" data-location="browser" onclick="switchTool('url-encode')">
                         <i class="fas fa-link"></i><span>URL Encode</span>
+                    </a>
+                    <a class="nav-item" data-tool="password-gen" data-location="browser" onclick="switchTool('password-gen')">
+                        <i class="fas fa-key"></i><span>Password Generator</span>
+                    </a>
+                    <a class="nav-item" data-tool="jwt-decode" data-location="browser" onclick="switchTool('jwt-decode')">
+                        <i class="fas fa-shield-alt"></i><span>JWT Decoder</span>
                     </a>
                 </div>
             </nav>
@@ -487,6 +502,11 @@
                             <span class="landing-chip" onclick="switchTool('code-beautify')"><i class="fas fa-indent"></i> Code Beautify</span>
                             <span class="landing-chip" onclick="switchTool('uuid-gen')"><i class="fas fa-id-badge"></i> UUID Generator</span>
                             <span class="landing-chip" onclick="switchTool('url-encode')"><i class="fas fa-link"></i> URL Encoder</span>
+                            <span class="landing-chip" onclick="switchTool('image-upscale')"><i class="fas fa-expand"></i> Image Upscale</span>
+                            <span class="landing-chip" onclick="switchTool('ocr')"><i class="fas fa-font"></i> OCR / Extract Text</span>
+                            <span class="landing-chip" onclick="switchTool('audio-separate')"><i class="fas fa-guitar"></i> Vocal Separator</span>
+                            <span class="landing-chip" onclick="switchTool('password-gen')"><i class="fas fa-key"></i> Password Generator</span>
+                            <span class="landing-chip" onclick="switchTool('jwt-decode')"><i class="fas fa-shield-alt"></i> JWT Decoder</span>
                         </div>
                     </div>
                     <div class="landing-cta-row">
@@ -758,7 +778,7 @@
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-image-convert" data-accept="image/*" data-max="52428800">
                         <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF, ICO, AVIF, GIF, HEIC, SVG &mdash; Max 50 MB</small></div>
-                        <input type="file" class="upload-input" accept="image/*">
+                        <input type="file" class="upload-input" accept="image/*,.heic,.heif,.svg">
                     </div>
                     <div class="file-preview hidden" data-tool="image-convert">
                         <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
@@ -977,6 +997,7 @@
                             <button class="fmt-btn" data-fmt="wav" onclick="selectOutputFmt(this)">WAV</button>
                             <button class="fmt-btn" data-fmt="flac" onclick="selectOutputFmt(this)">FLAC</button>
                             <button class="fmt-btn" data-fmt="aac" onclick="selectOutputFmt(this)">AAC</button>
+                            <button class="fmt-btn" data-fmt="m4a" onclick="selectOutputFmt(this)">M4A</button>
                             <button class="fmt-btn" data-fmt="ogg" onclick="selectOutputFmt(this)">OGG</button>
                             <button class="fmt-btn" data-fmt="opus" onclick="selectOutputFmt(this)">Opus</button>
                             <button class="fmt-btn" data-fmt="aiff" onclick="selectOutputFmt(this)">AIFF</button>
@@ -1052,10 +1073,12 @@
                     </div>
                     <div class="tool-options">
                         <label class="option-label">Compression Level</label>
-                        <div class="preset-grid" data-tool="pdf-compress">
+                        <div class="preset-grid" data-tool="pdf-compress" style="grid-template-columns:repeat(5,1fr)">
                             <button class="preset-btn" data-val="screen" onclick="selectPreset(this)"><i class="fas fa-mobile-alt"></i><span>Screen</span><small>Smallest</small></button>
                             <button class="preset-btn active" data-val="ebook" onclick="selectPreset(this)"><i class="fas fa-book"></i><span>eBook</span><small>Balanced</small></button>
                             <button class="preset-btn" data-val="printer" onclick="selectPreset(this)"><i class="fas fa-print"></i><span>Print</span><small>High quality</small></button>
+                            <button class="preset-btn" data-val="prepress" onclick="selectPreset(this)"><i class="fas fa-images"></i><span>Prepress</span><small>Max quality</small></button>
+                            <button class="preset-btn" data-val="default" onclick="selectPreset(this)"><i class="fas fa-sliders-h"></i><span>Default</span><small>No change</small></button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFile('pdf-compress')"><i class="fas fa-compress-alt"></i> Compress PDF</button>
@@ -1413,6 +1436,7 @@
                             <button class="fmt-btn active" data-fmt="srt" onclick="selectOutputFmt(this)">SRT</button>
                             <button class="fmt-btn" data-fmt="vtt" onclick="selectOutputFmt(this)">VTT</button>
                             <button class="fmt-btn" data-fmt="ass" onclick="selectOutputFmt(this)">ASS</button>
+                            <button class="fmt-btn" data-fmt="ssa" onclick="selectOutputFmt(this)">SSA</button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processFile('subtitle-extract')"><i class="fas fa-closed-captioning"></i> Extract Subtitles</button>
@@ -2197,11 +2221,13 @@
                     </div>
                     <div class="tool-options">
                         <label class="option-label">Tone</label>
-                        <div class="preset-grid" data-tool="paraphrase-tone" style="grid-template-columns:repeat(2,1fr)">
+                        <div class="preset-grid" data-tool="paraphrase-tone" style="grid-template-columns:repeat(3,1fr)">
                             <button class="preset-btn active" data-val="formal" onclick="selectPreset(this)"><i class="fas fa-user-tie"></i><span>Formal</span><small>Professional</small></button>
                             <button class="preset-btn" data-val="casual" onclick="selectPreset(this)"><i class="fas fa-smile"></i><span>Casual</span><small>Friendly</small></button>
                             <button class="preset-btn" data-val="simplified" onclick="selectPreset(this)"><i class="fas fa-child"></i><span>Simplified</span><small>Easy to read</small></button>
                             <button class="preset-btn" data-val="academic" onclick="selectPreset(this)"><i class="fas fa-graduation-cap"></i><span>Academic</span><small>Scholarly</small></button>
+                            <button class="preset-btn" data-val="concise" onclick="selectPreset(this)"><i class="fas fa-compress-alt"></i><span>Concise</span><small>Shorter</small></button>
+                            <button class="preset-btn" data-val="expand" onclick="selectPreset(this)"><i class="fas fa-expand-alt"></i><span>Expand</span><small>More detail</small></button>
                         </div>
                     </div>
                     <button class="process-btn" onclick="processParaphrase()"><i class="fas fa-sync-alt"></i> Paraphrase</button>
@@ -2263,7 +2289,9 @@
                     <div class="processing-status hidden" data-tool="citation-gen">
                         <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
                         <span class="processing-text" data-default="Generating citation...">Generating citation...</span>
+                        <span class="ai-eta"></span>
                     </div>
+                    <div class="model-badge-wrap" data-tool="citation-gen" style="margin-bottom:8px"></div>
                     <div class="citation-result hidden" data-tool="citation-gen"></div>
                 </div>
             </div>
@@ -2602,6 +2630,202 @@
                         </div>
                     </div>
                     <button class="process-btn" onclick="generateInvoice()"><i class="fas fa-file-pdf"></i> Generate Invoice PDF</button>
+                </div>
+            </div>
+
+            <!-- ── IMAGE UPSCALE ──────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-image-upscale">
+                <div class="tool-header">
+                    <h2><i class="fas fa-expand"></i> Image Upscale</h2>
+                    <p>Enlarge your image 2x, 3x or 4x using high-quality Lanczos resampling.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-image-upscale" data-accept="image/*" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your image here</p><span>or click to browse</span><small>PNG, JPEG, WebP, BMP, TIFF &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,.heic,.heif">
+                    </div>
+                    <div class="file-preview hidden" data-tool="image-upscale">
+                        <div class="file-info"><i class="fas fa-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('image-upscale')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Scale Factor</label>
+                        <div class="preset-grid" data-tool="upscale-factor" style="grid-template-columns:repeat(4,1fr)">
+                            <button class="preset-btn active" data-val="2" onclick="selectPreset(this)"><i class="fas fa-expand-arrows-alt"></i><span>2x</span><small>Double</small></button>
+                            <button class="preset-btn" data-val="3" onclick="selectPreset(this)"><i class="fas fa-expand-arrows-alt"></i><span>3x</span><small>Triple</small></button>
+                            <button class="preset-btn" data-val="4" onclick="selectPreset(this)"><i class="fas fa-expand-arrows-alt"></i><span>4x</span><small>Quad</small></button>
+                            <button class="preset-btn" data-val="8" onclick="selectPreset(this)"><i class="fas fa-expand-arrows-alt"></i><span>8x</span><small>Max</small></button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('image-upscale')"><i class="fas fa-expand"></i> Upscale Image</button>
+                    <div class="processing-status hidden" data-tool="image-upscale"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Upscaling...</span></div>
+                    <div class="result-section hidden" data-tool="image-upscale">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── OCR / EXTRACT TEXT ─────────────────────────────────── -->
+            <div class="tool-panel" id="tool-ocr">
+                <div class="tool-header">
+                    <h2><i class="fas fa-font"></i> OCR / Extract Text</h2>
+                    <p>Extract text from scanned documents, photos, and image-based PDFs using Tesseract OCR.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-ocr" data-accept="image/*,.pdf" data-max="52428800">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop an image or PDF here</p><span>or click to browse</span><small>PNG, JPEG, WebP, TIFF, PDF &mdash; Max 50 MB</small></div>
+                        <input type="file" class="upload-input" accept="image/*,.pdf,application/pdf">
+                    </div>
+                    <div class="file-preview hidden" data-tool="ocr">
+                        <div class="file-info"><i class="fas fa-file-image"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('ocr')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Language</label>
+                        <div class="format-select-grid" data-tool="ocr">
+                            <button class="fmt-btn active" data-fmt="eng" onclick="selectOutputFmt(this)">English</button>
+                            <button class="fmt-btn" data-fmt="fra" onclick="selectOutputFmt(this)">French</button>
+                            <button class="fmt-btn" data-fmt="deu" onclick="selectOutputFmt(this)">German</button>
+                            <button class="fmt-btn" data-fmt="spa" onclick="selectOutputFmt(this)">Spanish</button>
+                            <button class="fmt-btn" data-fmt="chi_sim" onclick="selectOutputFmt(this)">Chinese</button>
+                            <button class="fmt-btn" data-fmt="jpn" onclick="selectOutputFmt(this)">Japanese</button>
+                            <button class="fmt-btn" data-fmt="ara" onclick="selectOutputFmt(this)">Arabic</button>
+                        </div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('ocr')"><i class="fas fa-font"></i> Extract Text</button>
+                    <div class="processing-status hidden" data-tool="ocr"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span>Reading text...</span></div>
+                    <div class="ocr-result hidden" id="ocrResult">
+                        <div class="ocr-result-header">
+                            <span><i class="fas fa-check-circle"></i> Text Extracted</span>
+                            <div style="display:flex;gap:8px">
+                                <button class="btn-icon" onclick="copyOCRText()" title="Copy all"><i class="fas fa-copy"></i></button>
+                                <button class="btn-icon" onclick="downloadOCRText()" title="Download .txt"><i class="fas fa-download"></i></button>
+                            </div>
+                        </div>
+                        <textarea id="ocrOutput" class="ocr-output" rows="12" readonly placeholder="Extracted text will appear here..."></textarea>
+                        <div class="ocr-stats"><span id="ocrCharCount">0</span> characters &middot; <span id="ocrWordCount">0</span> words</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── VOCAL SEPARATOR ───────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-audio-separate">
+                <div class="tool-header">
+                    <h2><i class="fas fa-guitar"></i> Vocal Separator</h2>
+                    <p>AI-powered vocal &amp; instrumental separation using Demucs. Isolate vocals or remove them entirely.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="upload-zone" id="uz-audio-separate" data-accept="audio/*,video/*" data-max="209715200">
+                        <div class="upload-zone-content"><i class="fas fa-cloud-upload-alt"></i><p>Drag & drop your audio or video here</p><span>or click to browse</span><small>MP3, WAV, FLAC, MP4, and more &mdash; Max 200 MB</small></div>
+                        <input type="file" class="upload-input" accept="audio/*,video/*,.mp3,.wav,.flac,.ogg,.aac,.m4a,.mp4,.mkv,.webm">
+                    </div>
+                    <div class="file-preview hidden" data-tool="audio-separate">
+                        <div class="file-info"><i class="fas fa-music"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
+                        <button class="file-remove" onclick="removeFile('audio-separate')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <div class="info-box"><i class="fas fa-info-circle"></i> Demucs separates audio into a <strong>vocals</strong> track and an <strong>instrumental</strong> track. Both are returned in a ZIP. Processing takes 1–3 minutes depending on track length.</div>
+                    </div>
+                    <button class="process-btn" onclick="processFile('audio-separate')"><i class="fas fa-guitar"></i> Separate Vocals</button>
+                    <div class="processing-status hidden" data-tool="audio-separate">
+                        <div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+                        <span class="processing-text">Separating audio tracks... (this may take a few minutes)</span>
+                        <div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div>
+                    </div>
+                    <div class="result-section hidden" data-tool="audio-separate">
+                        <div class="result-info"><i class="fas fa-check-circle"></i><div><span class="result-name"></span><span class="result-size"></span></div></div>
+                        <a class="result-download" download><i class="fas fa-download"></i> Download ZIP (vocals + instrumental)</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PASSWORD GENERATOR ────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-password-gen">
+                <div class="tool-header">
+                    <h2><i class="fas fa-key"></i> Password Generator</h2>
+                    <p>Generate strong, cryptographically random passwords or memorable passphrases — entirely in your browser.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                            <label class="option-label" style="margin:0">Mode</label>
+                        </div>
+                        <div class="preset-grid" data-tool="pw-mode" style="grid-template-columns:1fr 1fr;margin-bottom:16px" id="pwModeGrid">
+                            <button class="preset-btn active" data-val="password" onclick="selectPreset(this);togglePWMode('password')"><i class="fas fa-lock"></i><span>Password</span><small>Characters</small></button>
+                            <button class="preset-btn" data-val="passphrase" onclick="selectPreset(this);togglePWMode('passphrase')"><i class="fas fa-book"></i><span>Passphrase</span><small>Words</small></button>
+                        </div>
+
+                        <div id="pw-password-opts">
+                            <label class="option-label">Length: <span id="pwLenVal">20</span></label>
+                            <div class="slider-group" style="margin-bottom:12px"><input type="range" min="8" max="128" value="20" class="quality-slider" id="pwLength" oninput="document.getElementById('pwLenVal').textContent=this.value;generatePassword()"></div>
+                            <div class="pw-toggles">
+                                <label class="pw-toggle"><input type="checkbox" id="pwUpper" checked onchange="generatePassword()"> Uppercase (A–Z)</label>
+                                <label class="pw-toggle"><input type="checkbox" id="pwLower" checked onchange="generatePassword()"> Lowercase (a–z)</label>
+                                <label class="pw-toggle"><input type="checkbox" id="pwNumbers" checked onchange="generatePassword()"> Numbers (0–9)</label>
+                                <label class="pw-toggle"><input type="checkbox" id="pwSymbols" onchange="generatePassword()"> Symbols (!@#$...)</label>
+                                <label class="pw-toggle"><input type="checkbox" id="pwNoAmbig" onchange="generatePassword()"> Exclude ambiguous (0O1lI)</label>
+                            </div>
+                        </div>
+                        <div id="pw-passphrase-opts" class="hidden">
+                            <label class="option-label">Word count: <span id="ppWordVal">4</span></label>
+                            <div class="slider-group" style="margin-bottom:12px"><input type="range" min="3" max="10" value="4" class="quality-slider" id="ppWords" oninput="document.getElementById('ppWordVal').textContent=this.value;generatePassword()"></div>
+                            <label class="option-label" style="margin-bottom:8px">Separator</label>
+                            <div class="format-select-grid" data-tool="pp-sep" style="margin-bottom:4px">
+                                <button class="fmt-btn active" data-fmt="-" onclick="selectOutputFmt(this);generatePassword()">Dash</button>
+                                <button class="fmt-btn" data-fmt="." onclick="selectOutputFmt(this);generatePassword()">Dot</button>
+                                <button class="fmt-btn" data-fmt="_" onclick="selectOutputFmt(this);generatePassword()">Underscore</button>
+                                <button class="fmt-btn" data-fmt=" " onclick="selectOutputFmt(this);generatePassword()">Space</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pw-output-wrap">
+                        <div class="pw-strength-bar" id="pwStrengthBar"><div class="pw-strength-fill" id="pwStrengthFill"></div></div>
+                        <div class="pw-strength-label" id="pwStrengthLabel"></div>
+                        <div class="pw-output-row">
+                            <input type="text" id="pwOutput" class="pw-output" readonly placeholder="Your password will appear here...">
+                            <button class="btn-icon pw-copy" onclick="copyPassword()" title="Copy"><i class="fas fa-copy"></i></button>
+                            <button class="btn-icon" onclick="generatePassword()" title="Regenerate"><i class="fas fa-sync-alt"></i></button>
+                        </div>
+                        <div id="pwMultiList" class="pw-multi-list hidden"></div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:12px">
+                        <button class="process-btn" style="flex:1" onclick="generatePassword()"><i class="fas fa-sync-alt"></i> Generate New</button>
+                        <button class="btn-secondary" style="flex:1" onclick="generatePasswordBatch()"><i class="fas fa-list"></i> Generate 10</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── JWT DECODER ───────────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-jwt-decode">
+                <div class="tool-header">
+                    <h2><i class="fas fa-shield-alt"></i> JWT Decoder</h2>
+                    <p>Decode and inspect JSON Web Tokens — header, payload, and signature — entirely in your browser.</p>
+                </div>
+                <div class="tool-body">
+                    <div class="tool-options">
+                        <label class="option-label">Paste JWT Token</label>
+                        <textarea id="jwtInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." rows="4" oninput="decodeJWT()" style="font-family:var(--font-mono);font-size:12px;width:100%;resize:vertical"></textarea>
+                    </div>
+                    <div id="jwtResult" class="hidden">
+                        <div class="jwt-parts">
+                            <div class="jwt-part">
+                                <div class="jwt-part-header"><span class="jwt-dot jwt-dot-header"></span><strong>Header</strong><button class="btn-icon" onclick="copyJWTPart('header')" title="Copy"><i class="fas fa-copy"></i></button></div>
+                                <pre class="jwt-json" id="jwtHeader"></pre>
+                            </div>
+                            <div class="jwt-part">
+                                <div class="jwt-part-header"><span class="jwt-dot jwt-dot-payload"></span><strong>Payload</strong><button class="btn-icon" onclick="copyJWTPart('payload')" title="Copy"><i class="fas fa-copy"></i></button></div>
+                                <pre class="jwt-json" id="jwtPayload"></pre>
+                            </div>
+                            <div class="jwt-part">
+                                <div class="jwt-part-header"><span class="jwt-dot jwt-dot-sig"></span><strong>Signature</strong></div>
+                                <code class="jwt-sig" id="jwtSig"></code>
+                            </div>
+                        </div>
+                        <div id="jwtMeta" class="jwt-meta"></div>
+                        <div id="jwtWarning" class="jwt-warning hidden"><i class="fas fa-exclamation-triangle"></i> <span id="jwtWarningText"></span></div>
+                    </div>
+                    <div id="jwtError" class="hidden" style="color:var(--error);margin-top:12px;font-size:13px"><i class="fas fa-times-circle"></i> <span id="jwtErrorText"></span></div>
                 </div>
             </div>
 

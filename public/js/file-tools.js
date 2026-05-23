@@ -338,6 +338,15 @@ async function processFileServer(toolId) {
             formData.append('position', posBtn?.dataset.pos || 'bottom-right');
             break;
         }
+        case 'image-upscale':
+            formData.append('scale', getSelectedPreset('upscale-factor') || '2');
+            break;
+        case 'ocr':
+            formData.append('lang', getSelectedFmt('ocr') || 'eng');
+            break;
+        case 'audio-separate':
+            // no extra params — demucs uses defaults
+            break;
         case 'markdown-to-pdf':
             // no extra params needed — file is the only input
             break;
@@ -413,6 +422,7 @@ async function processFileServer(toolId) {
 
                 if (data.hashes) { showHashResults(toolId, data); }
                 else if (data.pages && data.pages.length > 0) { showMultiResult(toolId, data.pages); }
+                else if (data.text !== undefined && toolId === 'ocr') { showOCRResult(data); }
                 else { throw new Error('No output files'); }
             } else {
                 const blob = await res.blob();

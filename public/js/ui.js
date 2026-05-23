@@ -98,6 +98,15 @@ function switchTool(toolId) {
         banner.classList.toggle('hidden', !(isServer && window._serverOnline === false));
     }
     LiveLogs.add(toolId, 'Opened tool panel', 'info');
+
+    // Tool-specific init on open
+    if (toolId === 'password-gen') {
+        setTimeout(() => { if (typeof generatePassword === 'function') generatePassword(); }, 50);
+    }
+    if (toolId === 'jwt-decode') {
+        const inp = document.getElementById('jwtInput');
+        if (inp && inp.value) { if (typeof decodeJWT === 'function') decodeJWT(); }
+    }
 }
 
 function showDisabledModal() {
@@ -486,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ═════════════════════════════════════════════════════════════════════════
 
 // Tools that use the AI model chain (shown in badge)
-const AI_BADGE_TOOLS = ['ai-study-notes','ai-flashcards','ai-quiz','ai-paraphrase','ai-key-terms','mind-map','youtube-summary'];
+const AI_BADGE_TOOLS = ['ai-study-notes','ai-flashcards','ai-quiz','ai-paraphrase','ai-key-terms','mind-map','youtube-summary','citation-gen'];
 
 // Cached active model — null until first probe or first tool response
 let _activeAIModel = null;

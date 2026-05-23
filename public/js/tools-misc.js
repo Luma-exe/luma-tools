@@ -752,3 +752,238 @@ function renderDiff() {
         result.innerHTML = `<div class="diff-split-wrap">${leftHtml}</div>${rightHtml}</div></div>`;
     }
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// OCR RESULT
+// ══════════════════════════════════════════════════════════════════════════
+
+function showOCRResult(data) {
+    const result = document.getElementById('ocrResult');
+    const output = document.getElementById('ocrOutput');
+    if (!result || !output) return;
+    const text = data.text || '';
+    output.value = text;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    document.getElementById('ocrCharCount').textContent = text.length.toLocaleString();
+    document.getElementById('ocrWordCount').textContent = words.toLocaleString();
+    result.classList.remove('hidden');
+}
+
+function copyOCRText() {
+    const text = document.getElementById('ocrOutput')?.value || '';
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => showToast('Text copied!', 'success'));
+}
+
+function downloadOCRText() {
+    const text = document.getElementById('ocrOutput')?.value || '';
+    if (!text) { showToast('No text to download', 'error'); return; }
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'extracted_text.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PASSWORD GENERATOR
+// ══════════════════════════════════════════════════════════════════════════
+
+const WORDLIST = [
+    'apple','brave','crane','diver','eagle','flame','grape','hotel','igloo','joker',
+    'kite','lemon','mango','noble','olive','pizza','queen','river','storm','tiger',
+    'ultra','vivid','water','xenon','yacht','zebra','amber','blend','cubic','dusty',
+    'ember','frost','glass','haste','ivory','jelly','knack','lunar','maple','nerve',
+    'ozone','pearl','quart','ridge','solar','trend','unity','vapor','whale','xylem',
+    'yearn','zonal','abbey','birch','cedar','delta','elite','flint','guava','hyper',
+    'index','joist','karma','laser','merit','nexus','orbit','proxy','quota','relay',
+    'scout','token','urban','venom','wrist','xerox','yield','zingy','atlas','blaze',
+    'chess','drain','envy','flair','gloom','hippo','input','jumbo','kneel','lance',
+    'marsh','nylon','optic','plumb','quest','roost','swift','twine','umbra','vista',
+    'woven','oxide','yucca','zesty','acorn','biome','clone','drove','epoch','fjord',
+    'grove','helix','indie','joint','kazoo','lyric','mocha','notch','opera','pixel'
+];
+
+let _pwMode = 'password';
+
+function togglePWMode(mode) {
+    _pwMode = mode;
+    document.getElementById('pw-password-opts').classList.toggle('hidden', mode !== 'password');
+    document.getElementById('pw-passphrase-opts').classList.toggle('hidden', mode !== 'passphrase');
+    generatePassword();
+}
+
+function generatePassword() {
+    const output = document.getElementById('pwOutput');
+    if (!output) return;
+
+    let pw = '';
+    if (_pwMode === 'passphrase') {
+        const count = parseInt(document.getElementById('ppWords')?.value || 4);
+        const sep = document.querySelector('.format-select-grid[data-tool="pp-sep"] .fmt-btn.active')?.dataset?.fmt ?? '-';
+        const words = [];
+        for (let i = 0; i < count; i++) {
+            words.push(WORDLIST[Math.floor(Math.random() * WORDLIST.length)]);
+        }
+        pw = words.join(sep);
+    } else {
+        const len = parseInt(document.getElementById('pwLength')?.value || 20);
+        const useUpper   = document.getElementById('pwUpper')?.checked ?? true;
+        const useLower   = document.getElementById('pwLower')?.checked ?? true;
+        const useNumbers = document.getElementById('pwNumbers')?.checked ?? true;
+        const useSymbols = document.getElementById('pwSymbols')?.checked ?? false;
+        const noAmbig    = document.getElementById('pwNoAmbig')?.checked ?? false;
+
+        let charset = '';
+        if (useUpper)   charset += noAmbig ? 'ABCDEFGHJKLMNPQRSTUVWXYZ' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        if (useLower)   charset += noAmbig ? 'abcdefghjkmnpqrstuvwxyz'  : 'abcdefghijklmnopqrstuvwxyz';
+        if (useNumbers) charset += noAmbig ? '23456789' : '0123456789';
+        if (useSymbols) charset += '!@#$%^&*()-_=+[]{}|;:,.<>?';
+        if (!charset)   charset = 'abcdefghijklmnopqrstuvwxyz';
+
+        const arr = new Uint32Array(len);
+        crypto.getRandomValues(arr);
+        pw = Array.from(arr).map(v => charset[v % charset.length]).join('');
+    }
+
+    output.value = pw;
+    document.getElementById('pwMultiList')?.classList.add('hidden');
+    updatePasswordStrength(pw);
+}
+
+function generatePasswordBatch() {
+    const list = document.getElementById('pwMultiList');
+    if (!list) return;
+    list.innerHTML = '';
+    for (let i = 0; i < 10; i++) {
+        generatePassword();
+        const pw = document.getElementById('pwOutput')?.value || '';
+        const row = document.createElement('div');
+        row.className = 'pw-batch-row';
+        row.innerHTML = `<code>${pw}</code><button class="btn-icon" onclick="navigator.clipboard.writeText('${pw.replace(/'/g,"\\'")}').then(()=>showToast('Copied!','success'))" title="Copy"><i class="fas fa-copy"></i></button>`;
+        list.appendChild(row);
+    }
+    generatePassword();
+    list.classList.remove('hidden');
+}
+
+function updatePasswordStrength(pw) {
+    const fill = document.getElementById('pwStrengthFill');
+    const label = document.getElementById('pwStrengthLabel');
+    if (!fill || !label) return;
+    let score = 0;
+    if (pw.length >= 12) score++;
+    if (pw.length >= 20) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[a-z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    const levels = ['','Weak','Fair','Good','Strong','Very Strong','Excellent'];
+    const colors = ['','#ef4444','#f97316','#eab308','#22c55e','#10b981','#6366f1'];
+    const idx = Math.min(score, 6);
+    fill.style.width = (idx / 6 * 100) + '%';
+    fill.style.background = colors[idx];
+    label.textContent = levels[idx] || '';
+    label.style.color = colors[idx];
+}
+
+function copyPassword() {
+    const pw = document.getElementById('pwOutput')?.value || '';
+    if (!pw) return;
+    navigator.clipboard.writeText(pw).then(() => showToast('Password copied!', 'success'));
+}
+
+// Auto-generate on page load when tool is active
+document.getElementById('tool-password-gen')?.addEventListener('transitionend', () => {
+    if (document.getElementById('tool-password-gen').classList.contains('active')) generatePassword();
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// JWT DECODER
+// ══════════════════════════════════════════════════════════════════════════
+
+function decodeJWT() {
+    const input = (document.getElementById('jwtInput')?.value || '').trim();
+    const result  = document.getElementById('jwtResult');
+    const errBox  = document.getElementById('jwtError');
+    const errText = document.getElementById('jwtErrorText');
+    const warn    = document.getElementById('jwtWarning');
+    const warnTxt = document.getElementById('jwtWarningText');
+
+    if (!input) {
+        result?.classList.add('hidden');
+        errBox?.classList.add('hidden');
+        return;
+    }
+
+    const parts = input.split('.');
+    if (parts.length !== 3) {
+        result?.classList.add('hidden');
+        errBox?.classList.remove('hidden');
+        if (errText) errText.textContent = 'Invalid JWT — must have exactly 3 parts separated by dots.';
+        return;
+    }
+
+    const decode = (b64url) => {
+        try {
+            const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = b64 + '=='.slice((b64.length + 3) % 4);
+            return JSON.parse(atob(padded));
+        } catch { return null; }
+    };
+
+    const header  = decode(parts[0]);
+    const payload = decode(parts[1]);
+
+    if (!header || !payload) {
+        result?.classList.add('hidden');
+        errBox?.classList.remove('hidden');
+        if (errText) errText.textContent = 'Failed to decode JWT — the token may be malformed or corrupted.';
+        return;
+    }
+
+    errBox?.classList.add('hidden');
+    result?.classList.remove('hidden');
+
+    document.getElementById('jwtHeader').textContent  = JSON.stringify(header, null, 2);
+    document.getElementById('jwtPayload').textContent = JSON.stringify(payload, null, 2);
+    document.getElementById('jwtSig').textContent     = parts[2];
+
+    // Build meta info
+    const meta = document.getElementById('jwtMeta');
+    if (meta) {
+        const rows = [];
+        if (header.alg) rows.push(`<span><strong>Algorithm:</strong> ${header.alg}</span>`);
+        if (header.typ) rows.push(`<span><strong>Type:</strong> ${header.typ}</span>`);
+        if (payload.iss) rows.push(`<span><strong>Issuer:</strong> ${payload.iss}</span>`);
+        if (payload.sub) rows.push(`<span><strong>Subject:</strong> ${payload.sub}</span>`);
+        if (payload.aud) rows.push(`<span><strong>Audience:</strong> ${Array.isArray(payload.aud) ? payload.aud.join(', ') : payload.aud}</span>`);
+        if (payload.iat) rows.push(`<span><strong>Issued at:</strong> ${new Date(payload.iat * 1000).toLocaleString()}</span>`);
+        if (payload.exp) rows.push(`<span><strong>Expires:</strong> ${new Date(payload.exp * 1000).toLocaleString()}</span>`);
+        meta.innerHTML = rows.join('');
+    }
+
+    // Expiry warning
+    if (warn && warnTxt) {
+        if (payload.exp) {
+            const now = Math.floor(Date.now() / 1000);
+            if (payload.exp < now) {
+                const ago = Math.round((now - payload.exp) / 60);
+                warnTxt.textContent = `This token expired ${ago} minute${ago !== 1 ? 's' : ''} ago.`;
+                warn.classList.remove('hidden');
+            } else {
+                warn.classList.add('hidden');
+            }
+        } else {
+            warnTxt.textContent = 'No expiration (exp) claim — this token never expires.';
+            warn.classList.remove('hidden');
+        }
+    }
+}
+
+function copyJWTPart(part) {
+    const el = document.getElementById(part === 'header' ? 'jwtHeader' : 'jwtPayload');
+    if (!el) return;
+    navigator.clipboard.writeText(el.textContent).then(() => showToast('Copied!', 'success'));
+}

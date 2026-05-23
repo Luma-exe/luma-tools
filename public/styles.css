@@ -5349,3 +5349,100 @@ body {
     color: var(--text-secondary); padding: 4px 4px 5px;
     background: rgba(0,0,0,0.3);
 }
+
+/* ── Info box ─────────────────────────────────────────────────── */
+.info-box {
+    background: rgba(124,92,255,0.1); border: 1px solid rgba(124,92,255,0.25);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 0.84rem; color: var(--text-secondary); line-height: 1.5;
+    display: flex; gap: 8px; align-items: flex-start;
+}
+.info-box i { color: var(--accent); margin-top: 2px; flex-shrink: 0; }
+
+/* ── OCR result ───────────────────────────────────────────────── */
+.ocr-result { margin-top: 16px; }
+.ocr-result-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; background: var(--bg-secondary);
+    border: 1px solid var(--glass-border); border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    font-size: 0.85rem; color: var(--text-secondary);
+}
+.ocr-output {
+    width: 100%; box-sizing: border-box;
+    background: var(--bg-tertiary); border: 1px solid var(--glass-border);
+    border-top: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    color: var(--text-primary); font-family: var(--font-mono); font-size: 0.82rem;
+    padding: 12px; resize: vertical; line-height: 1.6; min-height: 200px;
+}
+.ocr-stats {
+    margin-top: 6px; font-size: 0.78rem; color: var(--text-muted); text-align: right;
+}
+
+/* ── Password Generator ───────────────────────────────────────── */
+.pw-toggles { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.pw-toggle {
+    display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
+    color: var(--text-secondary); cursor: pointer; user-select: none;
+}
+.pw-toggle input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+.pw-output-wrap { margin-top: 16px; }
+.pw-strength-bar {
+    height: 4px; background: var(--bg-tertiary);
+    border-radius: 2px; margin-bottom: 4px; overflow: hidden;
+}
+.pw-strength-fill { height: 100%; width: 0; transition: width 0.3s, background 0.3s; border-radius: 2px; }
+.pw-strength-label { font-size: 0.75rem; font-weight: 600; min-height: 16px; margin-bottom: 8px; }
+.pw-output-row { display: flex; gap: 6px; align-items: center; }
+.pw-output {
+    flex: 1; background: var(--bg-tertiary); border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm); color: var(--text-primary);
+    font-family: var(--font-mono); font-size: 0.9rem; padding: 10px 12px;
+}
+.pw-copy { flex-shrink: 0; }
+.pw-multi-list { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+.pw-batch-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-tertiary); border-radius: var(--radius-sm);
+    padding: 6px 10px; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.pw-batch-row code { flex: 1; word-break: break-all; }
+
+/* ── JWT Decoder ──────────────────────────────────────────────── */
+.jwt-parts { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.jwt-part {
+    background: var(--bg-secondary); border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm); overflow: hidden;
+}
+.jwt-part-header {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: var(--bg-tertiary); border-bottom: 1px solid var(--glass-border);
+    font-size: 0.83rem; font-weight: 600;
+}
+.jwt-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.jwt-dot-header  { background: #f59e0b; }
+.jwt-dot-payload { background: #6366f1; }
+.jwt-dot-sig     { background: #10b981; }
+.jwt-json {
+    margin: 0; padding: 12px; font-family: var(--font-mono); font-size: 0.78rem;
+    color: var(--text-primary); white-space: pre-wrap; word-break: break-all;
+    line-height: 1.5; max-height: 220px; overflow-y: auto;
+}
+.jwt-sig {
+    display: block; padding: 10px 12px; font-family: var(--font-mono);
+    font-size: 0.72rem; color: var(--text-muted); word-break: break-all;
+}
+.jwt-meta {
+    margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;
+    font-size: 0.8rem; color: var(--text-secondary);
+}
+.jwt-meta span {
+    background: var(--bg-secondary); border: 1px solid var(--glass-border);
+    border-radius: 20px; padding: 3px 10px;
+}
+.jwt-warning {
+    margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm);
+    background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3);
+    color: #fbbf24; font-size: 0.82rem; display: flex; gap: 8px; align-items: center;
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v19'; // bumped: expanded format support across audio/video/document tools
+const CACHE_NAME = 'lumatools-v20'; // bumped: OCR, vocal separator, password gen, JWT decoder, image upscale, HEIC, error msgs
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

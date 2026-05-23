@@ -709,7 +709,7 @@ function renderParaphraseUI(original, result, tone) {
     const container = document.querySelector('.paraphrase-result[data-tool="ai-paraphrase"]');
     if (!container) return;
 
-    const toneLabels = { formal: 'Formal', casual: 'Casual', simplified: 'Simplified', academic: 'Academic' };
+    const toneLabels = { formal: 'Formal', casual: 'Casual', simplified: 'Simplified', academic: 'Academic', concise: 'Concise', expand: 'Expanded' };
     
     container.innerHTML = `
         <div class="paraphrase-output">
@@ -787,10 +787,12 @@ function processCitation() {
             showProcessing(toolId, false);
             if (data.error) {
                 showToast(data.error, 'error');
+                showModelBadge(toolId, 'none');
                 return;
             }
             if (data.citation) {
                 renderCitationUI(data.citation, data.metadata || {}, style);
+                if (data.model_used) showModelBadge(toolId, data.model_used);
             }
         })
         .catch(err => {
