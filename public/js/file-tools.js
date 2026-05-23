@@ -1167,18 +1167,18 @@ function detectFileCategory(file) {
     const type = (file.type || '').toLowerCase();
     const name = file.name.toLowerCase();
 
-    // GIF gets its own category (gif-to-video tool etc.)
     if (/\.gif$/.test(name) || type === 'image/gif') return 'gif';
-    if (type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|tiff?|ico|svg|avif|heic|heif)$/.test(name)) return 'image';
-    if (type.startsWith('video/') || /\.(mp4|webm|avi|mov|mkv|flv|wmv)$/.test(name)) return 'video';
-    if (type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|aac|m4a|wma|opus)$/.test(name)) return 'audio';
+    if (type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|tiff?|ico|svg|avif|heic|heif|raw|cr2|nef|arw|dng|psd)$/.test(name)) return 'image';
+    if (type.startsWith('video/') || /\.(mp4|webm|avi|mov|mkv|flv|wmv|ts|3gp|m4v|mpg|mpeg|vob|ogv|m2ts|mts)$/.test(name)) return 'video';
+    if (type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|aac|m4a|wma|opus|aiff|aif|mp2|alac|ape|wv|mid|midi)$/.test(name)) return 'audio';
     if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
-    if (/\.(md|markdown)$/.test(name) || type === 'text/markdown') return 'markdown';
+    if (/\.(md|markdown|mdown|mkdn)$/.test(name) || type === 'text/markdown') return 'markdown';
     if (/\.csv$/.test(name) || type === 'text/csv') return 'csv';
-    if (/\.json$/.test(name) || type === 'application/json') return 'json';
+    if (/\.(json|jsonl|geojson)$/.test(name) || type === 'application/json') return 'json';
     if (/\.(zip|7z|rar|tar|gz|bz2|xz|tgz|tbz2|txz|cab|iso|lzh|arj|z|lzma|zst|apk|jar|war|ear|deb|rpm|dmg|wim|msi|cbz|cbr|appx|nupkg|crx|xpi|whl|egg)$/.test(name)) return 'archive';
-    if (/\.(docx?|pptx?|xlsx?|odt|ods|odp|txt|rtf|epub)$/.test(name)) return 'document';
-    return null;
+    if (/\.(docx?|pptx?|xlsx?|odt|ods|odp|rtf|epub)$/.test(name)) return 'document';
+    if (/\.(txt|log|ini|cfg|conf|yml|yaml|toml|xml|html?|css|js|ts|jsx|tsx|py|rb|go|rs|java|c|cpp|h|hpp|cs|php|sh|bat|ps1|sql|r|swift|kt|scala|lua|pl|m|mm)$/.test(name) || type.startsWith('text/')) return 'text';
+    return 'generic';
 }
 
 let _dragCounter = 0;

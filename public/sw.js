@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v22'; // bumped: bulk installer .bat fix
+const CACHE_NAME = 'lumatools-v23';
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
