@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v21'; // bumped: HEIC output, format symmetry, bulk program installer
+const CACHE_NAME = 'lumatools-v22'; // bumped: bulk installer .bat fix
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
