@@ -93,170 +93,229 @@ static bool current_account(const httplib::Request& req, AccountUser& user) {
     return !token.empty() && account_get_user_by_session(token, user);
 }
 
-static string render_auth_page(
-        const string& page_title,
-        const string& heading,
-        const string& intro,
-        const string& primary_label,
-        const string& primary_action,
-        const string& primary_button,
-        const string& secondary_label,
-        const string& secondary_action,
-        const string& secondary_button,
-        const AccountUser* user,
-        const string& message = "",
-        const string& error = "") {
+// ─── Shared site-aesthetic shell for all account pages ──────────────────────
+
+static const char* ACCOUNT_PAGE_CSS = R"CSS(
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-primary:#0a0a0f;--bg-card:rgba(18,18,30,0.65);--bg-card-hover:rgba(25,25,40,0.75);
+  --text-primary:#f0f0f5;--text-secondary:#8888a0;--text-muted:#555570;
+  --accent:#7c5cff;--accent-light:#9b80ff;--accent-glow:rgba(124,92,255,0.3);
+  --accent-2:#00d4ff;--accent-3:#ff6bca;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.16);
+}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg-primary);color:var(--text-primary);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:24px;position:relative;overflow-x:hidden;
+}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;filter:blur(80px);opacity:.35}
+.orb{position:absolute;border-radius:50%;animation:float 22s ease-in-out infinite}
+.orb-1{width:520px;height:520px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);top:-180px;right:-120px}
+.orb-2{width:440px;height:440px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);bottom:-140px;left:-100px;animation-delay:-7s}
+.orb-3{width:380px;height:380px;background:radial-gradient(circle,var(--accent-3) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-14s}
+@keyframes float{0%,100%{transform:translateY(0) translateX(0) scale(1)}33%{transform:translateY(-40px) translateX(20px) scale(1.06)}66%{transform:translateY(20px) translateX(-30px) scale(.94)}}
+.shell{position:relative;z-index:1;width:100%;max-width:480px}
+.brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:22px;color:var(--text-primary);text-decoration:none;font-weight:800;font-size:1.1rem;letter-spacing:.02em}
+.brand i{color:var(--accent)}
+.brand span{color:var(--text-secondary);font-weight:600}
+.card{
+  background:var(--bg-card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:18px;padding:32px;
+  box-shadow:0 20px 60px rgba(0,0,0,.55);
+}
+.card-wide{max-width:760px}
+h1{font-size:1.55rem;font-weight:700;margin-bottom:6px;letter-spacing:-.01em}
+.intro{color:var(--text-secondary);font-size:.92rem;margin-bottom:22px;line-height:1.5}
+.field{margin-bottom:14px}
+label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--text-secondary);margin-bottom:6px;font-weight:600}
+input[type=email],input[type=password],input[type=text]{
+  width:100%;padding:12px 14px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border);border-radius:10px;color:var(--text-primary);
+  font-size:.95rem;outline:none;transition:border-color .15s,background .15s;
+}
+input:focus{border-color:var(--accent);background:rgba(124,92,255,.06)}
+button.primary,a.primary{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  padding:13px 16px;background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  border:0;border-radius:10px;color:#fff;font-weight:700;font-size:.96rem;cursor:pointer;
+  text-decoration:none;transition:transform .12s,box-shadow .12s;
+  box-shadow:0 8px 20px rgba(124,92,255,.28);
+}
+button.primary:hover,a.primary:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(124,92,255,.36)}
+button.ghost,a.ghost{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:10px;color:var(--text-primary);text-decoration:none;font-weight:600;
+  font-size:.92rem;cursor:pointer;transition:background .15s,border-color .15s;
+}
+button.ghost:hover,a.ghost:hover{background:rgba(255,255,255,.07);border-color:var(--border-strong)}
+.divider{display:flex;align-items:center;gap:12px;margin:22px 0 18px;color:var(--text-muted);font-size:.78rem}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.alt-link{text-align:center;font-size:.88rem;color:var(--text-secondary);margin-top:6px}
+.alt-link a{color:var(--accent-light);text-decoration:none;font-weight:600}
+.alt-link a:hover{text-decoration:underline}
+.msg{padding:10px 12px;border-radius:8px;font-size:.86rem;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start}
+.msg-ok{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#86efac}
+.msg-err{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#fca5a5}
+.back-home{display:inline-flex;align-items:center;gap:6px;margin-top:16px;color:var(--text-secondary);text-decoration:none;font-size:.86rem}
+.back-home:hover{color:var(--text-primary)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(124,92,255,.14);border:1px solid rgba(124,92,255,.3);color:#d8d2ff;font-size:.74rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.chip-free{background:rgba(255,255,255,.05);border-color:var(--border);color:var(--text-secondary)}
+.chip-pro{background:rgba(124,92,255,.18);border-color:rgba(124,92,255,.45);color:#cabaff}
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}
+@media(max-width:560px){.profile-grid{grid-template-columns:1fr}}
+.profile-row{padding:14px 0;border-bottom:1px solid var(--border)}
+.profile-row:last-child{border-bottom:0}
+.profile-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-bottom:4px;font-weight:600}
+.profile-value{color:var(--text-primary);font-size:.95rem;word-break:break-word}
+.actions-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.actions-row > *{flex:1;min-width:160px}
+)CSS";
+
+static string render_account_shell(const string& title, const string& body_html) {
     std::ostringstream html;
-    html << R"HTML(<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Luma Tools - )HTML";
-        html << html_escape(page_title);
-        html << R"HTML(</title>
-<style>
-body{margin:0;min-height:100vh;background:#0b0b12;color:#e7e7ee;font-family:Segoe UI,Arial,sans-serif;display:grid;place-items:center;padding:24px}
-.card{width:min(760px,100%);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:28px}
-.hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
-h1{margin:0 0 6px;font-size:2rem}
-p{margin:0;color:#a7a7b5;line-height:1.5}
-.grid{display:grid;grid-template-columns:1fr 1fr .8fr;gap:18px;margin-top:22px}
-.panel{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px}
-label{display:block;font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:#9c9caf;margin:0 0 8px}
-input{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff;margin-bottom:12px}
-button,a.btn{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border-radius:10px;border:0;background:#7c5cff;color:#fff;text-decoration:none;font-weight:700;cursor:pointer}
-.muted{color:#9ca3af;font-size:.9rem;margin:0 0 8px}
-.chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(124,92,255,.14);color:#d8d2ff;font-size:.8rem;margin-right:6px;margin-bottom:6px}
-.error{color:#fca5a5;margin-top:10px}
-.ok{color:#86efac;margin-top:10px}
-@media (max-width: 1000px){.grid{grid-template-columns:1fr}}
-</style>
-</head>
-<body>
-<div class="card">
-  <div class="hero">
-    <div>
-            <h1>)HTML";
-        html << html_escape(heading);
-        html << R"HTML(</h1>
-            <p>)HTML";
-        html << html_escape(intro);
-        html << R"HTML(</p>
-    </div>
-    <div>
-      <span class="chip">Plan: )HTML";
-    html << html_escape(user ? user->plan : "free");
-    html << R"HTML(</span>
-      <span class="chip">Status: )HTML";
-    html << html_escape(user ? user->account_status : "signed out");
-    html << R"HTML(</span>
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="panel">
-            <label>)HTML";
-        html << html_escape(primary_label);
-        html << R"HTML(</label>
-            <form method="POST" action=")HTML";
-        html << html_escape(primary_action);
-        html << R"HTML(">
-                <input type="email" name="email" placeholder="you@example.com" value=")HTML";
-        html << html_escape(user ? user->email : "");
-        html << R"HTML(" required>
-                <input type="password" name="password" placeholder="Password" required>
-                <input type="text" name="display_name" placeholder="Display name (optional)" value=")HTML";
-        html << html_escape(user ? user->display_name : "");
-        html << R"HTML(">
-                <button type="submit">)HTML";
-        html << html_escape(primary_button);
-        html << R"HTML(</button>
-      </form>
-)HTML";
-    if (!message.empty()) {
-        html << "      <div class=\"ok\">" << html_escape(message) << "</div>\n";
-    }
-    if (!error.empty()) {
-        html << "      <div class=\"error\">" << html_escape(error) << "</div>\n";
-    }
-    html << R"HTML(
-    </div>
-
-    <div class="panel">
-            <label>)HTML";
-        html << html_escape(secondary_label);
-        html << R"HTML(</label>
-            <form method="POST" action=")HTML";
-        html << html_escape(secondary_action);
-        html << R"HTML(">
-                <input type="email" name="email" placeholder="you@example.com" value=")HTML";
-        html << html_escape(user ? user->email : "");
-        html << R"HTML(" required>
-                <input type="password" name="password" placeholder="Password" required>
-                <button type="submit">)HTML";
-        html << html_escape(secondary_button);
-        html << R"HTML(</button>
-      </form>
-    </div>
-
-    <div class="panel">
-      <label>Current Session</label>
-      <p class="muted">Email: )HTML";
-    html << html_escape(user ? user->email : "Not signed in");
-    html << R"HTML(</p>
-      <p class="muted">Name: )HTML";
-    html << html_escape(user ? user->display_name : "-");
-    html << R"HTML(</p>
-      <p class="muted">Plan: )HTML";
-    html << html_escape(user ? user->plan : "free");
-    html << R"HTML(</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
-        <a class="btn" href="/">Back to tools</a>
-        <form method="POST" action="/account/logout" style="margin:0">
-          <button type="submit" style="background:#2b2b3f">Sign out</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-</body>
-</html>)HTML";
+    html << "<!DOCTYPE html><html lang=\"en\"><head>"
+         << "<meta charset=\"UTF-8\">"
+         << "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+         << "<title>" << html_escape(title) << " — Luma Tools</title>"
+         << "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css\">"
+         << "<style>" << ACCOUNT_PAGE_CSS << "</style>"
+         << "</head><body>"
+         << "<div class=\"bg-orbs\"><div class=\"orb orb-1\"></div><div class=\"orb orb-2\"></div><div class=\"orb orb-3\"></div></div>"
+         << "<div class=\"shell\">"
+         << "<a class=\"brand\" href=\"/\"><i class=\"fas fa-bolt\"></i>LUMA<span>TOOLS</span></a>"
+         << body_html
+         << "<a class=\"back-home\" href=\"/\"><i class=\"fas fa-arrow-left\"></i> Back to all tools</a>"
+         << "</div></body></html>";
     return html.str();
 }
 
-static string render_register_page(const AccountUser* user, const string& message = "", const string& error = "") {
-    return render_auth_page(
-        "Register",
-        "Create Account",
-        "Create your Luma Tools account, then you will be sent to the login page.",
-        "Register",
-        "/account/register",
-        "Create account",
-        "Already have an account? Sign in",
-        "/account/login",
-        "Go to login",
-        user,
-        message,
-        error
-    );
+static string render_message_block(const string& message, const string& error) {
+    string out;
+    if (!message.empty()) {
+        out += "<div class=\"msg msg-ok\"><i class=\"fas fa-check-circle\"></i><div>" + html_escape(message) + "</div></div>";
+    }
+    if (!error.empty()) {
+        out += "<div class=\"msg msg-err\"><i class=\"fas fa-exclamation-circle\"></i><div>" + html_escape(error) + "</div></div>";
+    }
+    return out;
 }
 
-static string render_login_page(const AccountUser* user, const string& message = "", const string& error = "") {
-    return render_auth_page(
-        "Login",
-        "Sign In",
-        "Sign in with your email and password to return to the homepage.",
-        "Sign in",
-        "/account/login",
-        "Login",
-        "Need an account? Register",
-        "/account/register",
-        "Go to register",
-        user,
-        message,
-        error
-    );
+static string render_login_page(const AccountUser*, const string& message = "", const string& error = "") {
+    std::ostringstream b;
+    b << "<div class=\"card\">"
+      << "<h1>Welcome back</h1>"
+      << "<p class=\"intro\">Sign in to manage your plan and access your saved settings.</p>"
+      << render_message_block(message, error)
+      << "<form method=\"POST\" action=\"/account/login\" autocomplete=\"on\">"
+         "<div class=\"field\"><label for=\"li-email\">Email</label>"
+         "<input id=\"li-email\" type=\"email\" name=\"email\" placeholder=\"you@example.com\" autocomplete=\"email\" required></div>"
+         "<div class=\"field\"><label for=\"li-pw\">Password</label>"
+         "<input id=\"li-pw\" type=\"password\" name=\"password\" placeholder=\"Your password\" autocomplete=\"current-password\" required></div>"
+         "<button class=\"primary\" type=\"submit\"><i class=\"fas fa-sign-in-alt\"></i> Sign in</button>"
+         "</form>"
+      << "<div class=\"divider\">or</div>"
+      << "<div class=\"alt-link\">New here? <a href=\"/account/register\">Create an account</a></div>"
+      << "</div>";
+    return render_account_shell("Sign in", b.str());
+}
+
+static string render_register_page(const AccountUser*, const string& message = "", const string& error = "") {
+    std::ostringstream b;
+    b << "<div class=\"card\">"
+      << "<h1>Create your account</h1>"
+      << "<p class=\"intro\">Free forever for the core tools. Upgrade to Pro anytime for unlimited AI and 2 GB uploads.</p>"
+      << render_message_block(message, error)
+      << "<form method=\"POST\" action=\"/account/register\" autocomplete=\"on\">"
+         "<div class=\"field\"><label for=\"r-email\">Email</label>"
+         "<input id=\"r-email\" type=\"email\" name=\"email\" placeholder=\"you@example.com\" autocomplete=\"email\" required></div>"
+         "<div class=\"field\"><label for=\"r-name\">Display name <span style=\"text-transform:none;letter-spacing:0;color:var(--text-muted)\">(optional)</span></label>"
+         "<input id=\"r-name\" type=\"text\" name=\"display_name\" placeholder=\"What should we call you?\" autocomplete=\"nickname\"></div>"
+         "<div class=\"field\"><label for=\"r-pw\">Password</label>"
+         "<input id=\"r-pw\" type=\"password\" name=\"password\" placeholder=\"At least 4 characters\" autocomplete=\"new-password\" required minlength=\"4\"></div>"
+         "<button class=\"primary\" type=\"submit\"><i class=\"fas fa-user-plus\"></i> Create account</button>"
+         "</form>"
+      << "<div class=\"divider\">or</div>"
+      << "<div class=\"alt-link\">Already have an account? <a href=\"/account/login\">Sign in</a></div>"
+      << "</div>";
+    return render_account_shell("Create account", b.str());
+}
+
+static string fmt_unix_short(int64_t ts) {
+    if (ts <= 0) return "—";
+    char buf[40];
+    std::time_t t = (std::time_t)ts;
+    std::tm tmv;
+#ifdef _WIN32
+    gmtime_s(&tmv, &t);
+#else
+    gmtime_r(&t, &tmv);
+#endif
+    std::strftime(buf, sizeof(buf), "%b %d, %Y", &tmv);
+    return buf;
+}
+
+static string render_account_dashboard(const AccountUser& user, const string& message, const string& error) {
+    string plan_label = user.plan.empty() ? "free" : user.plan;
+    bool is_pro = (plan_label == "pro" || plan_label == "starter");
+    string chip_cls = is_pro ? "chip chip-pro" : "chip chip-free";
+    string plan_display = is_pro
+        ? std::string("Pro — ") + (user.account_status.empty() ? "active" : user.account_status)
+        : std::string("Free plan");
+
+    std::ostringstream b;
+    b << "<div class=\"card card-wide\" style=\"max-width:760px\">"
+      << "<div style=\"display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap\">"
+      << "<div><h1>Your account</h1>"
+      << "<p class=\"intro\">Signed in as <strong style=\"color:var(--text-primary)\">"
+      << html_escape(user.email) << "</strong></p></div>"
+      << "<span class=\"" << chip_cls << "\"><i class=\"fas fa-"
+      << (is_pro ? "crown" : "user") << "\"></i> " << html_escape(plan_display) << "</span>"
+      << "</div>"
+      << render_message_block(message, error)
+      << "<div class=\"profile-grid\">"
+         "<div>"
+      << "<div class=\"profile-row\"><div class=\"profile-label\">Display name</div>"
+         "<div class=\"profile-value\">" << html_escape(user.display_name.empty() ? "—" : user.display_name) << "</div></div>"
+      << "<div class=\"profile-row\"><div class=\"profile-label\">Email</div>"
+         "<div class=\"profile-value\">" << html_escape(user.email) << "</div></div>"
+      << "<div class=\"profile-row\"><div class=\"profile-label\">Member since</div>"
+         "<div class=\"profile-value\">" << html_escape(fmt_unix_short(user.created_ts)) << "</div></div>"
+         "</div>"
+         "<div>"
+      << "<div class=\"profile-row\"><div class=\"profile-label\">Current plan</div>"
+         "<div class=\"profile-value\">" << html_escape(plan_display) << "</div></div>"
+      << "<div class=\"profile-row\"><div class=\"profile-label\">Billing status</div>"
+         "<div class=\"profile-value\">" << html_escape(user.account_status.empty() ? "active" : user.account_status) << "</div></div>"
+      << "<div class=\"profile-row\"><div class=\"profile-label\">Stripe customer</div>"
+         "<div class=\"profile-value\" style=\"font-family:monospace;font-size:.82rem;color:var(--text-secondary)\">"
+      << html_escape(user.stripe_customer_id.empty() ? "Not subscribed" : user.stripe_customer_id) << "</div></div>"
+         "</div></div>";
+
+    b << "<div class=\"actions-row\">";
+    if (is_pro && !user.stripe_customer_id.empty()) {
+        b << "<button class=\"primary\" type=\"button\" onclick=\"openBillingPortal(this)\">"
+             "<i class=\"fas fa-credit-card\"></i> Manage subscription</button>";
+    } else {
+        b << "<button class=\"primary\" type=\"button\" onclick=\"startProCheckout(this)\">"
+             "<i class=\"fas fa-bolt\"></i> Upgrade to Pro</button>";
+    }
+    b << "<form method=\"POST\" action=\"/account/logout\" style=\"margin:0\"><button class=\"ghost\" type=\"submit\" style=\"width:100%\"><i class=\"fas fa-sign-out-alt\"></i> Sign out</button></form>"
+         "</div>"
+         "</div>"
+         "<script>"
+         "async function openBillingPortal(btn){btn.disabled=true;const orig=btn.innerHTML;btn.innerHTML='<i class=\"fas fa-circle-notch fa-spin\"></i> Loading...';"
+         "try{const r=await fetch('/api/billing/portal-session',{method:'POST',credentials:'same-origin'});const d=await r.json();"
+         "if(r.ok&&d.url){window.location=d.url;return}alert(d.error||('Error '+r.status))}catch(e){alert('Network error')}finally{btn.disabled=false;btn.innerHTML=orig}}"
+         "async function startProCheckout(btn){btn.disabled=true;const orig=btn.innerHTML;btn.innerHTML='<i class=\"fas fa-circle-notch fa-spin\"></i> Loading...';"
+         "try{const r=await fetch('/api/billing/checkout-session',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({plan:'pro'})});const d=await r.json();"
+         "if(r.ok&&d.url){window.location=d.url;return}alert(d.error||('Error '+r.status))}catch(e){alert('Network error')}finally{btn.disabled=false;btn.innerHTML=orig}}"
+         "</script>";
+
+    return render_account_shell("Your account", b.str());
 }
 
 static string normalize_email(string email) {
@@ -461,8 +520,17 @@ int account_user_id_for_request(const httplib::Request& req) {
 
 void register_account_routes(httplib::Server& svr) {
     svr.Get("/account", [](const httplib::Request& req, httplib::Response& res) {
-        res.set_header("Location", "/account/login");
-        res.status = 302;
+        AccountUser user;
+        if (!current_account(req, user)) {
+            res.set_header("Location", "/account/login");
+            res.status = 302;
+            return;
+        }
+        string message = req.has_param("msg") ? req.get_param_value("msg") : "";
+        string error   = req.has_param("err") ? req.get_param_value("err") : "";
+        message = auth_feedback_text(message, false);
+        error   = auth_feedback_text(error, true);
+        res.set_content(render_account_dashboard(user, message, error), "text/html");
     });
 
     svr.Get("/account/register", [](const httplib::Request& req, httplib::Response& res) {
@@ -556,7 +624,7 @@ void register_account_routes(httplib::Server& svr) {
         int max_age = (int)std::max<int64_t>(0, expires_ts - std::time(nullptr));
         string cookie = session_cookie_name() + "=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age);
         res.set_header("Set-Cookie", cookie);
-        res.set_header("Location", "/?msg=signed_in");
+        res.set_header("Location", "/account?msg=signed_in");
         res.status = 302;
     });
 

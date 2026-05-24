@@ -224,7 +224,8 @@ tr:last-child td{border-bottom:none}
   <button class="range-btn" data-range="month">Last 30 Days</button>
   <button class="range-btn" data-range="all">All Time</button>
   <button class="digest-btn" id="digestBtn">&#x1F4EC; Send Digest</button>
-  <button class="admin-tab-btn" id="adminTabBtn">&#x1F527; Admin</button>
+  <button class="admin-tab-btn" id="adminTabBtn">&#x1F527; Admin: Tools</button>
+  <button class="admin-tab-btn" id="usersTabBtn">&#x1F465; Admin: Users</button>
 </div>
 
 <div class="main">
@@ -287,6 +288,26 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="usersPanel" style="display:none">
+  <div class="section">
+    <h2>&#x1F465; Users</h2>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:14px">Manually override a user's plan (e.g. comp a Pro account, or revoke a refund). Changes log to Discord. <b style="color:var(--text)">Plan changes here bypass Stripe</b> — for a Stripe-managed user, prefer their portal.</p>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <input id="userSearchInp" placeholder="Search email or display name" style="flex:1;min-width:240px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 12px;font-size:.88rem">
+      <button class="save-tool-btn" onclick="loadAdminUsers()">Search</button>
+      <span id="userCount" style="margin-left:auto;color:var(--muted);font-size:.82rem"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="adminUsersTable">
+        <thead><tr>
+          <th>ID</th><th>Email</th><th>Name</th><th>Created</th><th>Plan</th><th>Status</th><th>Stripe</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="adminUsersBody"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <div id="adminPanel" style="display:none">
   <div class="section">
@@ -646,25 +667,124 @@ async function saveToolCfg(btn) {
 
 const mainDiv   = document.querySelector('.main');
 const adminDiv  = document.getElementById('adminPanel');
+const usersDiv  = document.getElementById('usersPanel');
 const adminBtn  = document.getElementById('adminTabBtn');
+const usersBtn  = document.getElementById('usersTabBtn');
 const rangeBtns = document.querySelectorAll('.range-btn');
 
+function showPane(which) {
+  // which = 'main' | 'tools' | 'users'
+  mainDiv.style.display  = (which === 'main')  ? '' : 'none';
+  adminDiv.style.display = (which === 'tools') ? '' : 'none';
+  usersDiv.style.display = (which === 'users') ? '' : 'none';
+  adminBtn.classList.toggle('active', which === 'tools');
+  usersBtn.classList.toggle('active', which === 'users');
+  const hideRange = which !== 'main';
+  rangeBtns.forEach(b => b.style.display = hideRange ? 'none' : '');
+  document.getElementById('digestBtn').style.display = hideRange ? 'none' : '';
+}
+
 adminBtn.addEventListener('click', () => {
-  const isAdmin = adminDiv.style.display !== 'none';
-  if (isAdmin) {
-    adminDiv.style.display = 'none';
-    mainDiv.style.display  = '';
-    adminBtn.classList.remove('active');
-    rangeBtns.forEach(b => b.style.display = '');
-    document.getElementById('digestBtn').style.display = '';
-  } else {
-    adminDiv.style.display = '';
-    mainDiv.style.display  = 'none';
-    adminBtn.classList.add('active');
-    rangeBtns.forEach(b => b.style.display = 'none');
-    document.getElementById('digestBtn').style.display = 'none';
-    if (!adminLoaded) { adminLoaded = true; loadAdminTools(); }
+  const wasOpen = adminDiv.style.display !== 'none';
+  if (wasOpen) { showPane('main'); return; }
+  showPane('tools');
+  if (!adminLoaded) { adminLoaded = true; loadAdminTools(); }
+});
+
+let usersLoaded = false;
+usersBtn.addEventListener('click', () => {
+  const wasOpen = usersDiv.style.display !== 'none';
+  if (wasOpen) { showPane('main'); return; }
+  showPane('users');
+  if (!usersLoaded) { usersLoaded = true; loadAdminUsers(); }
+});
+
+const PLAN_OPTIONS   = ['free','starter','pro'];
+const STATUS_OPTIONS = ['active','trialing','past_due','canceled','incomplete','incomplete_expired'];
+
+function escapeHTML(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  return d.toISOString().slice(0,10);
+}
+
+async function loadAdminUsers() {
+  const q = document.getElementById('userSearchInp').value.trim();
+  const tbody = document.getElementById('adminUsersBody');
+  tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
+  try {
+    const url = '/api/admin/users' + (q ? ('?q=' + encodeURIComponent(q)) : '');
+    const data = await fetch(url).then(r => r.json());
+    document.getElementById('userCount').textContent =
+      (data.users || []).length + ' shown' + (data.total ? (' of ' + data.total + ' total') : '');
+    tbody.innerHTML = '';
+    if (!data.users || data.users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="loading">No users found.</td></tr>';
+      return;
+    }
+    data.users.forEach(u => {
+      const planOpts = PLAN_OPTIONS.map(p =>
+        '<option value="'+p+'"'+(p===u.plan?' selected':'')+'>'+p+'</option>').join('');
+      const statusOpts = STATUS_OPTIONS.map(s =>
+        '<option value="'+s+'"'+(s===(u.status||'active')?' selected':'')+'>'+s+'</option>').join('');
+      const stripeInfo = u.stripe_customer_id
+        ? '<code style="font-size:.72rem;color:var(--muted)">'+escapeHTML(u.stripe_customer_id)+'</code>'
+        : '<span style="color:var(--muted);font-size:.78rem">—</span>';
+      const tr = document.createElement('tr');
+      tr.dataset.id = u.id;
+      tr.innerHTML =
+        '<td style="font-family:monospace;color:var(--muted);font-size:.78rem">'+u.id+'</td>' +
+        '<td style="font-size:.82rem">'+escapeHTML(u.email)+'</td>' +
+        '<td style="font-size:.82rem;color:var(--muted)">'+escapeHTML(u.display_name||'—')+'</td>' +
+        '<td style="font-size:.78rem;color:var(--muted)">'+fmtDate(u.created_ts)+'</td>' +
+        '<td><select class="usr-plan" style="background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 6px;font-size:.82rem">'+planOpts+'</select></td>' +
+        '<td><select class="usr-status" style="background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 6px;font-size:.82rem">'+statusOpts+'</select></td>' +
+        '<td>'+stripeInfo+'</td>' +
+        '<td style="white-space:nowrap"><button class="save-tool-btn" onclick="saveUser(this)">Save</button> ' +
+          '<button class="save-tool-btn" style="background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.35);color:#fca5a5" onclick="deleteUser(this)">Delete</button></td>';
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="8" class="loading">Load failed: '+escapeHTML(e.message)+'</td></tr>';
   }
+}
+
+async function saveUser(btn) {
+  const tr = btn.closest('tr');
+  const id = tr.dataset.id;
+  const body = {
+    plan:   tr.querySelector('.usr-plan').value,
+    status: tr.querySelector('.usr-status').value,
+  };
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const r = await fetch('/api/admin/users/'+id, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (r.ok) { btn.textContent = 'Saved!'; setTimeout(()=>{btn.textContent='Save';btn.disabled=false},1500); }
+    else { btn.textContent = 'Save'; btn.disabled = false; showToast('Save failed'); }
+  } catch (e) { btn.textContent = 'Save'; btn.disabled = false; showToast('Error: '+e.message); }
+}
+
+async function deleteUser(btn) {
+  const tr = btn.closest('tr');
+  const id = tr.dataset.id;
+  const email = tr.children[1].textContent;
+  if (!confirm('Delete user "'+email+'"? This wipes their account, sessions, and subscriptions row. Does not refund Stripe.')) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/admin/users/'+id+'/delete', { method:'POST' });
+    if (r.ok) { tr.style.opacity = '0.4'; setTimeout(()=>tr.remove(), 250); }
+    else { showToast('Delete failed'); btn.disabled = false; }
+  } catch (e) { showToast('Error: '+e.message); btn.disabled = false; }
+}
+
+document.getElementById('userSearchInp').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadAdminUsers();
 });
 </script>
 </body>
@@ -905,6 +1025,98 @@ void register_stats_routes(httplib::Server& svr) {
             "**Tool:** `" + tool_id + "`\n**From IP:** " + req.remote_addr + "\n\n" + changes,
             0xF59E0B  /* amber */);
 
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // ── /admin — alias for /stats so the URL is more memorable ───────────────
+    svr.Get("/admin", [](const httplib::Request& req, httplib::Response& res) {
+        if (stats_password().empty()) {
+            res.status = 503;
+            res.set_content("Admin dashboard disabled. Set STATS_PASSWORD env var.", "text/plain");
+            return;
+        }
+        if (!is_authed(req)) {
+            res.set_content(login_html(req.has_param("err")), "text/html");
+            return;
+        }
+        res.set_content(DASHBOARD_HTML, "text/html");
+    });
+    svr.Post("/admin/login", [](const httplib::Request& req, httplib::Response& res) {
+        // Reuse the /stats/login handler logic
+        string body = req.body;
+        string pw;
+        auto pos = body.find("password=");
+        if (pos != string::npos) {
+            string raw = body.substr(pos + 9);
+            auto amp = raw.find('&');
+            if (amp != string::npos) raw = raw.substr(0, amp);
+            pw = url_decode(raw);
+        }
+        if (pw == stats_password() && !pw.empty()) {
+            res.set_header("Set-Cookie", "stats_auth=" + stats_password() + "; Path=/; HttpOnly");
+            res.set_header("Location", "/admin");
+            res.status = 302;
+        } else {
+            res.set_header("Location", "/admin?err=1");
+            res.status = 302;
+        }
+    });
+
+    // ── GET /api/admin/users — list users for the admin user-management table
+    svr.Get("/api/admin/users", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        string search = req.has_param("q") ? req.get_param_value("q") : "";
+        int limit  = req.has_param("limit")  ? std::atoi(req.get_param_value("limit").c_str())  : 200;
+        int offset = req.has_param("offset") ? std::atoi(req.get_param_value("offset").c_str()) : 0;
+        if (limit <= 0 || limit > 500) limit = 200;
+        if (offset < 0) offset = 0;
+        auto users = account_list_users(limit, offset, search);
+        json arr = json::array();
+        for (const auto& u : users) {
+            arr.push_back({
+                {"id", u.id}, {"email", u.email}, {"display_name", u.display_name},
+                {"plan", u.plan.empty() ? "free" : u.plan},
+                {"status", u.account_status},
+                {"stripe_customer_id", u.stripe_customer_id},
+                {"stripe_subscription_id", u.stripe_subscription_id},
+                {"created_ts", u.created_ts}, {"updated_ts", u.updated_ts}
+            });
+        }
+        res.set_content(json({{"users", arr}, {"total", account_count_users(search)}}).dump(), "application/json");
+    });
+
+    // ── POST /api/admin/users/:id  — set plan/status (admin override)
+    svr.Post(R"(/api/admin/users/(\d+))", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        int user_id = std::atoi(req.matches[1].str().c_str());
+        if (user_id <= 0) { res.status = 400; res.set_content(R"({"error":"Bad user id"})", "application/json"); return; }
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400; res.set_content(R"({"error":"Invalid JSON"})", "application/json"); return;
+        }
+        string plan   = body.value("plan",   string("free"));
+        string status = body.value("status", string("active"));
+        // Whitelist
+        if (plan != "free" && plan != "starter" && plan != "pro") plan = "free";
+        if (status != "active" && status != "trialing" && status != "past_due" &&
+            status != "canceled" && status != "incomplete" && status != "incomplete_expired") status = "active";
+        bool ok = account_admin_set_plan(user_id, plan, status);
+        if (!ok) { res.status = 500; res.set_content(R"({"error":"DB update failed"})", "application/json"); return; }
+        discord_log("👤 Admin — User Plan Override",
+            "**User:** id=" + to_string(user_id) + "\n**Plan:** " + plan + "\n**Status:** " + status +
+            "\n**From IP:** " + req.remote_addr, 0x7C5CFF);
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // ── DELETE /api/admin/users/:id  — wipe a user (uses POST + ?action=delete)
+    svr.Post(R"(/api/admin/users/(\d+)/delete)", [](const httplib::Request& req, httplib::Response& res) {
+        if (!is_authed(req)) { res.status = 401; res.set_content(R"({"error":"Unauthorized"})", "application/json"); return; }
+        int user_id = std::atoi(req.matches[1].str().c_str());
+        if (user_id <= 0) { res.status = 400; res.set_content(R"({"error":"Bad user id"})", "application/json"); return; }
+        bool ok = account_admin_delete_user(user_id);
+        if (!ok) { res.status = 500; res.set_content(R"({"error":"DB delete failed"})", "application/json"); return; }
+        discord_log("🗑️ Admin — User Deleted",
+            "**User:** id=" + to_string(user_id) + "\n**From IP:** " + req.remote_addr, 0xEF4444);
         res.set_content(R"({"ok":true})", "application/json");
     });
 }

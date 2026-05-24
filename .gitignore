@@ -36,3 +36,6 @@ __pycache__/
 *.o
 *.obj
 .env
+
+# Local smoke-test DBs
+/stats.db*

@@ -962,6 +962,94 @@ bool account_find_user_by_stripe_customer_id(const string& stripe_customer_id, A
     return ok;
 }
 
+// ─── Admin helpers ───────────────────────────────────────────────────────────
+
+vector<AccountUser> account_list_users(int limit, int offset, const string& search) {
+    vector<AccountUser> rows;
+    if (!g_db) return rows;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    string sql =
+        "SELECT id, email, display_name, account_status, created_ts, updated_ts, "
+        "stripe_customer_id, stripe_price_id, stripe_subscription_id, plan "
+        "FROM users";
+    if (!search.empty()) sql += " WHERE email LIKE ? OR display_name LIKE ?";
+    sql += " ORDER BY created_ts DESC LIMIT ? OFFSET ?";
+    if (sqlite3_prepare_v2(g_db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        int idx = 1;
+        string like = "%" + search + "%";
+        if (!search.empty()) {
+            sqlite3_bind_text(stmt, idx++, like.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, idx++, like.c_str(), -1, SQLITE_TRANSIENT);
+        }
+        sqlite3_bind_int(stmt, idx++, limit > 0 ? limit : 200);
+        sqlite3_bind_int(stmt, idx++, offset > 0 ? offset : 0);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            AccountUser u;
+            if (load_account_user_row(stmt, u)) rows.push_back(u);
+        }
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return rows;
+}
+
+int account_count_users(const string& search) {
+    if (!g_db) return 0;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    string sql = "SELECT COUNT(*) FROM users";
+    if (!search.empty()) sql += " WHERE email LIKE ? OR display_name LIKE ?";
+    int n = 0;
+    if (sqlite3_prepare_v2(g_db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        if (!search.empty()) {
+            string like = "%" + search + "%";
+            sqlite3_bind_text(stmt, 1, like.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 2, like.c_str(), -1, SQLITE_TRANSIENT);
+        }
+        if (sqlite3_step(stmt) == SQLITE_ROW) n = sqlite3_column_int(stmt, 0);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return n;
+}
+
+bool account_admin_set_plan(int user_id, const string& plan, const string& status) {
+    if (!g_db || user_id <= 0) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    bool ok = false;
+    const char* sql = "UPDATE users SET plan=?, account_status=?, updated_ts=? WHERE id=?";
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, plan.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, status.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 3, now_unix());
+        sqlite3_bind_int(stmt, 4, user_id);
+        ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_admin_delete_user(int user_id) {
+    if (!g_db || user_id <= 0) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_exec(g_db, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr);
+    auto run = [&](const char* sql) {
+        sqlite3_stmt* s = nullptr;
+        bool r = false;
+        if (sqlite3_prepare_v2(g_db, sql, -1, &s, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int(s, 1, user_id);
+            r = (sqlite3_step(s) == SQLITE_DONE);
+        }
+        if (s) sqlite3_finalize(s);
+        return r;
+    };
+    bool ok = run("DELETE FROM sessions WHERE user_id=?")
+           && run("DELETE FROM subscriptions WHERE user_id=?")
+           && run("DELETE FROM users WHERE id=?");
+    sqlite3_exec(g_db, ok ? "COMMIT" : "ROLLBACK", nullptr, nullptr, nullptr);
+    return ok;
+}
+
 bool account_find_user_by_stripe_subscription_id(const string& stripe_subscription_id, AccountUser& out_user) {
     if (!g_db || stripe_subscription_id.empty()) return false;
     lock_guard<mutex> lk(g_stats_mutex);

@@ -122,3 +122,9 @@ bool account_upsert_subscription(
 );
 bool account_find_user_by_stripe_customer_id(const string& stripe_customer_id, AccountUser& out_user);
 bool account_find_user_by_stripe_subscription_id(const string& stripe_subscription_id, AccountUser& out_user);
+
+// Admin helpers
+vector<AccountUser> account_list_users(int limit = 200, int offset = 0, const string& search = "");
+int  account_count_users(const string& search = "");
+bool account_admin_set_plan(int user_id, const string& plan, const string& status);
+bool account_admin_delete_user(int user_id);

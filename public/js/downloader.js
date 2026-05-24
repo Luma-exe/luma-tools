@@ -174,6 +174,21 @@ function renderMediaInfo(data) {
         $('platformOverlay').style.background = data.platform.color;
     }
 
+    // Spotify proxy disclosure — show inline so the user knows what they're getting.
+    const noticeContainer = $('mediaInfoCard') || $('mediaTitle')?.parentElement;
+    let existing = document.getElementById('spotifyProxyNotice');
+    if (data.platform && data.platform.spotify_proxy) {
+        if (!existing && noticeContainer) {
+            existing = document.createElement('div');
+            existing.id = 'spotifyProxyNotice';
+            existing.style.cssText = 'margin:12px 0;padding:10px 14px;border-radius:10px;background:rgba(29,185,84,0.08);border:1px solid rgba(29,185,84,0.32);color:#86efac;font-size:.84rem;display:flex;gap:10px;align-items:flex-start';
+            existing.innerHTML = '<i class="fab fa-spotify" style="color:#1DB954;margin-top:2px"></i><div><strong>Spotify track detected</strong><br><span style="color:var(--text-secondary)">Spotify uses DRM, so we download the matching track from YouTube. Quality and runtime may differ slightly from the Spotify master.</span></div>';
+            noticeContainer.insertBefore(existing, noticeContainer.firstChild);
+        }
+    } else if (existing) {
+        existing.remove();
+    }
+
     const isAudioOnly = data.platform && !data.platform.supports_video;
     const mp4Tab = $('formatTabs').querySelector('[data-format="mp4"]');
 

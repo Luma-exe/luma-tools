@@ -7,6 +7,53 @@
 #include "discord.h"
 #include "routes.h"
 
+// ─── Spotify -> YouTube proxy ──────────────────────────────────────────────
+// We cannot legally bypass Spotify's Widevine DRM. Instead, when a Spotify
+// track URL is given we look up its title via Spotify's public oEmbed endpoint
+// (no auth required), then ask yt-dlp to download the matching top YouTube
+// search result. This is the same approach spotdl uses by default.
+//
+// Returns true if `url_in` is a Spotify track URL we could resolve. On success:
+//   - `url_out` is rewritten to `ytsearch1:<query>` for yt-dlp
+//   - `resolved_title` contains the human title we extracted (artist - track)
+static bool maybe_resolve_spotify(const string& url_in, string& url_out, string& resolved_title) {
+    url_out = url_in;
+    resolved_title.clear();
+    if (url_in.find("spotify.com/") == string::npos) return false;
+    // Playlists/albums need the full Web API + OAuth — out of scope for now.
+    if (url_in.find("/track/") == string::npos) return false;
+
+    string proc = get_processing_dir();
+    string id = generate_job_id();
+    string out_file = proc + "/sp_" + id + "_oembed.json";
+    string cmd = "curl -s --max-time 8 -L "
+                 "\"https://open.spotify.com/oembed?url=" + url_in + "\""
+                 " -o " + escape_arg(out_file);
+    int rc;
+    exec_command(cmd, rc);
+    string title;
+    if (fs::exists(out_file)) {
+        try {
+            std::ifstream f(out_file);
+            std::ostringstream ss; ss << f.rdbuf();
+            auto j = json::parse(ss.str());
+            title = j.value("title", "");
+        } catch (...) {}
+        try { fs::remove(out_file); } catch (...) {}
+    }
+    if (title.empty()) return false;
+
+    resolved_title = title;
+    // Build YouTube search query. yt-dlp's `ytsearch1:` returns the top hit.
+    // Strip characters that confuse search; quote the query.
+    string q = title;
+    for (auto& c : q) {
+        if (c == '"' || c == '\\' || c == '\n' || c == '\r') c = ' ';
+    }
+    url_out = "ytsearch1:" + q + " audio";
+    return true;
+}
+
 void register_download_routes(httplib::Server& svr, string dl_dir) {
 
     // ── POST /api/detect — detect platform from URL ─────────────────────────
@@ -51,13 +98,41 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 return;
             }
 
+            // Spotify → YouTube proxy: detect first so the user sees the right
+            // platform chip, but pass the rewritten query to yt-dlp.
             auto platform = detect_platform(url);
+            string spotify_title;
+            bool via_spotify = false;
+            if (platform.id == "spotify") {
+                string rewritten;
+                if (maybe_resolve_spotify(url, rewritten, spotify_title)) {
+                    url = rewritten;
+                    via_spotify = true;
+                } else if (url.find("/track/") == string::npos) {
+                    // Playlist/album: not supported yet.
+                    res.status = 400;
+                    res.set_content(json({
+                        {"error", "Spotify playlists aren't supported yet — only individual track links work. We download the matching track from YouTube (no DRM bypass), so albums need to be added one track at a time for now."}
+                    }).dump(), "application/json");
+                    return;
+                } else {
+                    res.status = 502;
+                    res.set_content(json({{"error", "Could not look up that Spotify track. Try again or paste the YouTube link directly."}}).dump(), "application/json");
+                    return;
+                }
+            }
+
             json platform_json = {
                 {"id", platform.id}, {"name", platform.name},
                 {"icon", platform.icon}, {"color", platform.color},
                 {"supports_video", platform.supports_video},
                 {"supports_audio", platform.supports_audio}
             };
+            if (via_spotify) {
+                platform_json["spotify_proxy"] = true;
+                platform_json["resolved_title"] = spotify_title;
+                platform_json["proxy_notice"]  = "Spotify uses DRM, so we're downloading the matching track from YouTube. Quality and runtime may differ slightly from the Spotify master.";
+            }
 
             // ── Check if it's a playlist first ──────────────────────────────
             // Skip the probe entirely for URLs that are clearly single videos —
@@ -276,6 +351,21 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 res.status = 400;
                 res.set_content(json({{"error", "URL is required"}}).dump(), "application/json");
                 return;
+            }
+
+            // Spotify -> YouTube proxy (same logic as /api/analyze).
+            if (url.find("spotify.com/") != string::npos) {
+                string rewritten, sp_title;
+                if (maybe_resolve_spotify(url, rewritten, sp_title)) {
+                    url = rewritten;
+                } else {
+                    res.status = 400;
+                    res.set_content(json({{
+                        "error",
+                        "Could not look up that Spotify link. Only individual tracks are supported (we download the matching track from YouTube — no DRM bypass)."
+                    }}).dump(), "application/json");
+                    return;
+                }
             }
 
             // Per-device concurrency limit
