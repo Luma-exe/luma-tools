@@ -123,8 +123,7 @@ function closeDisabledModal(e) {
     if (bd) bd.classList.remove('open');
 }
 
-function openUpgradeModal(planId = 'pro') {
-    planId = 'pro';
+function openUpgradeModal() {
     // Remove focus from whatever triggered the modal so it doesn't appear "selected"
     if (document.activeElement && document.activeElement !== document.body) {
         document.activeElement.blur();
@@ -132,13 +131,11 @@ function openUpgradeModal(planId = 'pro') {
     const backdrop = $('upgradeBackdrop');
     const title = $('upgradeTitle');
     const body = $('upgradeBody');
-    if (title) title.textContent = planId === 'starter' ? 'Starter unlocks daily productivity' : 'Pro unlocks faster workflows';
-    if (body) body.textContent = planId === 'starter'
-        ? 'Starter gives you higher daily usage limits while keeping all essential tools free.'
-        : 'Pro gives you higher limits, bigger batches, and priority processing.';
-    try { localStorage.setItem('lt_selected_plan', planId); } catch {}
+    if (title) title.textContent = 'Pro unlocks faster workflows';
+    if (body) body.textContent = 'Pro gives you higher limits, bigger batches, and priority processing — A$5/month.';
+    try { localStorage.setItem('lt_selected_plan', 'pro'); } catch {}
     if (backdrop) backdrop.classList.add('open');
-    lvTrack('paywall_viewed', { source_page: 'landing_pricing', selected_plan: planId }, { dedupeKey: `paywall_viewed:${planId}`, debounceMs: 1500 });
+    lvTrack('paywall_viewed', { source_page: 'landing_pricing', selected_plan: 'pro' }, { dedupeKey: 'paywall_viewed:pro', debounceMs: 1500 });
 }
 
 function closeUpgradeModal(e) {
@@ -150,25 +147,46 @@ function closeUpgradeModal(e) {
     }
 }
 
-function showProNoticeModal() {
-    const backdrop = $('proNoticeBackdrop');
-    if (backdrop) backdrop.classList.add('open');
+async function startProCheckout() {
+    const plan = 'pro';
+    try { localStorage.setItem('lt_selected_plan', plan); } catch {}
+    lvTrack('pricing_plan_selected', { source_page: 'upgrade_modal', selected_plan: plan }, { dedupeKey: `pricing_plan_selected:${plan}`, debounceMs: 800 });
+
+    const btn = document.getElementById('upgradeCtaBtn');
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Preparing checkout...'; }
+
+    try {
+        const res = await fetch('/api/billing/checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ plan })
+        });
+
+        if (res.status === 401) {
+            try { sessionStorage.setItem('lt_post_login_action', 'checkout_pro'); } catch {}
+            window.location.href = '/account/login';
+            return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.url) {
+            lvTrack('checkout_started', { source_page: 'upgrade_modal', selected_plan: plan }, { dedupeKey: `checkout_started:${plan}`, debounceMs: 800 });
+            window.location.href = data.url;
+            return;
+        }
+        const msg = (data && data.error) || `Could not start checkout (HTTP ${res.status}).`;
+        showToast(msg, 'error');
+    } catch (err) {
+        showToast('Network error starting checkout. Please try again.', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
+    }
 }
 
-function closeProNoticeModal(e) {
-    if (e && e.target !== $('proNoticeBackdrop') && !e.target.closest('.dtm-close')) return;
-    const backdrop = $('proNoticeBackdrop');
-    if (backdrop) backdrop.classList.remove('open');
-}
-
-function openSupportCheckout() {
-    const selectedPlan = 'pro';
-    try { localStorage.setItem('lt_selected_plan', 'pro'); } catch {}
-    lvTrack('pricing_plan_selected', { source_page: 'upgrade_modal', selected_plan: selectedPlan }, { dedupeKey: `pricing_plan_selected:${selectedPlan}`, debounceMs: 800 });
-    lvTrack('share_clicked', { source_page: 'upgrade_modal', share_target: 'kofi_checkout', selected_plan: selectedPlan }, { dedupeKey: `support_checkout:${selectedPlan}`, debounceMs: 800 });
-    window.open('https://ko-fi.com/lumaexe', '_blank', 'noopener');
-    closeUpgradeModal();
-}
+// Back-compat shim for any older callers.
+function openSupportCheckout() { return startProCheckout(); }
 
 function toggleSidebar(forceState) {
     const sidebar = $('sidebar');
@@ -430,12 +448,19 @@ function toggleHistoryDrawer(open) {
 // ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     try { localStorage.setItem('lt_selected_plan', 'pro'); } catch {}
+
+    // If we bounced the user to login mid-checkout, resume after they sign in.
     try {
-        if (!localStorage.getItem('lt_pro_notice_seen')) {
-            showProNoticeModal();
-            localStorage.setItem('lt_pro_notice_seen', '1');
+        const pending = sessionStorage.getItem('lt_post_login_action');
+        if (pending === 'checkout_pro') {
+            const params = new URLSearchParams(location.search);
+            if (params.get('msg') === 'signed_in') {
+                sessionStorage.removeItem('lt_post_login_action');
+                setTimeout(() => startProCheckout(), 100);
+            }
         }
     } catch {}
+
     // ─ Add chevrons + onclick to all nav-category-titles ─
     document.querySelectorAll('#sidebarNav .nav-category-title').forEach(titleEl => {
         if (!titleEl.querySelector('.nav-cat-chevron')) {
@@ -463,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', () => {
             const plan = 'pro';
             try { localStorage.setItem('lt_selected_plan', 'pro'); } catch {}
-            lvTrack('pricing_plan_selected', { source_page: 'landing_pricing', selected_plan: plan, price_usd: card.dataset.plan === 'pro' ? (card.dataset.price || '') : '9.99' }, { dedupeKey: 'landing_pricing:pro', debounceMs: 1000 });
+            lvTrack('pricing_plan_selected', { source_page: 'landing_pricing', selected_plan: plan, price_usd: card.dataset.price || '4.99' }, { dedupeKey: 'landing_pricing:pro', debounceMs: 1000 });
         });
     });
 

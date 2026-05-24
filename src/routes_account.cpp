@@ -269,6 +269,160 @@ static string stripe_plan_from_request(const string& plan_raw) {
     return "pro";
 }
 
+// ─── Stripe HTTP helpers ────────────────────────────────────────────────────
+
+static string url_form_enc(const string& s) {
+    static const char* hex = "0123456789ABCDEF";
+    string out;
+    out.reserve(s.size() * 3);
+    for (unsigned char c : s) {
+        bool unreserved = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') ||
+                          (c >= 'a' && c <= 'z') || c == '-' || c == '_' ||
+                          c == '.' || c == '~';
+        if (unreserved) out.push_back((char)c);
+        else { out.push_back('%'); out.push_back(hex[c >> 4]); out.push_back(hex[c & 0xF]); }
+    }
+    return out;
+}
+
+static string build_form_body(const vector<pair<string,string>>& fields) {
+    string body;
+    bool first = true;
+    for (const auto& kv : fields) {
+        if (!first) body.push_back('&');
+        first = false;
+        body += url_form_enc(kv.first);
+        body.push_back('=');
+        body += url_form_enc(kv.second);
+    }
+    return body;
+}
+
+// POST to https://api.stripe.com/v1/<path> using HTTP Basic auth (secret key as username).
+// Returns parsed JSON; on transport failure returns json::object() and sets error_out.
+static json stripe_api_post(const string& path, const vector<pair<string,string>>& fields, string& error_out) {
+    error_out.clear();
+    string secret = billing_env("STRIPE_SECRET_KEY");
+    if (secret.empty()) { error_out = "Stripe is not configured."; return json::object(); }
+
+    string proc = get_processing_dir();
+    string id = generate_job_id();
+    string body_file = proc + "/stripe_" + id + "_body.txt";
+    string resp_file = proc + "/stripe_" + id + "_resp.json";
+    string hdr_file  = proc + "/stripe_" + id + "_hdr.txt";
+
+    { ofstream f(body_file); f << build_form_body(fields); }
+    // Stripe requires API version pinning recommended but optional; let secret act as username.
+    string cmd =
+        "curl -s --max-time 30 -u " + escape_arg(secret + ":") +
+        " -H " + escape_arg("Stripe-Version: 2024-06-20") +
+        " -H " + escape_arg("Content-Type: application/x-www-form-urlencoded") +
+        " --data-binary @" + escape_arg(body_file) +
+        " -o " + escape_arg(resp_file) +
+        " -D " + escape_arg(hdr_file) +
+        " " + escape_arg("https://api.stripe.com/v1/" + path);
+
+    int rc;
+    exec_command(cmd, rc);
+
+    json result = json::object();
+    if (fs::exists(resp_file)) {
+        try {
+            std::ifstream f(resp_file);
+            std::ostringstream ss; ss << f.rdbuf();
+            string body = ss.str();
+            if (!body.empty()) result = json::parse(body);
+        } catch (const std::exception& e) {
+            error_out = string("Could not parse Stripe response: ") + e.what();
+        }
+    } else {
+        error_out = "No response from Stripe (network error).";
+    }
+
+    try { fs::remove(body_file); fs::remove(resp_file); fs::remove(hdr_file); } catch (...) {}
+
+    if (result.contains("error") && result["error"].is_object()) {
+        if (error_out.empty()) error_out = result["error"].value("message", "Stripe error");
+    }
+    return result;
+}
+
+// ─── Stripe webhook signature verification ──────────────────────────────────
+
+static string hmac_sha256_hex(const string& secret, const string& payload) {
+    string proc = get_processing_dir();
+    string id = generate_job_id();
+    string in_file  = proc + "/whsig_" + id + "_in.bin";
+    string out_file = proc + "/whsig_" + id + "_out.txt";
+    { ofstream f(in_file, std::ios::binary); f.write(payload.data(), (std::streamsize)payload.size()); }
+    string cmd = "openssl dgst -sha256 -hmac " + escape_arg(secret) +
+                 " < " + escape_arg(in_file) +
+                 " > " + escape_arg(out_file);
+    int rc;
+    exec_command(cmd, rc);
+
+    string hex;
+    if (fs::exists(out_file)) {
+        std::ifstream f(out_file);
+        std::ostringstream ss; ss << f.rdbuf();
+        string raw = ss.str();
+        // Output looks like "(stdin)= abcdef..." or just "abcdef...\n"
+        size_t eq = raw.find('=');
+        string tail = (eq == string::npos) ? raw : raw.substr(eq + 1);
+        for (char c : tail) {
+            if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+                hex.push_back((char)std::tolower((unsigned char)c));
+            }
+        }
+    }
+    try { fs::remove(in_file); fs::remove(out_file); } catch (...) {}
+    return hex;
+}
+
+// Constant-time compare for hex digests.
+static bool ct_equal_hex(const string& a, const string& b) {
+    if (a.size() != b.size() || a.empty()) return false;
+    unsigned char diff = 0;
+    for (size_t i = 0; i < a.size(); ++i) diff |= (unsigned char)(a[i] ^ b[i]);
+    return diff == 0;
+}
+
+// Verify Stripe-Signature header against payload. Returns true if at least one v1 signature matches.
+static bool verify_stripe_signature(const string& sig_header, const string& payload, const string& secret, int tolerance_seconds = 300) {
+    if (sig_header.empty() || secret.empty()) return false;
+
+    string ts;
+    vector<string> v1_sigs;
+    size_t i = 0;
+    while (i < sig_header.size()) {
+        size_t comma = sig_header.find(',', i);
+        string part = sig_header.substr(i, comma == string::npos ? string::npos : comma - i);
+        size_t eq = part.find('=');
+        if (eq != string::npos) {
+            string k = trim_copy(part.substr(0, eq));
+            string v = trim_copy(part.substr(eq + 1));
+            if (k == "t") ts = v;
+            else if (k == "v1") v1_sigs.push_back(v);
+        }
+        if (comma == string::npos) break;
+        i = comma + 1;
+    }
+    if (ts.empty() || v1_sigs.empty()) return false;
+
+    int64_t ts_int = 0;
+    try { ts_int = std::stoll(ts); } catch (...) { return false; }
+    int64_t now = (int64_t)std::time(nullptr);
+    if (tolerance_seconds > 0 && std::llabs((long long)(now - ts_int)) > tolerance_seconds) return false;
+
+    string signed_payload = ts + "." + payload;
+    string expected = hmac_sha256_hex(secret, signed_payload);
+    if (expected.empty()) return false;
+    for (const auto& sig : v1_sigs) {
+        if (ct_equal_hex(expected, lower_copy(sig))) return true;
+    }
+    return false;
+}
+
 static string auth_feedback_text(const string& code, bool is_error) {
     if (code == "registration_success") return "Registration successful. Please sign in with your new account.";
     if (code == "signed_in") return "Signed in successfully.";
@@ -277,8 +431,32 @@ static string auth_feedback_text(const string& code, bool is_error) {
     if (code == "invalid_email") return "Please enter a valid email address.";
     if (code == "password_too_short") return "Password must be at least 4 characters long.";
     if (code == "duplicate_account") return "An account with that email already exists. Please sign in instead.";
+    if (code == "checkout_success") return "Payment received! Your plan will activate within a few seconds.";
+    if (code == "checkout_canceled") return "Checkout was canceled. You can try again any time.";
     if (is_error && !code.empty()) return code;
     return "";
+}
+
+// ─── Public plan-resolution helpers (declared in routes.h) ──────────────────
+
+string account_plan_for_request(const httplib::Request& req) {
+    AccountUser user;
+    if (!current_account(req, user)) return "free";
+    string p = lower_copy(trim_copy(user.plan));
+    if (p.empty()) return "free";
+    // Only treat the user as paid if their subscription is currently active.
+    string s = lower_copy(trim_copy(user.account_status));
+    if (p == "pro" || p == "starter") {
+        if (s == "active" || s == "trialing" || s == "past_due") return p;
+        return "free";
+    }
+    return "free";
+}
+
+int account_user_id_for_request(const httplib::Request& req) {
+    AccountUser user;
+    if (!current_account(req, user)) return 0;
+    return user.id;
 }
 
 void register_account_routes(httplib::Server& svr) {
@@ -436,20 +614,100 @@ void register_account_routes(httplib::Server& svr) {
             return;
         }
 
-        json payload = {
-            {"ok", false},
-            {"plan", plan},
-            {"user_id", user.id},
-            {"checkout_ready", false},
-            {"message", "Stripe checkout session creation will be wired in the next billing slice."},
-            {"price_id", price_id},
-            {"account_url", billing_env("APP_BASE_URL", "http://localhost:8080") + "/account"}
+        string app_base = billing_env("APP_BASE_URL", "http://localhost:8080");
+        string success_url = app_base + "/account/login?msg=checkout_success&session_id={CHECKOUT_SESSION_ID}";
+        string cancel_url  = app_base + "/account/login?err=checkout_canceled";
+
+        vector<pair<string,string>> fields = {
+            {"mode", "subscription"},
+            {"line_items[0][price]", price_id},
+            {"line_items[0][quantity]", "1"},
+            {"success_url", success_url},
+            {"cancel_url", cancel_url},
+            {"client_reference_id", to_string(user.id)},
+            {"allow_promotion_codes", "true"},
+            {"metadata[user_id]", to_string(user.id)},
+            {"metadata[plan]", plan},
+            {"subscription_data[metadata][user_id]", to_string(user.id)},
+            {"subscription_data[metadata][plan]", plan},
         };
-        res.status = 501;
+        if (!user.stripe_customer_id.empty()) {
+            fields.push_back({"customer", user.stripe_customer_id});
+        } else if (!user.email.empty()) {
+            fields.push_back({"customer_email", user.email});
+        }
+
+        string err;
+        json session = stripe_api_post("checkout/sessions", fields, err);
+        string url = session.value("url", "");
+        if (url.empty()) {
+            res.status = 502;
+            json payload = { {"error", err.empty() ? "Stripe did not return a checkout URL." : err} };
+            res.set_content(payload.dump(), "application/json");
+            return;
+        }
+
+        json payload = {
+            {"ok", true},
+            {"url", url},
+            {"plan", plan},
+            {"session_id", session.value("id", "")}
+        };
+        res.set_content(payload.dump(), "application/json");
+    });
+
+    svr.Post("/api/billing/portal-session", [](const httplib::Request& req, httplib::Response& res) {
+        if (billing_env("STRIPE_SECRET_KEY").empty()) {
+            res.status = 503;
+            res.set_content(R"({"error":"Stripe is not configured yet."})", "application/json");
+            return;
+        }
+        AccountUser user;
+        if (!current_account(req, user)) {
+            res.status = 401;
+            res.set_content(R"({"error":"Please sign in first."})", "application/json");
+            return;
+        }
+        if (user.stripe_customer_id.empty()) {
+            res.status = 400;
+            res.set_content(R"({"error":"No billing customer on file. Subscribe first."})", "application/json");
+            return;
+        }
+
+        string app_base = billing_env("APP_BASE_URL", "http://localhost:8080");
+        vector<pair<string,string>> fields = {
+            {"customer", user.stripe_customer_id},
+            {"return_url", app_base + "/account/login"}
+        };
+        string err;
+        json sess = stripe_api_post("billing_portal/sessions", fields, err);
+        string url = sess.value("url", "");
+        if (url.empty()) {
+            res.status = 502;
+            json payload = { {"error", err.empty() ? "Stripe did not return a portal URL." : err} };
+            res.set_content(payload.dump(), "application/json");
+            return;
+        }
+        json payload = { {"ok", true}, {"url", url} };
         res.set_content(payload.dump(), "application/json");
     });
 
     svr.Post("/api/billing/webhook", [](const httplib::Request& req, httplib::Response& res) {
+        // Verify signature first — never trust the body until we know it came from Stripe.
+        string webhook_secret = billing_env("STRIPE_WEBHOOK_SECRET");
+        if (webhook_secret.empty()) {
+            res.status = 503;
+            res.set_content(R"({"error":"Webhook not configured."})", "application/json");
+            return;
+        }
+        string sig_header = req.get_header_value("Stripe-Signature");
+        if (!verify_stripe_signature(sig_header, req.body, webhook_secret)) {
+            cerr << "[Luma Tools] Rejected webhook with invalid Stripe signature." << endl;
+            res.status = 400;
+            res.set_content(R"({"error":"Invalid signature."})", "application/json");
+            return;
+        }
+
         json event;
         try { event = json::parse(req.body); } catch (...) {
             res.status = 400;
@@ -459,43 +717,80 @@ void register_account_routes(httplib::Server& svr) {
 
         string type = event.value("type", "");
         json obj = event.contains("data") && event["data"].contains("object") ? event["data"]["object"] : json{};
+
+        auto plan_for_price = [](const string& price_id) {
+            if (price_id.empty()) return string("free");
+            if (price_id == billing_env("STRIPE_PRICE_STARTER")) return string("starter");
+            if (price_id == billing_env("STRIPE_PRICE_PRO")) return string("pro");
+            return string("free");
+        };
+
+        if (type == "checkout.session.completed") {
+            // Stripe sends customer + subscription IDs here. Tie them to our user via client_reference_id
+            // so subsequent subscription.* events can find the user by customer_id even before the
+            // subscription record exists.
+            int user_id = 0;
+            try { user_id = std::stoi(obj.value("client_reference_id", "0")); } catch (...) {}
+            string customer_id = obj.value("customer", "");
+            string subscription_id = obj.value("subscription", "");
+            if (user_id > 0 && !customer_id.empty()) {
+                // Seed a minimal active row so the user's plan flips immediately.
+                // The subscription.updated webhook that follows will fill in price/period.
+                account_upsert_subscription(user_id, "pro", "active",
+                    customer_id, subscription_id, "", 0, event.dump());
+            }
+            res.set_content(R"({"ok":true})", "application/json");
+            return;
+        }
+
+        if (type != "customer.subscription.created" &&
+            type != "customer.subscription.updated" &&
+            type != "customer.subscription.deleted") {
+            // Acknowledge other events so Stripe doesn't retry; nothing to do.
+            res.set_content(R"({"ok":true,"ignored":true})", "application/json");
+            return;
+        }
+
         string customer_id = obj.value("customer", "");
         string subscription_id = obj.value("id", "");
         string status = obj.value("status", "inactive");
         string price_id;
+        int64_t current_period_end = obj.value("current_period_end", (int64_t)0);
         if (obj.contains("items") && obj["items"].contains("data") && obj["items"]["data"].is_array() && !obj["items"]["data"].empty()) {
             auto first_item = obj["items"]["data"][0];
             if (first_item.contains("price")) price_id = first_item["price"].value("id", "");
+            // Newer API versions moved current_period_end onto the subscription item.
+            if (current_period_end == 0) current_period_end = first_item.value("current_period_end", (int64_t)0);
         }
 
-        string plan = "free";
-        if (!price_id.empty()) {
-            if (price_id == billing_env("STRIPE_PRICE_STARTER")) plan = "starter";
-            else if (price_id == billing_env("STRIPE_PRICE_PRO")) plan = "pro";
-        }
+        string plan = plan_for_price(price_id);
 
         AccountUser user;
         bool have_user = false;
         if (!subscription_id.empty()) have_user = account_find_user_by_stripe_subscription_id(subscription_id, user);
         if (!have_user && !customer_id.empty()) have_user = account_find_user_by_stripe_customer_id(customer_id, user);
 
+        if (!have_user) {
+            // Fall back to metadata.user_id which we set when creating the checkout session.
+            int meta_uid = 0;
+            if (obj.contains("metadata") && obj["metadata"].is_object()) {
+                try { meta_uid = std::stoi(obj["metadata"].value("user_id", "0")); } catch (...) {}
+            }
+            if (meta_uid > 0 && account_get_user_by_id(meta_uid, user)) have_user = true;
+        }
+
         if (have_user) {
-            int64_t current_period_end = obj.value("current_period_end", (int64_t)0);
             if (type == "customer.subscription.deleted" || status == "canceled" || status == "incomplete_expired") {
                 status = "canceled";
                 plan = "free";
             }
-
             account_upsert_subscription(
-                user.id,
-                plan,
-                status,
-                customer_id,
-                subscription_id,
-                price_id,
-                current_period_end,
-                event.dump()
+                user.id, plan, status, customer_id, subscription_id, price_id,
+                current_period_end, event.dump()
             );
+        } else {
+            cerr << "[Luma Tools] Webhook " << type << " for sub=" << subscription_id
+                 << " cust=" << customer_id << " could not be matched to a user." << endl;
         }
 
         res.set_content(R"({"ok":true})", "application/json");

@@ -542,6 +542,50 @@ body {
     font-weight: 500;
     color: var(--text-secondary);
 }
+.tier-plan-price-sub {
+    margin-top: 2px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    line-height: 1.2;
+}
+
+/* Plan quota chip in the sidebar footer */
+.plan-quota-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    background: rgba(124, 92, 255, 0.10);
+    border: 1px solid rgba(124, 92, 255, 0.28);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.plan-quota-chip:hover {
+    background: rgba(124, 92, 255, 0.18);
+    border-color: rgba(124, 92, 255, 0.48);
+}
+.plan-quota-chip.plan-quota-pro {
+    color: #d8d2ff;
+    background: rgba(124, 92, 255, 0.22);
+    border-color: rgba(124, 92, 255, 0.55);
+    cursor: default;
+}
+.plan-quota-chip.plan-quota-pro:hover {
+    background: rgba(124, 92, 255, 0.22);
+}
+.plan-quota-chip.plan-quota-low {
+    color: #fcd34d;
+    background: rgba(252, 211, 77, 0.10);
+    border-color: rgba(252, 211, 77, 0.40);
+}
 .tier-pro-col {
     background: rgba(124,92,255,0.08);
 }

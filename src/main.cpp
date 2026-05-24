@@ -8,6 +8,23 @@
 #include "routes.h"
 #include "stats.h"
 
+// ── Free-plan caps (shared between pre-routing enforcement and /quota endpoint)
+static const int64_t FREE_MAX_UPLOAD_BYTES = 100LL * 1024 * 1024;
+static const int     FREE_AI_DAILY_QUOTA   = 20;
+static std::mutex g_ai_quota_mutex;
+static std::unordered_map<std::string, std::pair<int, std::time_t>> g_ai_quota_map;
+
+// AI endpoints that count against the free daily quota.
+static bool is_ai_endpoint(const std::string& path) {
+    if (path == "/api/mind-map" || path == "/api/youtube-summary") return true;
+    if (path.rfind("/api/tools/", 0) != 0) return false;
+    string tail = path.substr(11);
+    auto slash = tail.find('/');
+    if (slash != string::npos) tail = tail.substr(0, slash);
+    return tail == "paraphrase" || tail == "study-notes" || tail == "flashcards" ||
+           tail == "quiz" || tail == "citation-generate";
+}
+
 int main() {
     httplib::Server svr;
 
@@ -355,8 +372,9 @@ int main() {
         }
     });
 
-    // Allow large file uploads (500 MB) and generous timeouts for video processing
-    svr.set_payload_max_length(500 * 1024 * 1024);
+    // Allow large file uploads (2 GB hard cap — Pro plan). Free users are
+    // further limited to 100 MB by the plan-enforcement block below.
+    svr.set_payload_max_length(2LL * 1024 * 1024 * 1024);
     svr.set_read_timeout(300, 0);
     svr.set_write_timeout(300, 0);
 
@@ -365,6 +383,11 @@ int main() {
     static std::unordered_map<std::string, std::pair<int, std::time_t>> g_rate_map;
     // Per-tool per-IP rate limit map: tool_id -> ip -> {count, window_start}
     static std::unordered_map<std::string, std::unordered_map<std::string, std::pair<int,std::time_t>>> g_tool_rate_map;
+
+    // ── Plan-based enforcement (Free vs Pro) ────────────────────────────────
+    // Caps and state are defined at file scope (FREE_MAX_UPLOAD_BYTES, etc.)
+    // so the /api/account/quota endpoint can read the same counters.
+
     svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -401,6 +424,65 @@ int main() {
             req.path != "/favicon.svg" &&
             req.path.rfind("/downloads/", 0) != 0) {
             stat_record("visitor", "page", true, real_ip);
+        }
+
+        // ── Plan enforcement: applies to all POST /api/tools/* + AI endpoints ──
+        bool is_tool_post  = (req.path.find("/api/tools/") == 0 && req.method == "POST");
+        bool is_ai_post    = (req.method == "POST" && is_ai_endpoint(req.path));
+        if (is_tool_post || is_ai_post) {
+            string plan = account_plan_for_request(req);
+            bool is_pro = (plan == "pro" || plan == "starter");
+
+            // (a0) Batch processing is Pro-only. Frontend tags batch jobs
+            //      with the X-Lt-Batch header.
+            if (!is_pro && req.has_header("X-Lt-Batch") &&
+                req.get_header_value("X-Lt-Batch") != "0") {
+                res.status = 402;
+                res.set_content(json({
+                    {"error", "Batch processing is a Pro feature. Process files one at a time on the Free plan, or upgrade for unlimited batches."},
+                    {"plan_required", "pro"}
+                }).dump(), "application/json");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+
+            // (a) Upload-size cap for free users.
+            if (!is_pro && req.has_header("Content-Length")) {
+                int64_t clen = 0;
+                try { clen = std::stoll(req.get_header_value("Content-Length")); } catch (...) {}
+                if (clen > FREE_MAX_UPLOAD_BYTES) {
+                    res.status = 413;
+                    res.set_content(json({
+                        {"error", "Files over 100 MB are a Pro feature. Upgrade at /account/login to lift the limit to 2 GB."},
+                        {"plan_required", "pro"},
+                        {"max_bytes", FREE_MAX_UPLOAD_BYTES}
+                    }).dump(), "application/json");
+                    return httplib::Server::HandlerResponse::Handled;
+                }
+            }
+
+            // (b) Daily AI-call quota for free users.
+            if (!is_pro && is_ai_post) {
+                int uid = account_user_id_for_request(req);
+                string key = (uid > 0) ? ("u:" + to_string(uid)) : ("ip:" + real_ip);
+                std::time_t now = std::time(nullptr);
+                std::lock_guard<std::mutex> lk(g_ai_quota_mutex);
+                auto& slot = g_ai_quota_map[key];
+                if (now - slot.second >= 24 * 3600) { slot.first = 0; slot.second = now; }
+                if (slot.first >= FREE_AI_DAILY_QUOTA) {
+                    int64_t retry = 24 * 3600 - (now - slot.second);
+                    if (retry < 60) retry = 60;
+                    res.status = 429;
+                    res.set_header("Retry-After", to_string(retry));
+                    res.set_content(json({
+                        {"error", "Daily AI limit reached (20/day on Free). Upgrade to Pro for unlimited AI requests."},
+                        {"plan_required", "pro"},
+                        {"quota", FREE_AI_DAILY_QUOTA},
+                        {"retry_after_seconds", retry}
+                    }).dump(), "application/json");
+                    return httplib::Server::HandlerResponse::Handled;
+                }
+                slot.first++;
+            }
         }
 
         if (req.path.find("/api/tools/") == 0 && req.method == "POST") {
@@ -487,6 +569,61 @@ int main() {
     register_tool_routes(svr, dl_dir);
     register_stats_routes(svr);
     register_account_routes(svr);
+
+    // ── /api/account/quota — what the current requester can do and how much
+    //     of their daily AI quota they have left. Used by the frontend to show
+    //     "X of 20 AI requests left today" and to enable Pro-only UI affordances.
+    svr.Get("/api/account/quota", [](const httplib::Request& req, httplib::Response& res) {
+        string plan = account_plan_for_request(req);
+        bool is_pro = (plan == "pro" || plan == "starter");
+        int uid = account_user_id_for_request(req);
+
+        // Compute the same key the pre-routing handler uses.
+        string real_ip = req.remote_addr;
+        if (req.has_header("X-Forwarded-For")) {
+            string xff = req.get_header_value("X-Forwarded-For");
+            auto comma = xff.find(',');
+            if (comma != string::npos) xff = xff.substr(0, comma);
+            auto s = xff.find_first_not_of(" \t");
+            if (s != string::npos) xff = xff.substr(s);
+            if (!xff.empty()) real_ip = xff;
+        }
+        if (real_ip == "::1") real_ip = "127.0.0.1";
+
+        int ai_used = 0;
+        int64_t reset_in = 0;
+        {
+            string key = (uid > 0) ? ("u:" + to_string(uid)) : ("ip:" + real_ip);
+            std::lock_guard<std::mutex> lk(g_ai_quota_mutex);
+            auto it = g_ai_quota_map.find(key);
+            if (it != g_ai_quota_map.end()) {
+                std::time_t now = std::time(nullptr);
+                if (now - it->second.second < 24 * 3600) {
+                    ai_used  = it->second.first;
+                    reset_in = 24 * 3600 - (now - it->second.second);
+                }
+            }
+        }
+
+        json payload = {
+            {"plan", plan},
+            {"signed_in", uid > 0},
+            {"ai", {
+                {"used", ai_used},
+                {"quota", is_pro ? -1 : FREE_AI_DAILY_QUOTA},
+                {"remaining", is_pro ? -1 : std::max(0, FREE_AI_DAILY_QUOTA - ai_used)},
+                {"unlimited", is_pro},
+                {"resets_in_seconds", reset_in}
+            }},
+            {"upload", {
+                {"max_bytes", is_pro ? (int64_t)(2LL * 1024 * 1024 * 1024) : FREE_MAX_UPLOAD_BYTES},
+                {"max_mb",    is_pro ? 2048 : 100}
+            }},
+            {"batch_allowed", is_pro}
+        };
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(payload.dump(), "application/json");
+    });
 
     // ── Start the server ────────────────────────────────────────────────────
     int port = 8080;

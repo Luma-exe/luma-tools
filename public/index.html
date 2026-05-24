@@ -324,6 +324,7 @@
             </div>
 
             <div class="sidebar-footer">
+                <button type="button" id="planQuotaChip" class="plan-quota-chip" style="display:none" onclick="openUpgradeModal()" title="Click to upgrade to Pro"></button>
                 <div class="sidebar-credit"><i class="fas fa-bolt"></i> Built by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener">Luma</a></div>
                 <button class="install-app-btn" id="installAppBtn" onclick="installPWA()">
                     <i class="fas fa-download"></i> Install App
@@ -519,7 +520,7 @@
                     </div>
                     <div class="landing-pricing" id="landingPricing">
                         <h3>Support the project, unlock faster workflow</h3>
-                        <p class="landing-pricing-sub">Core tools are free forever. Supporter tiers help keep the servers running.</p>
+                        <p class="landing-pricing-sub">Core tools are free forever. Pro removes the limits and keeps the servers running.</p>
                         <div class="tier-table-wrap">
                             <table class="tier-table" aria-label="Plan comparison">
                                 <thead>
@@ -529,29 +530,25 @@
                                             <div class="tier-plan-name">Free</div>
                                             <div class="tier-plan-price">$0.00</div>
                                         </th>
-                                        <th>
-                                            <div class="tier-plan-name">Starter</div>
-                                            <div class="tier-plan-price">TBC</div>
-                                        </th>
                                         <th class="tier-pro-col">
                                             <div class="tier-plan-name">Pro</div>
-                                            <div class="tier-plan-price">TBC</div>
+                                            <div class="tier-plan-price">A$5 / mo</div>
+                                            <div class="tier-plan-price-sub">billed monthly in AUD</div>
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td>All 50+ tools</td><td><span class="tier-check">✓</span></td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
-                                    <tr><td>In-browser processing</td><td><span class="tier-check">✓</span></td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
-                                    <tr><td>AI study tools</td><td><span class="tier-check">✓</span></td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
-                                    <tr><td>Daily AI requests</td><td>20 / day</td><td>100 / day</td><td class="tier-pro-col">Unlimited</td></tr>
-                                    <tr><td>Max file size</td><td>100 MB</td><td>500 MB</td><td class="tier-pro-col">2 GB</td></tr>
-                                    <tr><td>Batch processing</td><td><span class="tier-dash">—</span></td><td>Basic</td><td class="tier-pro-col">Full</td></tr>
-                                    <tr><td>Priority queue</td><td><span class="tier-dash">—</span></td><td><span class="tier-dash">—</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
-                                    <tr><td>Support</td><td>Community</td><td>Priority</td><td class="tier-pro-col">Priority+</td></tr>
+                                    <tr><td>All 50+ tools</td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
+                                    <tr><td>In-browser processing</td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
+                                    <tr><td>AI study tools</td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
+                                    <tr><td>Daily AI requests</td><td>20 / day</td><td class="tier-pro-col">Unlimited</td></tr>
+                                    <tr><td>Max file size</td><td>100 MB</td><td class="tier-pro-col">2 GB</td></tr>
+                                    <tr><td>Batch processing</td><td><span class="tier-dash">—</span></td><td class="tier-pro-col">Full</td></tr>
+                                    <tr><td>Priority queue</td><td><span class="tier-dash">—</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
+                                    <tr><td>Support</td><td>Community</td><td class="tier-pro-col">Priority</td></tr>
                                     <tr class="tier-cta-row">
                                         <td></td>
                                         <td><button class="tier-join-btn" onclick="window.location.href='/account/register';this.blur()">Get started</button></td>
-                                        <td><button class="tier-join-btn" onclick="openUpgradeModal('starter');this.blur()">Join Starter</button></td>
                                         <td class="tier-pro-col"><button class="tier-join-btn tier-join-pro" onclick="openUpgradeModal('pro');this.blur()">Join Pro</button></td>
                                     </tr>
                                 </tbody>
@@ -2947,17 +2944,8 @@
             <div class="dtm-icon"><i class="fas fa-bolt"></i></div>
             <h3 id="upgradeTitle">Upgrade for faster workflows</h3>
             <p id="upgradeBody">Unlock higher limits, bigger batches, and priority processing while keeping core tools free for everyone.</p>
-            <button class="dtm-close" id="upgradeCtaBtn" onclick="openSupportCheckout()"><i class="fas fa-mug-hot"></i> Continue to support</button>
+            <button class="dtm-close" id="upgradeCtaBtn" onclick="startProCheckout()"><i class="fas fa-bolt"></i> Continue to checkout</button>
             <button class="dtm-close" onclick="closeUpgradeModal()"><i class="fas fa-times"></i> Maybe later</button>
-        </div>
-    </div>
-    <!-- Pro update notice (shown once) -->
-    <div class="disabled-tool-backdrop" id="proNoticeBackdrop" onclick="closeProNoticeModal(event)">
-        <div class="disabled-tool-modal">
-            <div class="dtm-icon"><i class="fas fa-crown"></i></div>
-            <h3>Pro Membership Enabled For Everyone</h3>
-            <p>Everyone has been given Pro membership while we roll out updates to the site. Thanks for your support while we improve Luma Tools.</p>
-            <button class="dtm-close" onclick="closeProNoticeModal()"><i class="fas fa-check"></i> Got it</button>
         </div>
     </div>
 
@@ -2984,6 +2972,8 @@
     <!-- Core (must be first) -->
     <script src="js/state.js?v=251"></script>
     <script src="js/utils.js?v=251"></script>
+    <!-- Billing/plan guard — must wrap fetch BEFORE any other script makes a call -->
+    <script src="js/plan-guard.js?v=251"></script>
     <!-- UI & navigation -->
     <script src="js/ui.js?v=251"></script>
     <!-- Tool modules -->

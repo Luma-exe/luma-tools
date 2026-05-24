@@ -82,6 +82,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         # Misc
         ca-certificates \
         curl \
+        openssl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python-based tools globally (demucs last — large install)
