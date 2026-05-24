@@ -167,7 +167,7 @@
                         <i class="fas fa-expand"></i><span>Upscale</span>
                     </a>
                     <a class="nav-item" data-tool="ocr" data-location="server" onclick="switchTool('ocr')">
-                        <i class="fas fa-font"></i><span>OCR / Extract Text</span>
+                        <i class="fas fa-font"></i><span>Image Extract Text</span>
                     </a>
                     <a class="nav-item" data-tool="redact" data-location="browser" onclick="switchTool('redact')">
                         <i class="fas fa-user-secret"></i><span>Privacy Redaction</span>
@@ -507,7 +507,7 @@
                             <span class="landing-chip" onclick="switchTool('uuid-gen')"><i class="fas fa-id-badge"></i> UUID Generator</span>
                             <span class="landing-chip" onclick="switchTool('url-encode')"><i class="fas fa-link"></i> URL Encoder</span>
                             <span class="landing-chip" onclick="switchTool('image-upscale')"><i class="fas fa-expand"></i> Image Upscale</span>
-                            <span class="landing-chip" onclick="switchTool('ocr')"><i class="fas fa-font"></i> OCR / Extract Text</span>
+                            <span class="landing-chip" onclick="switchTool('ocr')"><i class="fas fa-font"></i> Image Extract Text</span>
                             <span class="landing-chip" onclick="switchTool('audio-separate')"><i class="fas fa-guitar"></i> Vocal Separator</span>
                             <span class="landing-chip" onclick="switchTool('password-gen')"><i class="fas fa-key"></i> Password Generator</span>
                             <span class="landing-chip" onclick="switchTool('jwt-decode')"><i class="fas fa-shield-alt"></i> JWT Decoder</span>
@@ -2705,10 +2705,10 @@
                 </div>
             </div>
 
-            <!-- ── OCR / EXTRACT TEXT ─────────────────────────────────── -->
+            <!-- ── IMAGE EXTRACT TEXT (OCR) ───────────────────────────── -->
             <div class="tool-panel" id="tool-ocr">
                 <div class="tool-header">
-                    <h2><i class="fas fa-font"></i> OCR / Extract Text</h2>
+                    <h2><i class="fas fa-font"></i> Image Extract Text</h2>
                     <p>Extract text from scanned documents, photos, and image-based PDFs using Tesseract OCR.</p>
                 </div>
                 <div class="tool-body">
