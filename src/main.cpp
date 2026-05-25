@@ -14,6 +14,12 @@ static const int     FREE_AI_DAILY_QUOTA   = 20;
 static std::mutex g_ai_quota_mutex;
 static std::unordered_map<std::string, std::pair<int, std::time_t>> g_ai_quota_map;
 
+// ── Priority-lane in-flight counters (Pro skips the free queue) ─────────────
+static const int FREE_MAX_INFLIGHT = 4;
+static const int PRO_MAX_INFLIGHT  = 32;
+static std::atomic<int> g_free_inflight{0};
+static std::atomic<int> g_pro_inflight{0};
+
 // AI endpoints that count against the free daily quota.
 static bool is_ai_endpoint(const std::string& path) {
     if (path == "/api/mind-map" || path == "/api/youtube-summary") return true;
@@ -520,6 +526,39 @@ int main() {
             }
         }
 
+        // ── Priority lane: rate-limit free traffic separately from pro ─────
+        //    Free users share a small concurrency budget; Pro users get their
+        //    own much larger one. A flood of free requests therefore can't
+        //    starve paying customers, fulfilling the "Priority queue" pricing
+        //    claim. Quick-running endpoints (analytics, /healthz, static)
+        //    are not throttled — only POSTs to /api/tools/* and /api/download.
+        //    Counters live at file scope (above main) so the post-routing
+        //    handler can release them.
+        if ((req.path.find("/api/tools/") == 0 || req.path == "/api/download") &&
+            req.method == "POST") {
+            string plan = account_plan_for_request(req);
+            bool is_pro = (plan == "pro" || plan == "starter");
+            auto& counter = is_pro ? g_pro_inflight : g_free_inflight;
+            int    cap    = is_pro ? PRO_MAX_INFLIGHT : FREE_MAX_INFLIGHT;
+            if (counter.load() >= cap) {
+                res.status = 503;
+                res.set_header("Retry-After", "5");
+                res.set_content(json({
+                    {"error", is_pro
+                        ? "Pro queue is full right now (very rare — try in a few seconds)."
+                        : "Server is busy. Pro users skip this queue — upgrade for priority processing."},
+                    {"plan_required", is_pro ? "" : "pro"}
+                }).dump(), "application/json");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+            // Reserve a slot. The post-routing handler below decrements it.
+            counter.fetch_add(1);
+            // Stash the plan in a response header we own so the post-routing
+            // handler knows which counter to release. (httplib has no native
+            // per-request user-data dict.) Header is stripped before send.
+            res.set_header("X-Lt-Lane", is_pro ? "pro" : "free");
+        }
+
         if (req.path.find("/api/tools/") == 0 && req.method == "POST") {
             // Extract tool id from path: /api/tools/<tool-id>
             string tool_id = req.path.substr(11); // after "/api/tools/"
@@ -563,6 +602,16 @@ int main() {
             }
         }
         return httplib::Server::HandlerResponse::Unhandled;
+    });
+
+    // Post-routing: release the priority-lane slot we reserved in pre-routing.
+    // The pre-routing block set X-Lt-Lane = "pro"|"free" to remember which
+    // counter to decrement; we strip that header before sending so clients
+    // never see it.
+    svr.set_post_routing_handler([](const httplib::Request&, httplib::Response& res) {
+        string lane = res.get_header_value("X-Lt-Lane");
+        if (lane == "pro")  { g_pro_inflight.fetch_sub(1); res.headers.erase("X-Lt-Lane"); }
+        else if (lane == "free") { g_free_inflight.fetch_sub(1); res.headers.erase("X-Lt-Lane"); }
     });
 
     svr.Options(".*", [](const httplib::Request&, httplib::Response& res) {
@@ -624,6 +673,17 @@ int main() {
     svr.Get("/healthz", [](const httplib::Request&, httplib::Response& res) {
         // Minimal 200/OK for k8s-style liveness probes.
         res.set_content("ok", "text/plain");
+    });
+
+    // /embed/<tool-id> — clean URL for third-party iframe embeds.
+    // <iframe src="https://tools.lumaplayground.com/embed/image-compress">
+    // Redirects to /?embed=1#image-compress; the JS picks up ?embed=1 and
+    // hides sidebar/header/footer via the .lt-embed body class.
+    svr.Get(R"(/embed/([a-zA-Z0-9_-]+))", [](const httplib::Request& req, httplib::Response& res) {
+        string tool = req.matches[1].str();
+        res.set_header("Location", "/?embed=1#" + tool);
+        // Allow framing — default httplib does not set X-Frame-Options, good.
+        res.status = 302;
     });
 
     // ── /api/account/quota — what the current requester can do and how much

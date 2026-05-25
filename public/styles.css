@@ -625,6 +625,26 @@ body {
     border-color: var(--border);
 }
 
+/* ── Embed mode: hide chrome when the page is loaded via ?embed=1 or in
+   an iframe with embed=1 in the URL. Lets third-party sites embed a
+   single tool with <iframe src="…?embed=1#image-compress"> without our
+   sidebar, header, or footer leaking through.  */
+body.lt-embed #sidebar,
+body.lt-embed #sidebarOverlay,
+body.lt-embed .mobile-header,
+body.lt-embed .landing-pricing,
+body.lt-embed .landing-privacy-notice,
+body.lt-embed #planQuotaChip,
+body.lt-embed #userProfileCard,
+body.lt-embed .sidebar-footer,
+body.lt-embed .install-app-btn,
+body.lt-embed .history-open-btn,
+body.lt-embed .server-status { display: none !important; }
+body.lt-embed .main-content { margin-left: 0 !important; padding-top: 8px !important; }
+body.lt-embed .tool-panel  { padding: 16px !important; }
+body.lt-embed .bg-orbs    { display: none !important; }
+body.lt-embed { background: transparent !important; }
+
 /* Plan quota chip in the sidebar footer */
 .plan-quota-chip {
     display: flex;

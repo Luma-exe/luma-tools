@@ -184,5 +184,13 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         PlanGuard.refreshQuota();
+        // Embed mode: ?embed=1 or window in iframe → strip the chrome.
+        try {
+            const inFrame = window.self !== window.top;
+            const params  = new URLSearchParams(location.search);
+            if (params.get('embed') === '1' || (inFrame && params.has('embed'))) {
+                document.body.classList.add('lt-embed');
+            }
+        } catch { /* sandboxed cross-origin iframe — fall through */ }
     });
 })();

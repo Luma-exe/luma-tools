@@ -332,6 +332,19 @@ void stat_init_db() {
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_pwresets_user_id ON password_resets(user_id);
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id      INTEGER NOT NULL,
+            key_hash     TEXT    NOT NULL UNIQUE,
+            key_prefix   TEXT    NOT NULL,
+            name         TEXT    NOT NULL DEFAULT '',
+            created_ts   INTEGER NOT NULL,
+            last_used_ts INTEGER NOT NULL DEFAULT 0,
+            revoked_ts   INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
+        CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
     )";
     char* errmsg = nullptr;
     if (sqlite3_exec(g_db, schema, nullptr, nullptr, &errmsg) != SQLITE_OK) {
@@ -1096,6 +1109,108 @@ static void account_bump_counter(int user_id, const char* col) {
 
 void account_bump_tool_count(int user_id)     { account_bump_counter(user_id, "tools_used"); }
 void account_bump_download_count(int user_id) { account_bump_counter(user_id, "downloads"); }
+
+// ─── API keys (Bearer token auth) ───────────────────────────────────────────
+
+bool account_api_key_create(int user_id, const string& name, string& out_plaintext, int& out_id) {
+    out_id = 0;
+    if (!g_db || user_id <= 0) return false;
+    // "lt_" + 32 hex chars (16 random bytes) — looks like sk_xxx (Stripe-style).
+    out_plaintext = "lt_" + random_token_hex(16);
+    string key_hash   = hash_text(out_plaintext);
+    string key_prefix = out_plaintext.substr(0, 11);   // "lt_xxxxxxxx" — visible later
+    int64_t now = now_unix();
+
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "INSERT INTO api_keys (user_id, key_hash, key_prefix, name, created_ts) "
+        "VALUES (?, ?, ?, ?, ?)";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, user_id);
+        sqlite3_bind_text(stmt, 2, key_hash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, key_prefix.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 4, name.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 5, now);
+        ok = (sqlite3_step(stmt) == SQLITE_DONE);
+        if (ok) out_id = (int)sqlite3_last_insert_rowid(g_db);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+vector<ApiKey> account_api_key_list(int user_id) {
+    vector<ApiKey> rows;
+    if (!g_db || user_id <= 0) return rows;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT id, user_id, key_prefix, name, created_ts, last_used_ts, revoked_ts "
+        "FROM api_keys WHERE user_id = ? AND revoked_ts = 0 ORDER BY id DESC";
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, user_id);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            ApiKey k;
+            k.id           = sqlite3_column_int(stmt, 0);
+            k.user_id      = sqlite3_column_int(stmt, 1);
+            auto t = [&](int i){ auto p=sqlite3_column_text(stmt,i); return p?reinterpret_cast<const char*>(p):""; };
+            k.key_prefix   = t(2);
+            k.name         = t(3);
+            k.created_ts   = sqlite3_column_int64(stmt, 4);
+            k.last_used_ts = sqlite3_column_int64(stmt, 5);
+            k.revoked_ts   = sqlite3_column_int64(stmt, 6);
+            rows.push_back(k);
+        }
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return rows;
+}
+
+bool account_api_key_revoke(int user_id, int key_id) {
+    if (!g_db || user_id <= 0 || key_id <= 0) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    bool ok = false;
+    const char* sql = "UPDATE api_keys SET revoked_ts = ? WHERE id = ? AND user_id = ?";
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int64(stmt, 1, now_unix());
+        sqlite3_bind_int(stmt, 2, key_id);
+        sqlite3_bind_int(stmt, 3, user_id);
+        ok = (sqlite3_step(stmt) == SQLITE_DONE) && (sqlite3_changes(g_db) > 0);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_find_user_by_api_key(const string& plaintext, AccountUser& out_user) {
+    if (!g_db || plaintext.size() < 16 || plaintext.rfind("lt_", 0) != 0) return false;
+    string key_hash = hash_text(plaintext);
+    int user_id = 0;
+    {
+        lock_guard<mutex> lk(g_stats_mutex);
+        sqlite3_stmt* stmt = nullptr;
+        const char* sql = "SELECT user_id FROM api_keys WHERE key_hash = ? AND revoked_ts = 0";
+        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, key_hash.c_str(), -1, SQLITE_TRANSIENT);
+            if (sqlite3_step(stmt) == SQLITE_ROW) user_id = sqlite3_column_int(stmt, 0);
+        }
+        if (stmt) sqlite3_finalize(stmt);
+        if (user_id > 0) {
+            // bump last_used_ts in the same lock window so concurrent reads see it.
+            sqlite3_stmt* up = nullptr;
+            if (sqlite3_prepare_v2(g_db,
+                "UPDATE api_keys SET last_used_ts = ? WHERE key_hash = ?", -1, &up, nullptr) == SQLITE_OK) {
+                sqlite3_bind_int64(up, 1, now_unix());
+                sqlite3_bind_text(up, 2, key_hash.c_str(), -1, SQLITE_TRANSIENT);
+                sqlite3_step(up);
+            }
+            if (up) sqlite3_finalize(up);
+        }
+    }
+    if (user_id <= 0) return false;
+    return account_get_user_by_id(user_id, out_user);
+}
 
 // ─── Password reset ──────────────────────────────────────────────────────────
 

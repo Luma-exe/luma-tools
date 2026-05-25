@@ -136,6 +136,23 @@ bool account_get_user_by_display_name(const string& display_name, AccountUser& o
 bool account_link_oauth_identity(const string& provider, const string& provider_user_id, int user_id);
 bool account_find_user_by_oauth(const string& provider, const string& provider_user_id, AccountUser& out_user);
 
+// API keys (Pro feature) — Bearer auth for programmatic access.
+// Token format: "lt_" + 32 random hex chars. Only the SHA-like hash is stored.
+struct ApiKey {
+    int    id = 0;
+    int    user_id = 0;
+    string key_prefix;   // first 8 chars of plaintext, for display ("lt_a1b2…")
+    string name;
+    int64_t created_ts = 0;
+    int64_t last_used_ts = 0;
+    int64_t revoked_ts = 0;
+};
+bool account_api_key_create(int user_id, const string& name, string& out_plaintext, int& out_id);
+vector<ApiKey> account_api_key_list(int user_id);
+bool account_api_key_revoke(int user_id, int key_id);
+// Verify a Bearer token; on hit returns the user and bumps last_used_ts.
+bool account_find_user_by_api_key(const string& plaintext, AccountUser& out_user);
+
 // Password reset (forgot-password) flow.
 // Issues a single-use plaintext token; only its hash is stored. Token is valid
 // for `ttl_seconds` (default 30 min). Returns false if user_id is invalid.

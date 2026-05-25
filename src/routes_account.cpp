@@ -359,23 +359,94 @@ static string render_account_dashboard(const AccountUser& user, const string& me
     if (is_pro && !user.stripe_customer_id.empty()) {
         b << "<button class=\"primary\" type=\"button\" onclick=\"openBillingPortal(this)\">"
              "<i class=\"fas fa-credit-card\"></i> Manage subscription</button>";
-    } else {
+    } else if (!is_pro) {
         b << "<button class=\"primary\" type=\"button\" onclick=\"startProCheckout(this)\">"
              "<i class=\"fas fa-bolt\"></i> Upgrade to Pro</button>";
     }
     b << "<form method=\"POST\" action=\"/account/logout\" style=\"margin:0\"><button class=\"ghost\" type=\"submit\" style=\"width:100%\"><i class=\"fas fa-sign-out-alt\"></i> Sign out</button></form>"
          "</div>"
-         "</div>"
-         "<script>"
-         "async function openBillingPortal(btn){btn.disabled=true;const orig=btn.innerHTML;btn.innerHTML='<i class=\"fas fa-circle-notch fa-spin\"></i> Loading...';"
-         "try{const r=await fetch('/api/billing/portal-session',{method:'POST',credentials:'same-origin'});const d=await r.json();"
-         "if(r.ok&&d.url){window.location=d.url;return}alert(d.error||('Error '+r.status))}catch(e){alert('Network error')}finally{btn.disabled=false;btn.innerHTML=orig}}"
-         "async function startProCheckout(btn){btn.disabled=true;const orig=btn.innerHTML;btn.innerHTML='<i class=\"fas fa-circle-notch fa-spin\"></i> Loading...';"
-         "try{const r=await fetch('/api/billing/checkout-session',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({plan:'pro'})});const d=await r.json();"
-         "if(r.ok&&d.url){window.location=d.url;return}alert(d.error||('Error '+r.status))}catch(e){alert('Network error')}finally{btn.disabled=false;btn.innerHTML=orig}}"
-         "</script>";
+         "</div>";
 
-    return render_account_shell("Your account", b.str());
+    // API keys section (Pro only). Hidden card for free users with an upgrade hint.
+    b << "<div class=\"card card-wide\" style=\"max-width:760px;margin-top:18px\">"
+         "<div style=\"display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:8px\">"
+         "<div><h1 style=\"font-size:1.2rem\">API keys</h1>"
+         "<p class=\"intro\" style=\"margin-bottom:0\">Programmatic access for scripts and the <code>luma</code> CLI. "
+         "<a href=\"#\" onclick=\"document.getElementById('apiDocs').classList.toggle('hidden');return false\" "
+         "style=\"color:var(--accent-light)\">View docs</a></p></div>";
+    if (is_pro) {
+        b << "<button class=\"primary\" style=\"max-width:200px\" onclick=\"createApiKey()\">"
+             "<i class=\"fas fa-plus\"></i> New key</button>";
+    } else {
+        b << "<span class=\"chip\" style=\"align-self:center\"><i class=\"fas fa-lock\"></i> Pro only</span>";
+    }
+    b << "</div>"
+         "<div id=\"apiDocs\" class=\"hidden\" style=\"background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:10px 0 14px;font-size:.85rem;color:var(--text-secondary)\">"
+         "<div style=\"color:var(--text-primary);font-weight:600;margin-bottom:6px\">Authenticate any tool endpoint with your key:</div>"
+         "<pre style=\"background:rgba(255,255,255,.04);padding:10px;border-radius:6px;font-family:monospace;font-size:.78rem;margin:0;white-space:pre-wrap\">"
+         "curl https://tools.lumaplayground.com/api/tools/image-compress \\\n"
+         "  -H \"Authorization: Bearer lt_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\" \\\n"
+         "  -F \"file=@photo.jpg\" \\\n"
+         "  -o compressed.jpg</pre>"
+         "<div style=\"margin-top:8px\">Or with the CLI: <code>npx luma-tools-cli compress photo.jpg</code></div>"
+         "</div>"
+         "<div id=\"apiKeysList\" style=\"margin-top:8px\">Loading…</div>"
+         "</div>";
+
+    return render_account_shell("Your account", b.str() +
+        "<script>" + R"JS(
+async function loadApiKeys() {
+    const list = document.getElementById('apiKeysList');
+    if (!list) return;
+    try {
+        const r = await fetch('/api/account/api-keys', { credentials: 'same-origin' });
+        if (!r.ok) { list.innerHTML = ''; return; }
+        const data = await r.json();
+        if (!data.keys || !data.keys.length) {
+            list.innerHTML = '<div style="color:var(--text-secondary);font-size:.86rem;padding:10px 0">No API keys yet.</div>';
+            return;
+        }
+        const fmt = ts => ts ? new Date(ts*1000).toLocaleDateString() : '—';
+        list.innerHTML = data.keys.map(k => `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:600;font-size:.9rem">${escapeHtml(k.name||'Untitled key')}</div>
+                    <div style="font-family:monospace;font-size:.78rem;color:var(--text-secondary)">${escapeHtml(k.prefix)}… &middot; created ${fmt(k.created_ts)} &middot; last used ${k.last_used_ts?fmt(k.last_used_ts):'never'}</div>
+                </div>
+                <button onclick="revokeApiKey(${k.id})" style="padding:6px 12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:6px;color:#fca5a5;font-size:.78rem;cursor:pointer">Revoke</button>
+            </div>`).join('');
+    } catch(e) { list.innerHTML = '<div style="color:#fca5a5">Failed to load keys.</div>'; }
+}
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function createApiKey() {
+    const name = prompt('Name for this key (e.g. "Laptop CLI", "n8n workflow"):');
+    if (name === null) return;
+    try {
+        const r = await fetch('/api/account/api-keys', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify({name}) });
+        const data = await r.json();
+        if (!r.ok) { alert(data.error || 'Could not create key'); return; }
+        // Show the key once, in a copyable prompt.
+        prompt('Your new API key (save it now — you will NOT see it again):', data.key);
+        loadApiKeys();
+    } catch(e) { alert('Network error'); }
+}
+async function revokeApiKey(id) {
+    if (!confirm('Revoke this key? Anything using it will stop working immediately.')) return;
+    try {
+        const r = await fetch('/api/account/api-keys/' + id + '/revoke', { method:'POST', credentials:'same-origin' });
+        if (!r.ok) { alert('Could not revoke'); return; }
+        loadApiKeys();
+    } catch(e) { alert('Network error'); }
+}
+loadApiKeys();
+)JS" + R"JS(
+async function openBillingPortal(btn){btn.disabled=true;const orig=btn.innerHTML;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Loading...';
+try{const r=await fetch('/api/billing/portal-session',{method:'POST',credentials:'same-origin'});const d=await r.json();
+if(r.ok&&d.url){window.location=d.url;return}alert(d.error||('Error '+r.status))}catch(e){alert('Network error')}finally{btn.disabled=false;btn.innerHTML=orig}}
+async function startProCheckout(btn){btn.disabled=true;const orig=btn.innerHTML;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Loading...';
+try{const r=await fetch('/api/billing/checkout-session',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({plan:'pro'})});const d=await r.json();
+if(r.ok&&d.url){window.location=d.url;return}alert(d.error||('Error '+r.status))}catch(e){alert('Network error')}finally{btn.disabled=false;btn.innerHTML=orig}}
+)JS" + "</script>");
 }
 
 static string normalize_email(string email) {
@@ -653,9 +724,22 @@ static string auth_feedback_text(const string& code, bool is_error) {
 
 // ─── Public plan-resolution helpers (declared in routes.h) ──────────────────
 
+// Resolve the current request to an AccountUser by either:
+//   1. Authorization: Bearer lt_xxx  (programmatic / CLI / API key path)
+//   2. lt_session cookie             (web browser path)
+// Returns true on either match; user is populated.
+static bool current_account_any(const httplib::Request& req, AccountUser& user) {
+    string auth = req.get_header_value("Authorization");
+    if (auth.rfind("Bearer ", 0) == 0) {
+        string key = trim_copy(auth.substr(7));
+        if (!key.empty() && account_find_user_by_api_key(key, user)) return true;
+    }
+    return current_account(req, user);
+}
+
 string account_plan_for_request(const httplib::Request& req) {
     AccountUser user;
-    if (!current_account(req, user)) return "free";
+    if (!current_account_any(req, user)) return "free";
     string p = lower_copy(trim_copy(user.plan));
     if (p.empty()) return "free";
     // Only treat the user as paid if their subscription is currently active.
@@ -669,7 +753,7 @@ string account_plan_for_request(const httplib::Request& req) {
 
 int account_user_id_for_request(const httplib::Request& req) {
     AccountUser user;
-    if (!current_account(req, user)) return 0;
+    if (!current_account_any(req, user)) return 0;
     return user.id;
 }
 
@@ -1159,6 +1243,95 @@ void register_account_routes(httplib::Server& svr) {
                  << " cust=" << customer_id << " could not be matched to a user." << endl;
         }
 
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // ── API keys (Pro feature) ──────────────────────────────────────────────
+    //    Issue, list, revoke. The plaintext key is returned ONCE on creation;
+    //    afterwards only the prefix is stored for display ("lt_abc12345…").
+    svr.Get("/api/account/api-keys", [](const httplib::Request& req, httplib::Response& res) {
+        AccountUser user;
+        if (!current_account(req, user)) {
+            res.status = 401;
+            res.set_content(R"({"error":"Not signed in"})", "application/json");
+            return;
+        }
+        auto keys = account_api_key_list(user.id);
+        json arr = json::array();
+        for (const auto& k : keys) {
+            arr.push_back({
+                {"id", k.id}, {"name", k.name}, {"prefix", k.key_prefix},
+                {"created_ts", k.created_ts}, {"last_used_ts", k.last_used_ts}
+            });
+        }
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(json({{"keys", arr}}).dump(), "application/json");
+    });
+
+    svr.Post("/api/account/api-keys", [](const httplib::Request& req, httplib::Response& res) {
+        AccountUser user;
+        if (!current_account(req, user)) {
+            res.status = 401;
+            res.set_content(R"({"error":"Not signed in"})", "application/json");
+            return;
+        }
+        // Pro-only feature.
+        string plan = lower_copy(trim_copy(user.plan));
+        string status = lower_copy(trim_copy(user.account_status));
+        bool is_pro = (plan == "pro" || plan == "starter") &&
+                      (status == "active" || status == "trialing" || status == "past_due");
+        if (!is_pro) {
+            res.status = 402;
+            res.set_content(json({
+                {"error", "API keys are a Pro feature. Upgrade at /account to unlock programmatic access."},
+                {"plan_required", "pro"}
+            }).dump(), "application/json");
+            return;
+        }
+        json body;
+        try { body = json::parse(req.body); } catch (...) {}
+        string name = trim_copy(body.value("name", string("")));
+        if (name.empty()) name = "Untitled key";
+        if (name.size() > 80) name = name.substr(0, 80);
+
+        // Cap at 10 active keys per user to discourage sprawl.
+        if ((int)account_api_key_list(user.id).size() >= 10) {
+            res.status = 400;
+            res.set_content(R"({"error":"You already have 10 active API keys. Revoke one before creating another."})", "application/json");
+            return;
+        }
+
+        string plaintext;
+        int key_id = 0;
+        if (!account_api_key_create(user.id, name, plaintext, key_id)) {
+            res.status = 500;
+            res.set_content(R"({"error":"Could not create API key."})", "application/json");
+            return;
+        }
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(json({
+            {"ok", true},
+            {"id", key_id},
+            {"name", name},
+            {"key", plaintext},
+            {"warning", "Save this key now — it will not be shown again."}
+        }).dump(), "application/json");
+    });
+
+    svr.Post(R"(/api/account/api-keys/(\d+)/revoke)", [](const httplib::Request& req, httplib::Response& res) {
+        AccountUser user;
+        if (!current_account(req, user)) {
+            res.status = 401;
+            res.set_content(R"({"error":"Not signed in"})", "application/json");
+            return;
+        }
+        int key_id = std::atoi(req.matches[1].str().c_str());
+        bool ok = account_api_key_revoke(user.id, key_id);
+        if (!ok) {
+            res.status = 404;
+            res.set_content(R"({"error":"Key not found or already revoked"})", "application/json");
+            return;
+        }
         res.set_content(R"({"ok":true})", "application/json");
     });
 

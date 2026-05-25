@@ -15,4 +15,6 @@ void register_account_routes(httplib::Server& svr);
 // Returns "pro" / "starter" / "free". Signed-out users are always "free".
 string account_plan_for_request(const httplib::Request& req);
 // Returns the signed-in user's id, or 0 if not signed in.
+// Recognises BOTH session cookies (web users) AND Authorization: Bearer
+// API keys (programmatic users).
 int    account_user_id_for_request(const httplib::Request& req);

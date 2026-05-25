@@ -1,0 +1,12 @@
+{
+  "name": "luma-tools-cli",
+  "version": "0.1.0",
+  "description": "Command-line client for Luma Tools (https://tools.lumaplayground.com). Compress, convert, and transform files from your terminal using your Pro API key.",
+  "bin": { "luma": "./bin/luma.js" },
+  "files": ["bin/", "README.md"],
+  "engines": { "node": ">=18" },
+  "keywords": ["luma", "luma-tools", "compress", "convert", "ffmpeg", "media", "cli"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/Luma-exe/luma-tools" },
+  "homepage": "https://tools.lumaplayground.com"
+}
