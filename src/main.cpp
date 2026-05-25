@@ -502,27 +502,58 @@ int main() {
             }
 
             // (b) Daily AI-call quota for free users.
+            //     Order: quota counter first, then fall back to AI top-up
+            //     credits (consumes one). Rate-limit headers on EVERY response
+            //     so script writers can back off cleanly.
             if (!is_pro && is_ai_post) {
                 int uid = account_user_id_for_request(req);
                 string key = (uid > 0) ? ("u:" + to_string(uid)) : ("ip:" + real_ip);
                 std::time_t now = std::time(nullptr);
-                std::lock_guard<std::mutex> lk(g_ai_quota_mutex);
-                auto& slot = g_ai_quota_map[key];
-                if (now - slot.second >= 24 * 3600) { slot.first = 0; slot.second = now; }
-                if (slot.first >= FREE_AI_DAILY_QUOTA) {
-                    int64_t retry = 24 * 3600 - (now - slot.second);
-                    if (retry < 60) retry = 60;
-                    res.status = 429;
-                    res.set_header("Retry-After", to_string(retry));
-                    res.set_content(json({
-                        {"error", "Daily AI limit reached (20/day on Free). Upgrade to Pro for unlimited AI requests."},
-                        {"plan_required", "pro"},
-                        {"quota", FREE_AI_DAILY_QUOTA},
-                        {"retry_after_seconds", retry}
-                    }).dump(), "application/json");
-                    return httplib::Server::HandlerResponse::Handled;
+                int used = 0;
+                int64_t reset_at = now;
+                {
+                    std::lock_guard<std::mutex> lk(g_ai_quota_mutex);
+                    auto& slot = g_ai_quota_map[key];
+                    if (now - slot.second >= 24 * 3600) { slot.first = 0; slot.second = now; }
+                    used     = slot.first;
+                    reset_at = slot.second + 24 * 3600;
+                    bool over_daily = used >= FREE_AI_DAILY_QUOTA;
+                    if (over_daily) {
+                        // Try a top-up credit before refusing. Signed-in users only.
+                        bool used_credit = (uid > 0) && account_ai_credits_consume(uid, 1);
+                        if (!used_credit) {
+                            int64_t retry = reset_at - now;
+                            if (retry < 60) retry = 60;
+                            int credits = (uid > 0) ? account_ai_credits(uid) : 0;
+                            res.status = 429;
+                            res.set_header("Retry-After", to_string(retry));
+                            res.set_header("X-RateLimit-Limit",     to_string(FREE_AI_DAILY_QUOTA));
+                            res.set_header("X-RateLimit-Remaining", "0");
+                            res.set_header("X-RateLimit-Reset",     to_string(reset_at));
+                            res.set_content(json({
+                                {"error", "Daily AI limit reached (20/day on Free). Buy a top-up at /account or upgrade to Pro for unlimited AI."},
+                                {"plan_required", "pro"},
+                                {"quota", FREE_AI_DAILY_QUOTA},
+                                {"credits_remaining", credits},
+                                {"retry_after_seconds", retry}
+                            }).dump(), "application/json");
+                            return httplib::Server::HandlerResponse::Handled;
+                        }
+                        // Credit consumed → don't bump daily counter.
+                    } else {
+                        slot.first++;
+                        used = slot.first;
+                    }
                 }
-                slot.first++;
+                int remaining = (used >= FREE_AI_DAILY_QUOTA) ? 0 : (FREE_AI_DAILY_QUOTA - used);
+                res.set_header("X-RateLimit-Limit",     to_string(FREE_AI_DAILY_QUOTA));
+                res.set_header("X-RateLimit-Remaining", to_string(remaining));
+                res.set_header("X-RateLimit-Reset",     to_string(reset_at));
+            } else if (is_pro && is_ai_post) {
+                // Pro users get sentinel "unlimited" headers so clients don't
+                // panic when remaining never drops.
+                res.set_header("X-RateLimit-Limit",     "unlimited");
+                res.set_header("X-RateLimit-Remaining", "unlimited");
             }
         }
 
@@ -673,6 +704,79 @@ int main() {
     svr.Get("/healthz", [](const httplib::Request&, httplib::Response& res) {
         // Minimal 200/OK for k8s-style liveness probes.
         res.set_content("ok", "text/plain");
+    });
+
+    // ── /og/<tool-id>.svg — per-tool social-card image, generated on demand.
+    //    Twitter / Discord / Slack will fetch this when someone shares a tool
+    //    URL. Pure SVG (no font deps inside the container) — browsers + most
+    //    crawlers render it; for the few that demand a raster the same SVG is
+    //    valid through Cloudflare's image-resizing service.
+    svr.Get(R"(/og/([a-zA-Z0-9_-]+)\.svg)", [](const httplib::Request& req, httplib::Response& res) {
+        string raw = req.matches[1].str();
+        // Human-readable label: hyphen → space, capitalise words.
+        string label;
+        bool cap = true;
+        for (char c : raw) {
+            if (c == '-' || c == '_') { label += ' '; cap = true; }
+            else if (cap)             { label += (char)std::toupper((unsigned char)c); cap = false; }
+            else                      { label += c; }
+        }
+        // Custom raw-string delimiter (SVG) so the embedded )" in `url(#g)" `
+        // doesn't terminate the literal.
+        std::ostringstream svg;
+        svg << R"SVG(<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">)SVG"
+            << R"SVG(<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">)SVG"
+            << R"SVG(<stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#ff6bca"/></linearGradient></defs>)SVG"
+            << R"SVG(<rect width="1200" height="630" fill="#0a0a0f"/>)SVG"
+            << R"SVG(<circle cx="940" cy="220" r="260" fill="url(#g)" opacity="0.35"/>)SVG"
+            << R"SVG(<circle cx="240" cy="480" r="220" fill="#00d4ff" opacity="0.25"/>)SVG"
+            << R"SVG(<text x="80" y="170" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="34" font-weight="700" fill="#7c5cff" letter-spacing="3">LUMA TOOLS</text>)SVG"
+            << R"SVG(<text x="80" y="310" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="92" font-weight="800" fill="#fff">)SVG"
+            << label
+            << R"SVG(</text>)SVG"
+            << R"SVG(<text x="80" y="380" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="34" font-weight="500" fill="#a7a7b5">Free, fast, in your browser.</text>)SVG"
+            << R"SVG(<text x="80" y="560" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="26" font-weight="600" fill="#a7a7b5">tools.lumaplayground.com</text>)SVG"
+            << R"SVG(</svg>)SVG";
+        res.set_header("Cache-Control", "public, max-age=86400, immutable");
+        res.set_header("Content-Type", "image/svg+xml; charset=utf-8");
+        res.set_content(svg.str(), "image/svg+xml");
+    });
+
+    // ── /api/feedback — bottom-right "Send feedback" widget posts here.
+    //    Forwards to Discord (uses the existing webhook) with the user's
+    //    email/IP and the message. No persistence beyond Discord.
+    svr.Post("/api/feedback", [](const httplib::Request& req, httplib::Response& res) {
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400;
+            res.set_content(R"({"error":"Invalid JSON"})", "application/json");
+            return;
+        }
+        string msg = body.value("message", "");
+        if (msg.empty() || msg.size() > 4000) {
+            res.status = 400;
+            res.set_content(R"({"error":"Message must be 1-4000 chars."})", "application/json");
+            return;
+        }
+        string page = body.value("page", "");
+        // current_account is static in routes_account.cpp — use the public
+        // helper to resolve the signed-in user without including that file.
+        int uid = account_user_id_for_request(req);
+        string from = "anonymous";
+        if (uid > 0) {
+            AccountUser user;
+            if (account_get_user_by_id(uid, user)) {
+                from = user.email + " (id=" + to_string(user.id) + ", plan=" + user.plan + ")";
+            }
+        }
+        try {
+            discord_log("💬 Feedback",
+                "**From:** " + from +
+                "\n**Page:** `" + page + "`" +
+                "\n**Message:**\n```\n" + msg + "\n```",
+                0x60A5FA);
+        } catch (...) {}
+        res.set_content(R"({"ok":true})", "application/json");
     });
 
     // /embed/<tool-id> — clean URL for third-party iframe embeds.

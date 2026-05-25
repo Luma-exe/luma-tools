@@ -5,6 +5,7 @@
 #include <cctype>
 
 #include "common.h"
+#include "discord.h"
 #include "routes.h"
 #include "stats.h"
 
@@ -439,6 +440,38 @@ static string render_profile_page(const AccountUser& target, bool is_own,
     }
     b << "</div></div>";
 
+    // ── Billing extras (own view): AI top-up + invoices ───────────────────
+    if (is_own) {
+        int credits_balance = account_ai_credits(target.id);
+        b << "<div class=\"card card-wide\" style=\"max-width:760px;margin-top:18px\">"
+             "<div style=\"display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:8px\">"
+             "<div><h1 style=\"font-size:1.2rem\">Billing</h1>"
+             "<p class=\"intro\" style=\"margin-bottom:0\">"
+          << (is_pro ? "Manage your subscription via the Stripe portal."
+                     : "Buy a one-off AI top-up if you don't want a subscription.")
+          << "</p></div></div>";
+
+        // Credits balance display (only meaningful for free users)
+        if (!is_pro) {
+            b << "<div style=\"display:flex;gap:14px;align-items:center;padding:10px 14px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:10px;margin-bottom:14px\">"
+                 "<i class=\"fas fa-coins\" style=\"color:var(--accent-2)\"></i>"
+                 "<div style=\"flex:1\"><div style=\"font-weight:600\">"
+              << credits_balance << " AI credits</div>"
+                 "<div style=\"font-size:.78rem;color:var(--text-secondary)\">"
+                 "Used automatically when your daily 20-call quota is exhausted.</div></div></div>"
+                 "<div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px\">"
+                 "<button class=\"ghost\" onclick=\"buyTopup('small')\"><i class=\"fas fa-plus\"></i> 100 calls — A$1.99</button>"
+                 "<button class=\"ghost\" onclick=\"buyTopup('medium')\"><i class=\"fas fa-plus\"></i> 500 calls — A$7.99</button>"
+                 "<button class=\"ghost\" onclick=\"buyTopup('large')\"><i class=\"fas fa-plus\"></i> 2000 calls — A$24.99</button>"
+                 "</div>";
+        }
+
+        // Receipts (Stripe invoices) — populated by JS.
+        b << "<div style=\"font-size:.86rem;color:var(--text-secondary);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em\">Receipts</div>"
+             "<div id=\"invoicesList\" style=\"font-size:.86rem;color:var(--text-secondary)\">Loading…</div>"
+             "</div>";
+    }
+
     // API keys section — only on own view.
     if (is_own) {
         b << "<div class=\"card card-wide\" style=\"max-width:760px;margin-top:18px\">"
@@ -517,6 +550,38 @@ async function revokeApiKey(id) {
     } catch(e) { alert('Network error'); }
 }
 loadApiKeys();
+async function buyTopup(pack){
+    try {
+        const r = await fetch('/api/billing/topup-session', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify({pack}) });
+        const d = await r.json();
+        if (r.ok && d.url) { window.location = d.url; return; }
+        alert(d.error || ('Could not start top-up checkout (HTTP ' + r.status + ').'));
+    } catch (e) { alert('Network error'); }
+}
+async function loadInvoices(){
+    const el = document.getElementById('invoicesList'); if (!el) return;
+    try {
+        const r = await fetch('/api/billing/invoices', { credentials:'same-origin' });
+        if (!r.ok) { el.innerHTML = ''; return; }
+        const d = await r.json();
+        if (!d.invoices || !d.invoices.length) {
+            el.innerHTML = '<div style="color:var(--text-muted);padding:6px 0">No receipts yet.</div>';
+            return;
+        }
+        const fmtMoney = (cents, cur) => (cents/100).toLocaleString(undefined, {style:'currency', currency:(cur||'usd').toUpperCase()});
+        const fmtDate = ts => ts ? new Date(ts*1000).toLocaleDateString() : '—';
+        el.innerHTML = d.invoices.map(i => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:.86rem">${escapeHtml(i.number || i.id)} — <strong style="color:var(--text-primary)">${fmtMoney(i.amount_paid, i.currency)}</strong></div>
+                    <div style="font-size:.74rem;color:var(--text-muted)">${fmtDate(i.created)} · ${escapeHtml(i.status||'')}</div>
+                </div>
+                ${i.pdf_url ? `<a href="${i.pdf_url}" target="_blank" rel="noopener" style="padding:5px 10px;background:rgba(124,92,255,.15);border:1px solid rgba(124,92,255,.4);border-radius:6px;color:#cabaff;text-decoration:none;font-size:.78rem">PDF</a>` : ''}
+                ${i.hosted_url ? `<a href="${i.hosted_url}" target="_blank" rel="noopener" style="padding:5px 10px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);text-decoration:none;font-size:.78rem">View</a>` : ''}
+            </div>`).join('');
+    } catch { el.innerHTML = ''; }
+}
+loadInvoices();
 )JS" + R"JS(
 async function openBillingPortal(btn){btn.disabled=true;const orig=btn.innerHTML;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Loading...';
 try{const r=await fetch('/api/billing/portal-session',{method:'POST',credentials:'same-origin'});const d=await r.json();
@@ -810,7 +875,9 @@ static bool current_account_any(const httplib::Request& req, AccountUser& user) 
     string auth = req.get_header_value("Authorization");
     if (auth.rfind("Bearer ", 0) == 0) {
         string key = trim_copy(auth.substr(7));
-        if (!key.empty() && account_find_user_by_api_key(key, user)) return true;
+        string _scopes;  // resolved but not enforced here; callers that care
+                         // about scopes should re-check via account_find_user_by_api_key.
+        if (!key.empty() && account_find_user_by_api_key(key, user, _scopes)) return true;
     }
     return current_account(req, user);
 }
@@ -1188,6 +1255,119 @@ void register_account_routes(httplib::Server& svr) {
         res.set_content(payload.dump(), "application/json");
     });
 
+    // ── Stripe invoices listing for the signed-in user (receipts panel). ──
+    //    Hits api.stripe.com/v1/invoices?customer=cus_xxx&limit=12. Anyone
+    //    asking "where's my receipt" gets a direct PDF link in one click.
+    svr.Get("/api/billing/invoices", [](const httplib::Request& req, httplib::Response& res) {
+        AccountUser user;
+        if (!current_account(req, user)) {
+            res.status = 401;
+            res.set_content(R"({"error":"Please sign in first."})", "application/json");
+            return;
+        }
+        if (user.stripe_customer_id.empty() || billing_env("STRIPE_SECRET_KEY").empty()) {
+            res.set_header("Cache-Control", "no-store");
+            res.set_content(R"({"invoices":[]})", "application/json");
+            return;
+        }
+        string proc = get_processing_dir();
+        string id = generate_job_id();
+        string out_file = proc + "/inv_" + id + ".json";
+        string cmd =
+            "curl -s --max-time 12 "
+            "-u " + escape_arg(billing_env("STRIPE_SECRET_KEY") + ":") +
+            " -o " + escape_arg(out_file) +
+            " " + escape_arg("https://api.stripe.com/v1/invoices?limit=12&customer=" + user.stripe_customer_id);
+        int rc; exec_command(cmd, rc);
+        json invoices = json::array();
+        if (fs::exists(out_file)) {
+            try {
+                std::ifstream f(out_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                auto j = json::parse(ss.str());
+                if (j.contains("data") && j["data"].is_array()) {
+                    for (const auto& inv : j["data"]) {
+                        invoices.push_back({
+                            {"id",            inv.value("id", "")},
+                            {"number",        inv.value("number", "")},
+                            {"created",       inv.value("created", (int64_t)0)},
+                            {"amount_paid",   inv.value("amount_paid", 0)},
+                            {"currency",      inv.value("currency", "usd")},
+                            {"status",        inv.value("status", "")},
+                            {"hosted_url",    inv.value("hosted_invoice_url", "")},
+                            {"pdf_url",       inv.value("invoice_pdf", "")}
+                        });
+                    }
+                }
+            } catch (...) {}
+        }
+        try { fs::remove(out_file); } catch (...) {}
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(json({{"invoices", invoices}}).dump(), "application/json");
+    });
+
+    // ── AI top-up: one-off Stripe charge → +N AI credits ───────────────────
+    //    Body: {"pack": "small" | "medium" | "large"} → respective price IDs.
+    //    On payment success, our webhook handler reads
+    //    metadata.luma_topup_credits and bumps the user's ai_credits column.
+    svr.Post("/api/billing/topup-session", [](const httplib::Request& req, httplib::Response& res) {
+        if (billing_env("STRIPE_SECRET_KEY").empty()) {
+            res.status = 503;
+            res.set_content(R"({"error":"Stripe is not configured yet."})", "application/json");
+            return;
+        }
+        AccountUser user;
+        if (!current_account(req, user)) {
+            res.status = 401;
+            res.set_content(R"({"error":"Please sign in first."})", "application/json");
+            return;
+        }
+        json body;
+        try { body = json::parse(req.body); } catch (...) {}
+        string pack = lower_copy(trim_copy(body.value("pack", string("small"))));
+        // Pack → (price env var, credits granted).
+        string price_env, label;
+        int credits = 0;
+        if (pack == "small")       { price_env = "STRIPE_PRICE_TOPUP_SMALL";  credits = 100;  label = "100 AI calls"; }
+        else if (pack == "medium") { price_env = "STRIPE_PRICE_TOPUP_MEDIUM"; credits = 500;  label = "500 AI calls"; }
+        else if (pack == "large")  { price_env = "STRIPE_PRICE_TOPUP_LARGE";  credits = 2000; label = "2000 AI calls"; }
+        else                       { price_env = "STRIPE_PRICE_TOPUP_SMALL";  credits = 100;  label = "100 AI calls"; }
+        string price_id = billing_env(price_env.c_str());
+        if (price_id.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error",
+                "AI top-ups not configured yet. Ask the site admin to set " + price_env + " to a Stripe one-time price ID."}}).dump(),
+                "application/json");
+            return;
+        }
+        string app_base = billing_env("APP_BASE_URL", "http://localhost:8080");
+        vector<pair<string,string>> fields = {
+            {"mode", "payment"},
+            {"line_items[0][price]",     price_id},
+            {"line_items[0][quantity]",  "1"},
+            {"success_url", app_base + "/account?msg=topup_success"},
+            {"cancel_url",  app_base + "/account?err=checkout_canceled"},
+            {"client_reference_id", to_string(user.id)},
+            {"metadata[user_id]",          to_string(user.id)},
+            {"metadata[luma_topup_credits]", to_string(credits)},
+            {"metadata[luma_kind]",        "topup"},
+            {"payment_intent_data[metadata][user_id]",          to_string(user.id)},
+            {"payment_intent_data[metadata][luma_topup_credits]", to_string(credits)},
+        };
+        if (!user.stripe_customer_id.empty()) fields.push_back({"customer", user.stripe_customer_id});
+        else if (!user.email.empty())          fields.push_back({"customer_email", user.email});
+
+        string err;
+        json session = stripe_api_post("checkout/sessions", fields, err);
+        string url = session.value("url", "");
+        if (url.empty()) {
+            res.status = 502;
+            res.set_content(json({{"error", err.empty() ? "Stripe did not return a checkout URL." : err}}).dump(), "application/json");
+            return;
+        }
+        res.set_content(json({{"ok", true}, {"url", url}, {"credits", credits}, {"label", label}}).dump(), "application/json");
+    });
+
     svr.Post("/api/billing/portal-session", [](const httplib::Request& req, httplib::Response& res) {
         if (billing_env("STRIPE_SECRET_KEY").empty()) {
             res.status = 503;
@@ -1258,16 +1438,32 @@ void register_account_routes(httplib::Server& svr) {
         };
 
         if (type == "checkout.session.completed") {
-            // Stripe sends customer + subscription IDs here. Tie them to our user via client_reference_id
-            // so subsequent subscription.* events can find the user by customer_id even before the
-            // subscription record exists.
             int user_id = 0;
             try { user_id = std::stoi(obj.value("client_reference_id", "0")); } catch (...) {}
-            string customer_id = obj.value("customer", "");
+            string customer_id     = obj.value("customer", "");
             string subscription_id = obj.value("subscription", "");
+
+            // One-off AI top-up purchase? metadata.luma_kind == "topup" and
+            // metadata.luma_topup_credits is the number of credits to grant.
+            json meta = obj.value("metadata", json::object());
+            string luma_kind = meta.value("luma_kind", "");
+            if (luma_kind == "topup" && user_id > 0) {
+                int credits = 0;
+                try { credits = std::stoi(meta.value("luma_topup_credits", "0")); } catch (...) {}
+                if (credits > 0) {
+                    account_ai_credits_add(user_id, credits);
+                    discord_log("💎 AI top-up purchased",
+                        "**User:** id=" + to_string(user_id) +
+                        "\n**Credits added:** " + to_string(credits),
+                        0x00D4FF);
+                }
+                res.set_content(R"({"ok":true,"kind":"topup"})", "application/json");
+                return;
+            }
+
+            // Subscription path: tie customer/sub IDs to user so the
+            // subscription.* events arriving later find the user.
             if (user_id > 0 && !customer_id.empty()) {
-                // Seed a minimal active row so the user's plan flips immediately.
-                // The subscription.updated webhook that follows will fill in price/period.
                 account_upsert_subscription(user_id, "pro", "active",
                     customer_id, subscription_id, "", 0, event.dump());
             }
@@ -1343,6 +1539,7 @@ void register_account_routes(httplib::Server& svr) {
         for (const auto& k : keys) {
             arr.push_back({
                 {"id", k.id}, {"name", k.name}, {"prefix", k.key_prefix},
+                {"scopes", k.scopes.empty() ? "*" : k.scopes},
                 {"created_ts", k.created_ts}, {"last_used_ts", k.last_used_ts}
             });
         }
@@ -1376,6 +1573,18 @@ void register_account_routes(httplib::Server& svr) {
         if (name.empty()) name = "Untitled key";
         if (name.size() > 80) name = name.substr(0, 80);
 
+        // Scopes — comma-separated. Whitelist members:
+        //   *               → full (default)
+        //   tools:*         → all /api/tools/* endpoints
+        //   tools:image:*   → image-* tools only
+        //   tools:video:*   → video-* tools only
+        //   tools:audio:*   → audio-* tools only
+        //   tools:pdf:*     → pdf-* tools only
+        //   tools:ai:*      → study-notes / flashcards / quiz / etc.
+        //   read            → read-only (/api/account/quota etc.)
+        string scopes = trim_copy(body.value("scopes", string("*")));
+        if (scopes.empty()) scopes = "*";
+
         // Cap at 10 active keys per user to discourage sprawl.
         if ((int)account_api_key_list(user.id).size() >= 10) {
             res.status = 400;
@@ -1385,7 +1594,7 @@ void register_account_routes(httplib::Server& svr) {
 
         string plaintext;
         int key_id = 0;
-        if (!account_api_key_create(user.id, name, plaintext, key_id)) {
+        if (!account_api_key_create(user.id, name, scopes, plaintext, key_id)) {
             res.status = 500;
             res.set_content(R"({"error":"Could not create API key."})", "application/json");
             return;
@@ -1395,6 +1604,7 @@ void register_account_routes(httplib::Server& svr) {
             {"ok", true},
             {"id", key_id},
             {"name", name},
+            {"scopes", scopes},
             {"key", plaintext},
             {"warning", "Save this key now — it will not be shown again."}
         }).dump(), "application/json");

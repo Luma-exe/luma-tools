@@ -143,15 +143,25 @@ struct ApiKey {
     int    user_id = 0;
     string key_prefix;   // first 8 chars of plaintext, for display ("lt_a1b2…")
     string name;
+    string scopes;       // comma-separated scope list, or '*' for full access
     int64_t created_ts = 0;
     int64_t last_used_ts = 0;
     int64_t revoked_ts = 0;
 };
-bool account_api_key_create(int user_id, const string& name, string& out_plaintext, int& out_id);
+bool account_api_key_create(int user_id, const string& name, const string& scopes,
+                             string& out_plaintext, int& out_id);
 vector<ApiKey> account_api_key_list(int user_id);
 bool account_api_key_revoke(int user_id, int key_id);
-// Verify a Bearer token; on hit returns the user and bumps last_used_ts.
-bool account_find_user_by_api_key(const string& plaintext, AccountUser& out_user);
+// Verify a Bearer token; on hit returns the user, key scopes, and bumps
+// last_used_ts. out_scopes lets the caller enforce scope checks per request.
+bool account_find_user_by_api_key(const string& plaintext, AccountUser& out_user,
+                                   string& out_scopes);
+
+// AI top-up credits (one-off Stripe purchase). Free users hitting the daily
+// quota consume credits before being blocked. Pro users ignore credits.
+int  account_ai_credits(int user_id);
+bool account_ai_credits_add(int user_id, int delta);  // negative to consume
+bool account_ai_credits_consume(int user_id, int n);  // atomic: ok only if >= n
 
 // Password reset (forgot-password) flow.
 // Issues a single-use plaintext token; only its hash is stored. Token is valid
