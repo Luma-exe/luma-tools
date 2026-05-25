@@ -232,12 +232,21 @@ static string render_message_block(const string& message, const string& error) {
 
 static string render_oauth_buttons() {
     bool discord_on = !billing_env("DISCORD_OAUTH_CLIENT_ID").empty();
-    if (!discord_on) return "";
-    return string(
-        "<a class=\"ghost\" href=\"/account/oauth/discord\" "
-        "style=\"width:100%;background:rgba(88,101,242,.12);border-color:rgba(88,101,242,.4);color:#c6cdff\">"
-        "<i class=\"fab fa-discord\" style=\"color:#5865f2\"></i> Continue with Discord</a>"
-        "<div class=\"divider\">or</div>");
+    bool google_on  = !billing_env("GOOGLE_OAUTH_CLIENT_ID").empty();
+    if (!discord_on && !google_on) return "";
+    string out = "<div style=\"display:flex;flex-direction:column;gap:10px\">";
+    if (google_on) {
+        out += "<a class=\"ghost\" href=\"/account/oauth/google\" "
+               "style=\"width:100%;background:#fff;border-color:rgba(0,0,0,.15);color:#222\">"
+               "<i class=\"fab fa-google\" style=\"color:#ea4335\"></i> Continue with Google</a>";
+    }
+    if (discord_on) {
+        out += "<a class=\"ghost\" href=\"/account/oauth/discord\" "
+               "style=\"width:100%;background:rgba(88,101,242,.12);border-color:rgba(88,101,242,.4);color:#c6cdff\">"
+               "<i class=\"fab fa-discord\" style=\"color:#5865f2\"></i> Continue with Discord</a>";
+    }
+    out += "</div><div class=\"divider\">or</div>";
+    return out;
 }
 
 static string render_login_page(const AccountUser*, const string& message = "", const string& error = "") {
@@ -1208,6 +1217,44 @@ void register_account_routes(httplib::Server& svr) {
         res.set_content(render_account_shell(display + " — Luma Tools", b.str()), "text/html");
     });
 
+    // ── Shared OAuth helpers (used by Discord + Google) ─────────────────────
+    // After we have a verified email + provider-specific user id, this code
+    // upserts the user, links the oauth identity, creates a session, and
+    // redirects to /account.
+    auto oauth_finish_login = [](const httplib::Request& req, httplib::Response& res,
+                                  const string& provider,
+                                  const string& provider_user_id,
+                                  const string& email,
+                                  const string& display_name) {
+        AccountUser user;
+        // Prefer the oauth-linked row (same provider account used before),
+        // otherwise look up by email so we merge with any password-based
+        // account on the same address.
+        if (!account_find_user_by_oauth(provider, provider_user_id, user) &&
+            !account_get_user_by_email(email, user)) {
+            account_upsert_user(email, display_name, /*password=*/"", user);
+        }
+        if (user.id <= 0) {
+            res.set_header("Location", "/account/login?err=Could+not+create+account.");
+            res.status = 302;
+            return;
+        }
+        account_link_oauth_identity(provider, provider_user_id, user.id);
+
+        string token; int64_t expires_ts = 0;
+        if (!account_create_session(user.id, req.remote_addr, req.get_header_value("User-Agent"), token, expires_ts)) {
+            res.status = 500;
+            res.set_content("Could not create session", "text/plain");
+            return;
+        }
+        int max_age = (int)std::max<int64_t>(0, expires_ts - std::time(nullptr));
+        res.set_header("Set-Cookie",
+            session_cookie_name() + "=" + token +
+            "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age));
+        res.set_header("Location", "/account?msg=signed_in");
+        res.status = 302;
+    };
+
     // ── Discord OAuth ───────────────────────────────────────────────────────
     // Free signup option: redirects to Discord, comes back with the user's
     // Discord id + email. We upsert the user, link the oauth_identities row,
@@ -1238,7 +1285,7 @@ void register_account_routes(httplib::Server& svr) {
         res.status = 302;
     });
 
-    svr.Get("/account/oauth/discord/callback", [disc_cid, disc_sec, disc_redirect](const httplib::Request& req, httplib::Response& res) {
+    svr.Get("/account/oauth/discord/callback", [disc_cid, disc_sec, disc_redirect, oauth_finish_login](const httplib::Request& req, httplib::Response& res) {
         string code  = req.has_param("code")  ? req.get_param_value("code")  : "";
         string state = req.has_param("state") ? req.get_param_value("state") : "";
         string cookie_state = cookie_value(req, "lt_oauth_state");
@@ -1312,30 +1359,114 @@ void register_account_routes(httplib::Server& svr) {
             return;
         }
 
-        // Upsert user by email (no password — OAuth-only accounts are valid)
-        AccountUser user;
-        if (!account_get_user_by_email(discord_email, user)) {
-            account_upsert_user(discord_email, discord_username, /*password=*/"", user);
-        }
-        if (user.id <= 0) {
-            res.set_header("Location", "/account/login?err=Could+not+create+account.");
+        oauth_finish_login(req, res, "discord", discord_id, discord_email, discord_username);
+    });
+
+    // ── Google OAuth ────────────────────────────────────────────────────────
+    auto goog_cid = []() { return billing_env("GOOGLE_OAUTH_CLIENT_ID"); };
+    auto goog_sec = []() { return billing_env("GOOGLE_OAUTH_CLIENT_SECRET"); };
+    auto goog_redirect = []() {
+        return billing_env("APP_BASE_URL", "http://localhost:8080") + "/account/oauth/google/callback";
+    };
+
+    svr.Get("/account/oauth/google", [goog_cid, goog_redirect](const httplib::Request&, httplib::Response& res) {
+        string cid = goog_cid();
+        if (cid.empty()) {
+            res.set_header("Location", "/account/login?err=Google+sign-in+is+not+configured+yet.");
             res.status = 302;
             return;
         }
-        account_link_oauth_identity("discord", discord_id, user.id);
+        string state = random_token_hex_inline();
+        res.set_header("Set-Cookie", "lt_oauth_state=" + state + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=600");
+        string url = "https://accounts.google.com/o/oauth2/v2/auth"
+                     "?response_type=code"
+                     "&client_id=" + url_form_enc_inline(cid) +
+                     "&scope=openid%20email%20profile"
+                     "&redirect_uri=" + url_form_enc_inline(goog_redirect()) +
+                     "&access_type=online"
+                     "&prompt=select_account"
+                     "&state=" + state;
+        res.set_header("Location", url);
+        res.status = 302;
+    });
 
-        // Create session, replace the state cookie
-        string token; int64_t expires_ts = 0;
-        if (!account_create_session(user.id, req.remote_addr, req.get_header_value("User-Agent"), token, expires_ts)) {
-            res.status = 500;
-            res.set_content("Could not create session", "text/plain");
+    svr.Get("/account/oauth/google/callback",
+            [goog_cid, goog_sec, goog_redirect, oauth_finish_login]
+            (const httplib::Request& req, httplib::Response& res) {
+        string code  = req.has_param("code")  ? req.get_param_value("code")  : "";
+        string state = req.has_param("state") ? req.get_param_value("state") : "";
+        string cookie_state = cookie_value(req, "lt_oauth_state");
+        if (code.empty() || state.empty() || cookie_state.empty() || state != cookie_state) {
+            res.set_header("Location", "/account/login?err=Google+sign-in+failed+(state+mismatch).");
+            res.status = 302;
             return;
         }
-        int max_age = (int)std::max<int64_t>(0, expires_ts - std::time(nullptr));
-        res.set_header("Set-Cookie", session_cookie_name() + "=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age));
-        // Clear the OAuth state cookie (use a separate header — set-cookie can stack but
-        // httplib only keeps the last for the same header key; cheat with a different format).
-        res.set_header("Location", "/account?msg=signed_in");
-        res.status = 302;
+        string cid = goog_cid(), sec = goog_sec();
+        if (cid.empty() || sec.empty()) {
+            res.set_header("Location", "/account/login?err=Google+sign-in+is+not+configured.");
+            res.status = 302;
+            return;
+        }
+
+        // Exchange code → access_token + id_token
+        string proc = get_processing_dir();
+        string id   = generate_job_id();
+        string tok_file  = proc + "/oa_" + id + "_gtok.json";
+        string body =
+            "code="          + url_form_enc_inline(code) +
+            "&client_id="    + url_form_enc_inline(cid) +
+            "&client_secret=" + url_form_enc_inline(sec) +
+            "&redirect_uri=" + url_form_enc_inline(goog_redirect()) +
+            "&grant_type=authorization_code";
+        string body_path = proc + "/oa_" + id + "_gbody.txt";
+        { ofstream f(body_path); f << body; }
+        string cmd =
+            "curl -s --max-time 12 -X POST "
+            "-H \"Content-Type: application/x-www-form-urlencoded\""
+            " --data @" + escape_arg(body_path) +
+            " -o " + escape_arg(tok_file) +
+            " https://oauth2.googleapis.com/token";
+        int rc; exec_command(cmd, rc);
+        string access_token;
+        try {
+            std::ifstream f(tok_file);
+            std::ostringstream ss; ss << f.rdbuf();
+            auto j = json::parse(ss.str());
+            access_token = j.value("access_token", "");
+        } catch (...) {}
+        try { fs::remove(body_path); fs::remove(tok_file); } catch (...) {}
+        if (access_token.empty()) {
+            res.set_header("Location", "/account/login?err=Google+sign-in+failed+(token+exchange).");
+            res.status = 302;
+            return;
+        }
+
+        // Fetch userinfo (OIDC userinfo endpoint).
+        string me_file = proc + "/oa_" + id + "_gme.json";
+        string mecmd =
+            "curl -s --max-time 8 "
+            "-H \"Authorization: Bearer " + access_token + "\""
+            " -o " + escape_arg(me_file) +
+            " https://www.googleapis.com/oauth2/v3/userinfo";
+        exec_command(mecmd, rc);
+        string g_sub, g_email, g_name;
+        bool g_email_verified = false;
+        try {
+            std::ifstream f(me_file);
+            std::ostringstream ss; ss << f.rdbuf();
+            auto j = json::parse(ss.str());
+            g_sub            = j.value("sub", "");
+            g_email          = lower_copy(trim_copy(j.value("email", "")));
+            g_name           = j.value("name", j.value("given_name", ""));
+            g_email_verified = j.value("email_verified", false);
+        } catch (...) {}
+        try { fs::remove(me_file); } catch (...) {}
+        if (g_sub.empty() || g_email.empty() || !g_email_verified) {
+            res.set_header("Location", "/account/login?err=Google+account+has+no+verified+email.");
+            res.status = 302;
+            return;
+        }
+
+        oauth_finish_login(req, res, "google", g_sub, g_email, g_name);
     });
 }
