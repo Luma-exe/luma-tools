@@ -1226,23 +1226,43 @@ void register_account_routes(httplib::Server& svr) {
                                   const string& provider_user_id,
                                   const string& email,
                                   const string& display_name) {
+        auto step = [](const char* label) {
+            cerr << "[oauth/" << label << "] @ "
+                 << std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now().time_since_epoch()).count()
+                 << "ms" << endl;
+        };
         AccountUser user;
-        // Prefer the oauth-linked row (same provider account used before),
-        // otherwise look up by email so we merge with any password-based
-        // account on the same address.
-        if (!account_find_user_by_oauth(provider, provider_user_id, user) &&
-            !account_get_user_by_email(email, user)) {
+        step("finish.find_by_oauth.start");
+        bool found = account_find_user_by_oauth(provider, provider_user_id, user);
+        step(found ? "finish.find_by_oauth.HIT" : "finish.find_by_oauth.miss");
+        if (!found) {
+            step("finish.get_by_email.start");
+            found = account_get_user_by_email(email, user);
+            step(found ? "finish.get_by_email.HIT" : "finish.get_by_email.miss");
+        }
+        if (!found) {
+            step("finish.upsert_user.start");
             account_upsert_user(email, display_name, /*password=*/"", user);
+            step("finish.upsert_user.done");
         }
         if (user.id <= 0) {
+            cerr << "[oauth/finish] user.id <= 0 after upsert — bailing" << endl;
             res.set_header("Location", "/account/login?err=Could+not+create+account.");
             res.status = 302;
             return;
         }
+        step("finish.link_oauth.start");
         account_link_oauth_identity(provider, provider_user_id, user.id);
+        step("finish.link_oauth.done");
 
         string token; int64_t expires_ts = 0;
-        if (!account_create_session(user.id, req.remote_addr, req.get_header_value("User-Agent"), token, expires_ts)) {
+        step("finish.create_session.start");
+        bool ses_ok = account_create_session(user.id, req.remote_addr,
+                                              req.get_header_value("User-Agent"),
+                                              token, expires_ts);
+        step(ses_ok ? "finish.create_session.OK" : "finish.create_session.FAIL");
+        if (!ses_ok) {
             res.status = 500;
             res.set_content("Could not create session", "text/plain");
             return;
@@ -1253,6 +1273,7 @@ void register_account_routes(httplib::Server& svr) {
             "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age));
         res.set_header("Location", "/account?msg=signed_in");
         res.status = 302;
+        step("finish.responded");
     };
 
     // ── Discord OAuth ───────────────────────────────────────────────────────
