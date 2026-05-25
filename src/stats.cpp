@@ -784,28 +784,35 @@ bool account_get_user_by_email(const string& email, AccountUser& out_user) {
 
 bool account_upsert_user(const string& email, const string& display_name, const string& password, AccountUser& out_user) {
     if (!g_db || email.empty()) return false;
-    lock_guard<mutex> lk(g_stats_mutex);
-    const int64_t now = now_unix();
-    sqlite3_stmt* stmt = nullptr;
-    
-    // Generate password salt and hash
-    string password_salt = password.empty() ? "" : random_token_hex(16);
-    string password_hash = password.empty() ? "" : hash_password(password, password_salt);
-    
-    const char* sql =
-        "INSERT INTO users (email, display_name, password_hash, password_salt, account_status, created_ts, updated_ts, stripe_customer_id, stripe_price_id, stripe_subscription_id, plan) "
-        "VALUES (?, ?, ?, ?, 'active', ?, ?, '', '', '', 'free')";
     bool ok = false;
-    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 2, display_name.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 3, password_hash.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 4, password_salt.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(stmt, 5, now);
-        sqlite3_bind_int64(stmt, 6, now);
-        if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
-    }
-    if (stmt) sqlite3_finalize(stmt);
+    {
+        // CRITICAL: std::mutex is non-recursive. The previous version called
+        // account_get_user_by_email() at the end while still holding the lock,
+        // which deadlocked the worker thread on every first-time OAuth signup.
+        // That was the root cause of the "site freezes after Discord authorize"
+        // bug. Now we release the lock before re-reading the row.
+        lock_guard<mutex> lk(g_stats_mutex);
+        const int64_t now = now_unix();
+        sqlite3_stmt* stmt = nullptr;
+
+        // Generate password salt and hash
+        string password_salt = password.empty() ? "" : random_token_hex(16);
+        string password_hash = password.empty() ? "" : hash_password(password, password_salt);
+
+        const char* sql =
+            "INSERT INTO users (email, display_name, password_hash, password_salt, account_status, created_ts, updated_ts, stripe_customer_id, stripe_price_id, stripe_subscription_id, plan) "
+            "VALUES (?, ?, ?, ?, 'active', ?, ?, '', '', '', 'free')";
+        if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, email.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 2, display_name.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 3, password_hash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 4, password_salt.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int64(stmt, 5, now);
+            sqlite3_bind_int64(stmt, 6, now);
+            if (sqlite3_step(stmt) == SQLITE_DONE) ok = true;
+        }
+        if (stmt) sqlite3_finalize(stmt);
+    } // <-- lock released here
     if (!ok) return false;
     return account_get_user_by_email(email, out_user);
 }
