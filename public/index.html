@@ -325,7 +325,17 @@
 
             <div class="sidebar-footer">
                 <button type="button" id="planQuotaChip" class="plan-quota-chip" style="display:none" onclick="openUpgradeModal()" title="Click to upgrade to Pro"></button>
-                <div class="sidebar-credit"><i class="fas fa-bolt"></i> Built by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener">Luma</a></div>
+                <!-- User profile card: populated by user-card.js from /api/account/me.
+                     Signed in → avatar circle + display name → click opens /u/<name>.
+                     Signed out → "Sign in" button. -->
+                <a id="userProfileCard" class="user-profile-card" href="/account/login">
+                    <div class="upc-avatar"><i class="fas fa-user"></i></div>
+                    <div class="upc-text">
+                        <div class="upc-primary">Sign in</div>
+                        <div class="upc-secondary">to save your usage</div>
+                    </div>
+                    <i class="fas fa-chevron-right upc-chevron"></i>
+                </a>
                 <button class="install-app-btn" id="installAppBtn" onclick="installPWA()">
                     <i class="fas fa-download"></i> Install App
                 </button>

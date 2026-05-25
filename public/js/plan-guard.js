@@ -110,8 +110,57 @@
                 const data = await r.json();
                 this.lastQuota = data;
                 this.render(data);
+                // Also refresh the sidebar user-profile card.
+                this.refreshUserCard(data);
                 return data;
             } catch { return null; }
+        },
+
+        async refreshUserCard(quota) {
+            const card = document.getElementById('userProfileCard');
+            if (!card) return;
+            if (!quota || !quota.signed_in) {
+                card.classList.add('signed-out');
+                card.href = '/account/login';
+                card.title = 'Sign in';
+                const av = card.querySelector('.upc-avatar');
+                const p  = card.querySelector('.upc-primary');
+                const s  = card.querySelector('.upc-secondary');
+                if (av) av.innerHTML = '<i class="fas fa-user"></i>';
+                if (p)  p.textContent = 'Sign in';
+                if (s)  s.textContent = 'to save your usage';
+                return;
+            }
+            // Signed in — pull full profile (display_name, email) once and cache.
+            let me = this._me;
+            if (!me) {
+                try {
+                    const r = await origFetch('/api/account/me', { credentials: 'same-origin' });
+                    if (r.ok) me = await r.json();
+                } catch {}
+                if (me && me.user) this._me = me;
+            }
+            const u = (me && me.user) || {};
+            const name = u.display_name || (u.email ? u.email.split('@')[0] : 'You');
+            const slug = encodeURIComponent(name);
+            card.classList.remove('signed-out');
+            card.href = '/u/' + slug;
+            card.title = 'Open your public profile';
+            const av = card.querySelector('.upc-avatar');
+            const p  = card.querySelector('.upc-primary');
+            const s  = card.querySelector('.upc-secondary');
+            if (av) {
+                // TODO: when we store OAuth avatar URLs (Discord/Google), drop in <img>.
+                const initial = (name[0] || '?').toUpperCase();
+                av.innerHTML = '<span>' + initial + '</span>';
+            }
+            if (p) p.textContent = name;
+            if (s) {
+                const planLabel = (quota.plan === 'pro' || quota.plan === 'starter')
+                    ? '✦ Pro member'
+                    : (u.email || 'View profile');
+                s.textContent = planLabel;
+            }
         },
         render(data) {
             const el = document.getElementById('planQuotaChip');
