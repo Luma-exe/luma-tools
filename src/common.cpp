@@ -123,7 +123,14 @@ string exec_command(const string& cmd, int& exit_code) {
     string full_cmd = "\"" + cmd + " 2>&1\"";
     unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(full_cmd.c_str(), "r"), _pclose);
 #else
-    string full_cmd = cmd + " 2>&1";
+    // Hard 10-minute cap on every subprocess. `timeout 600` (GNU coreutils,
+    // present in the Ubuntu base image) sends SIGTERM after 10 min and
+    // SIGKILL 10 s later. This stops a single hung ffmpeg / yt-dlp / curl
+    // from pinning a httplib worker thread forever — the deadlock root cause
+    // that took prod down twice on 2026-05-25. Every legitimate operation
+    // on this server finishes well inside 10 min.
+    string full_cmd = "timeout --kill-after=10s 600 sh -c " +
+                      escape_arg(cmd + " 2>&1");
     unique_ptr<FILE, decltype(&pclose)> pipe(popen(full_cmd.c_str(), "r"), pclose);
 #endif
 
