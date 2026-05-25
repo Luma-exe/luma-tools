@@ -2077,15 +2077,30 @@ body {
     line-height: 1.55; margin: 0 0 20px;
 }
 .disabled-tool-modal .dtm-close {
-    padding: 8px 24px;
+    padding: 10px 24px;
     border-radius: var(--radius-sm);
     background: var(--bg-tertiary);
     border: 1px solid var(--glass-border);
     color: var(--text-secondary);
     font-size: 0.82rem; cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, color 0.2s;
 }
 .disabled-tool-modal .dtm-close:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+/* Stack action buttons (CTA + cancel) with a clean gap. */
+.disabled-tool-modal .dtm-close + .dtm-close { margin-top: 10px; }
+/* Make the first button (primary CTA) actually look primary */
+.disabled-tool-modal .dtm-close:first-of-type {
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    border-color: transparent;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(124,92,255,0.25);
+}
+.disabled-tool-modal .dtm-close:first-of-type:hover {
+    background: linear-gradient(135deg, var(--accent-light), var(--accent));
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(124,92,255,0.35);
+}
 
 /* Quiz partial-submit confirm modal */
 .quiz-confirm-backdrop {
