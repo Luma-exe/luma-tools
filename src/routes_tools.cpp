@@ -3866,7 +3866,10 @@ CRITICAL RULES:
             res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
             return;
         }
-        if (text.size() > 16000) text = text.substr(0, 16000);
+        // Bumped from 16k → 40k chars. Llama-3.3-70b on Groq has a 128k
+        // context window; 40k chars ≈ 10k tokens, leaving plenty for prompt
+        // + 8k output tokens, well under Groq's per-call rate limits.
+        if (text.size() > 40000) text = text.substr(0, 40000);
 
         string system_prompt, user_prompt;
         int max_tokens;
@@ -3898,7 +3901,10 @@ CRITICAL RULES:
                 {{"role", "system"}, {"content", system_prompt}},
                 {{"role", "user"}, {"content", user_prompt}}
             }},
-            {"temperature", 0.5},
+            // Dropped from 0.5 → 0.2 — flashcards are structured JSON output;
+            // lower temperature dramatically reduces "creative" deviations
+            // from the schema (extra prose, code fences, missing fields).
+            {"temperature", 0.2},
             {"max_tokens", max_tokens}
         };
 
@@ -4005,7 +4011,9 @@ CRITICAL RULES:
             res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
             return;
         }
-        if (text.size() > 12000) text = text.substr(0, 12000);
+        // 12k → 32k chars (~8k tokens). Quiz output is bounded at 4k tokens,
+        // so we have headroom in the 128k context.
+        if (text.size() > 32000) text = text.substr(0, 32000);
 
         string diff_instruction = difficulty == "easy" ? "basic recall and simple concepts" :
                                   difficulty == "hard" ? "complex analysis, application, and critical thinking" :
@@ -4026,7 +4034,8 @@ CRITICAL RULES:
                 {{"role", "system"}, {"content", system_prompt}},
                 {{"role", "user"}, {"content", user_prompt}}
             }},
-            {"temperature", 0.6},
+            // 0.6 → 0.2 for structured JSON output.
+            {"temperature", 0.2},
             {"max_tokens", 4096}
         };
 
@@ -4343,7 +4352,9 @@ CRITICAL RULES:
             res.set_content(json({{"error", "Content too short (minimum 50 characters)"}}).dump(), "application/json");
             return;
         }
-        if (text.size() > 12000) text = text.substr(0, 12000);
+        // 12k → 32k chars (~8k tokens). Output is small JSON, so we can spend
+        // most of the context on input.
+        if (text.size() > 32000) text = text.substr(0, 32000);
 
         string proc = get_processing_dir();
         string jid = generate_job_id();
@@ -4363,7 +4374,8 @@ CRITICAL RULES:
                 {{"role", "system"}, {"content", system_prompt}},
                 {{"role", "user"}, {"content", user_prompt}}
             }},
-            {"temperature", 0.5},
+            // 0.5 → 0.2 for structured JSON output.
+            {"temperature", 0.2},
             {"max_tokens", 2048}
         };
 
@@ -4510,8 +4522,9 @@ CRITICAL RULES:
             return;
         }
 
-        // Truncate if too long
-        if (transcript_text.size() > 15000) transcript_text = transcript_text.substr(0, 15000);
+        // Truncate if too long. 15k → 40k chars (~10k tokens). Was clipping
+        // off the last third of typical lectures.
+        if (transcript_text.size() > 40000) transcript_text = transcript_text.substr(0, 40000);
 
         string system_prompt = "You are an expert at summarizing video content. "
             "Create a clear, comprehensive summary of the lecture/video. "

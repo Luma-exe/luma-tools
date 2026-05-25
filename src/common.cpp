@@ -51,14 +51,39 @@ string json_str(const json& j, const string& key, const string& def) {
 // ─── String utilities ───────────────────────────────────────────────────────
 
 string sanitize_utf8(const string& s) {
+    // Previously this function replaced ALL non-ASCII bytes with '_',
+    // which destroyed valid UTF-8 input — Greek letters (ψ, π, α), math
+    // symbols (∂, ∑, ≤), curly quotes ("'), accented letters (é, ñ, ü),
+    // CJK characters, etc. Every AI tool sanitised input through this
+    // before sending to the LLM, so users uploading non-English PDFs or
+    // technical material got garbage flashcards / notes / summaries.
+    //
+    // New behaviour: validate each UTF-8 sequence. Pass through bytes
+    // that form well-formed UTF-8; replace only individually-invalid
+    // bytes with '?'. This keeps all real content intact and only
+    // touches actual mojibake (e.g. CP-1252 0x92 smart-quote from a
+    // PDF extracted on a Windows host).
     string out;
     out.reserve(s.size());
-
-    for (unsigned char c : s) {
-        if (c < 0x80) out += static_cast<char>(c);
-        else out += '_';
+    for (size_t i = 0; i < s.size(); ) {
+        unsigned char c = (unsigned char)s[i];
+        if (c < 0x80) { out += s[i++]; continue; }
+        int extra = -1;
+        if      ((c & 0xE0) == 0xC0) extra = 1;   // 2-byte
+        else if ((c & 0xF0) == 0xE0) extra = 2;   // 3-byte
+        else if ((c & 0xF8) == 0xF0) extra = 3;   // 4-byte
+        bool valid = (extra > 0) && (i + (size_t)extra < s.size());
+        for (int k = 1; valid && k <= extra; ++k) {
+            if (((unsigned char)s[i + k] & 0xC0) != 0x80) valid = false;
+        }
+        if (valid) {
+            for (int k = 0; k <= extra; ++k) out += s[i + k];
+            i += (size_t)extra + 1;
+        } else {
+            out += '?';
+            ++i;
+        }
     }
-
     return out;
 }
 
