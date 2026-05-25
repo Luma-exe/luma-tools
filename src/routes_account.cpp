@@ -318,81 +318,152 @@ static string fmt_unix_short(int64_t ts) {
     return buf;
 }
 
-static string render_account_dashboard(const AccountUser& user, const string& message, const string& error) {
-    string plan_label = user.plan.empty() ? "free" : user.plan;
+// Unified profile renderer used by BOTH /account (private view of own row)
+// and /u/<name> (public view, possibly looking at your own).
+// is_own = true → full dashboard (email, billing buttons, Stripe customer,
+//                  Sign out, API keys card).
+// is_own = false → public view (no email/Stripe/billing/keys, "Try the tools"
+//                  CTA, just identity + counters + share).
+// Style follows /account: card-wide, profile-grid, actions-row. The public
+// view reuses the same chrome — just hides the private fields.
+static string render_profile_page(const AccountUser& target, bool is_own,
+                                   const AccountStats& stats,
+                                   const string& message, const string& error) {
+    string plan_label = target.plan.empty() ? "free" : target.plan;
     bool is_pro = (plan_label == "pro" || plan_label == "starter");
     string chip_cls = is_pro ? "chip chip-pro" : "chip chip-free";
     string plan_display = is_pro
-        ? std::string("Pro — ") + (user.account_status.empty() ? "active" : user.account_status)
+        ? std::string("Pro member")
         : std::string("Free plan");
+    string display = target.display_name.empty()
+        ? target.email.substr(0, target.email.find('@'))
+        : target.display_name;
+    string slug = display;  // for share URL
+    // Avatar circle initial
+    string initial = display.empty() ? std::string("?")
+                                     : std::string(1, (char)std::toupper((unsigned char)display[0]));
 
     std::ostringstream b;
-    b << "<div class=\"card card-wide\" style=\"max-width:760px\">"
-      << "<div style=\"display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap\">"
-      << "<div><h1>Your account</h1>"
-      << "<p class=\"intro\">Signed in as <strong style=\"color:var(--text-primary)\">"
-      << html_escape(user.email) << "</strong></p></div>"
-      << "<span class=\"" << chip_cls << "\"><i class=\"fas fa-"
-      << (is_pro ? "crown" : "user") << "\"></i> " << html_escape(plan_display) << "</span>"
-      << "</div>"
-      << render_message_block(message, error)
-      << "<div class=\"profile-grid\">"
-         "<div>"
-      << "<div class=\"profile-row\"><div class=\"profile-label\">Display name</div>"
-         "<div class=\"profile-value\">" << html_escape(user.display_name.empty() ? "—" : user.display_name) << "</div></div>"
-      << "<div class=\"profile-row\"><div class=\"profile-label\">Email</div>"
-         "<div class=\"profile-value\">" << html_escape(user.email) << "</div></div>"
-      << "<div class=\"profile-row\"><div class=\"profile-label\">Member since</div>"
-         "<div class=\"profile-value\">" << html_escape(fmt_unix_short(user.created_ts)) << "</div></div>"
-         "</div>"
-         "<div>"
-      << "<div class=\"profile-row\"><div class=\"profile-label\">Current plan</div>"
-         "<div class=\"profile-value\">" << html_escape(plan_display) << "</div></div>"
-      << "<div class=\"profile-row\"><div class=\"profile-label\">Billing status</div>"
-         "<div class=\"profile-value\">" << html_escape(user.account_status.empty() ? "active" : user.account_status) << "</div></div>"
-      << "<div class=\"profile-row\"><div class=\"profile-label\">Stripe customer</div>"
-         "<div class=\"profile-value\" style=\"font-family:monospace;font-size:.82rem;color:var(--text-secondary)\">"
-      << html_escape(user.stripe_customer_id.empty() ? "Not subscribed" : user.stripe_customer_id) << "</div></div>"
-         "</div></div>";
+    b << "<div class=\"card card-wide\" style=\"max-width:760px\">";
 
-    b << "<div class=\"actions-row\">";
-    if (is_pro && !user.stripe_customer_id.empty()) {
-        b << "<button class=\"primary\" type=\"button\" onclick=\"openBillingPortal(this)\">"
-             "<i class=\"fas fa-credit-card\"></i> Manage subscription</button>";
-    } else if (!is_pro) {
-        b << "<button class=\"primary\" type=\"button\" onclick=\"startProCheckout(this)\">"
-             "<i class=\"fas fa-bolt\"></i> Upgrade to Pro</button>";
-    }
-    b << "<form method=\"POST\" action=\"/account/logout\" style=\"margin:0\"><button class=\"ghost\" type=\"submit\" style=\"width:100%\"><i class=\"fas fa-sign-out-alt\"></i> Sign out</button></form>"
-         "</div>"
-         "</div>";
-
-    // API keys section (Pro only). Hidden card for free users with an upgrade hint.
-    b << "<div class=\"card card-wide\" style=\"max-width:760px;margin-top:18px\">"
-         "<div style=\"display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:8px\">"
-         "<div><h1 style=\"font-size:1.2rem\">API keys</h1>"
-         "<p class=\"intro\" style=\"margin-bottom:0\">Programmatic access for scripts and the <code>luma</code> CLI. "
-         "<a href=\"#\" onclick=\"document.getElementById('apiDocs').classList.toggle('hidden');return false\" "
-         "style=\"color:var(--accent-light)\">View docs</a></p></div>";
-    if (is_pro) {
-        b << "<button class=\"primary\" style=\"max-width:200px\" onclick=\"createApiKey()\">"
-             "<i class=\"fas fa-plus\"></i> New key</button>";
+    // ── Hero row: avatar + name/email + plan chip ──────────────────────────
+    b << "<div style=\"display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap\">"
+         "<div style=\"display:flex;gap:14px;align-items:center;min-width:0\">"
+         "<div style=\"width:56px;height:56px;border-radius:50%;"
+         "background:linear-gradient(135deg,var(--accent),var(--accent-3));"
+         "display:flex;align-items:center;justify-content:center;font-size:1.5rem;"
+         "font-weight:800;color:#fff;flex-shrink:0\">"
+      << html_escape(initial) << "</div>"
+         "<div style=\"min-width:0\">"
+      << "<h1 style=\"margin:0\">" << html_escape(display) << "</h1>";
+    if (is_own) {
+        b << "<p class=\"intro\" style=\"margin:2px 0 0\">Signed in as "
+             "<strong style=\"color:var(--text-primary)\">" << html_escape(target.email) << "</strong></p>";
     } else {
-        b << "<span class=\"chip\" style=\"align-self:center\"><i class=\"fas fa-lock\"></i> Pro only</span>";
+        b << "<p class=\"intro\" style=\"margin:2px 0 0\">Member since "
+          << html_escape(fmt_unix_short(target.created_ts)) << "</p>";
     }
-    b << "</div>"
-         "<div id=\"apiDocs\" class=\"hidden\" style=\"background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:10px 0 14px;font-size:.85rem;color:var(--text-secondary)\">"
-         "<div style=\"color:var(--text-primary);font-weight:600;margin-bottom:6px\">Authenticate any tool endpoint with your key:</div>"
-         "<pre style=\"background:rgba(255,255,255,.04);padding:10px;border-radius:6px;font-family:monospace;font-size:.78rem;margin:0;white-space:pre-wrap\">"
-         "curl https://tools.lumaplayground.com/api/tools/image-compress \\\n"
-         "  -H \"Authorization: Bearer lt_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\" \\\n"
-         "  -F \"file=@photo.jpg\" \\\n"
-         "  -o compressed.jpg</pre>"
-         "<div style=\"margin-top:8px\">Or with the CLI: <code>npx luma-tools-cli compress photo.jpg</code></div>"
-         "</div>"
-         "<div id=\"apiKeysList\" style=\"margin-top:8px\">Loading…</div>"
+    b << "</div></div>"
+         "<span class=\"" << chip_cls << "\" style=\"flex-shrink:0\">"
+         "<i class=\"fas fa-" << (is_pro ? "crown" : "user") << "\"></i> "
+      << html_escape(plan_display) << "</span>"
          "</div>";
 
+    if (is_own) b << render_message_block(message, error);
+
+    // ── Counter cards (public-safe, shown to everyone) ─────────────────────
+    b << "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px\">"
+         "<div style=\"padding:18px;background:rgba(124,92,255,.08);border:1px solid rgba(124,92,255,.25);"
+         "border-radius:14px;text-align:center\">"
+         "<div style=\"font-size:2rem;font-weight:800;color:var(--accent-light)\">" << stats.tools_used << "</div>"
+         "<div style=\"font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;"
+         "color:var(--text-secondary);margin-top:4px\">files processed</div></div>"
+         "<div style=\"padding:18px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);"
+         "border-radius:14px;text-align:center\">"
+         "<div style=\"font-size:2rem;font-weight:800;color:var(--accent-2)\">" << stats.downloads << "</div>"
+         "<div style=\"font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;"
+         "color:var(--text-secondary);margin-top:4px\">downloads</div></div>"
+         "</div>";
+
+    // ── Private profile grid (own only) — email, billing status, Stripe id
+    if (is_own) {
+        b << "<div class=\"profile-grid\" style=\"margin-top:18px\">"
+             "<div>"
+          << "<div class=\"profile-row\"><div class=\"profile-label\">Display name</div>"
+             "<div class=\"profile-value\">" << html_escape(target.display_name.empty() ? "—" : target.display_name) << "</div></div>"
+          << "<div class=\"profile-row\"><div class=\"profile-label\">Email</div>"
+             "<div class=\"profile-value\">" << html_escape(target.email) << "</div></div>"
+          << "<div class=\"profile-row\"><div class=\"profile-label\">Member since</div>"
+             "<div class=\"profile-value\">" << html_escape(fmt_unix_short(target.created_ts)) << "</div></div>"
+             "</div>"
+             "<div>"
+          << "<div class=\"profile-row\"><div class=\"profile-label\">Current plan</div>"
+             "<div class=\"profile-value\">" << html_escape(is_pro ? (std::string("Pro — ") + (target.account_status.empty() ? "active" : target.account_status)) : std::string("Free plan")) << "</div></div>"
+          << "<div class=\"profile-row\"><div class=\"profile-label\">Billing status</div>"
+             "<div class=\"profile-value\">" << html_escape(target.account_status.empty() ? "active" : target.account_status) << "</div></div>"
+          << "<div class=\"profile-row\"><div class=\"profile-label\">Stripe customer</div>"
+             "<div class=\"profile-value\" style=\"font-family:monospace;font-size:.82rem;color:var(--text-secondary)\">"
+          << html_escape(target.stripe_customer_id.empty() ? "Not subscribed" : target.stripe_customer_id) << "</div></div>"
+             "</div></div>";
+    }
+
+    // ── Action row ─────────────────────────────────────────────────────────
+    b << "<div class=\"actions-row\">";
+    // Share is always available
+    b << "<button class=\"ghost\" type=\"button\" onclick=\""
+         "var u='" << html_escape("https://tools.lumaplayground.com/u/" + slug) << "';"
+         "navigator.share?navigator.share({title:'Luma Tools',text:'" << html_escape(display) << " on Luma Tools',url:u}):"
+         "navigator.clipboard.writeText(u).then(function(){this.innerHTML='<i class=\\'fas fa-check\\'></i> Copied'}.bind(this))"
+         "\"><i class=\"fas fa-share-nodes\"></i> Share profile</button>";
+    if (is_own) {
+        if (is_pro && !target.stripe_customer_id.empty()) {
+            b << "<button class=\"primary\" type=\"button\" onclick=\"openBillingPortal(this)\">"
+                 "<i class=\"fas fa-credit-card\"></i> Manage subscription</button>";
+        } else if (!is_pro) {
+            b << "<button class=\"primary\" type=\"button\" onclick=\"startProCheckout(this)\">"
+                 "<i class=\"fas fa-bolt\"></i> Upgrade to Pro</button>";
+        }
+        b << "<form method=\"POST\" action=\"/account/logout\" style=\"margin:0\">"
+             "<button class=\"ghost\" type=\"submit\" style=\"width:100%\">"
+             "<i class=\"fas fa-sign-out-alt\"></i> Sign out</button></form>";
+    } else {
+        b << "<a class=\"primary\" href=\"/\" style=\"min-width:160px\">"
+             "<i class=\"fas fa-bolt\"></i> Try the tools</a>";
+    }
+    b << "</div></div>";
+
+    // API keys section — only on own view.
+    if (is_own) {
+        b << "<div class=\"card card-wide\" style=\"max-width:760px;margin-top:18px\">"
+             "<div style=\"display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:8px\">"
+             "<div><h1 style=\"font-size:1.2rem\">API keys</h1>"
+             "<p class=\"intro\" style=\"margin-bottom:0\">Programmatic access for scripts and the <code>luma</code> CLI. "
+             "<a href=\"#\" onclick=\"document.getElementById('apiDocs').classList.toggle('hidden');return false\" "
+             "style=\"color:var(--accent-light)\">View docs</a></p></div>";
+        if (is_pro) {
+            b << "<button class=\"primary\" style=\"max-width:200px\" onclick=\"createApiKey()\">"
+                 "<i class=\"fas fa-plus\"></i> New key</button>";
+        } else {
+            b << "<span class=\"chip\" style=\"align-self:center\"><i class=\"fas fa-lock\"></i> Pro only</span>";
+        }
+        b << "</div>"
+             "<div id=\"apiDocs\" class=\"hidden\" style=\"background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:10px 0 14px;font-size:.85rem;color:var(--text-secondary)\">"
+             "<div style=\"color:var(--text-primary);font-weight:600;margin-bottom:6px\">Authenticate any tool endpoint with your key:</div>"
+             "<pre style=\"background:rgba(255,255,255,.04);padding:10px;border-radius:6px;font-family:monospace;font-size:.78rem;margin:0;white-space:pre-wrap\">"
+             "curl https://tools.lumaplayground.com/api/tools/image-compress \\\n"
+             "  -H \"Authorization: Bearer lt_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\" \\\n"
+             "  -F \"file=@photo.jpg\" \\\n"
+             "  -o compressed.jpg</pre>"
+             "<div style=\"margin-top:8px\">Or with the CLI: <code>npx luma-tools-cli compress photo.jpg</code></div>"
+             "</div>"
+             "<div id=\"apiKeysList\" style=\"margin-top:8px\">Loading…</div>"
+             "</div>";
+    }
+
+    if (!is_own) {
+        // Public view: skip the inline JS (saves bytes + nothing to wire up).
+        return render_account_shell(display + " — Luma Tools", b.str());
+    }
     return render_account_shell("Your account", b.str() +
         "<script>" + R"JS(
 async function loadApiKeys() {
@@ -769,7 +840,11 @@ void register_account_routes(httplib::Server& svr) {
         string error   = req.has_param("err") ? req.get_param_value("err") : "";
         message = auth_feedback_text(message, false);
         error   = auth_feedback_text(error, true);
-        res.set_content(render_account_dashboard(user, message, error), "text/html");
+        // Unified profile renderer — own view (all private fields + API keys card)
+        AccountStats stats = account_get_user_stats(user.id);
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(render_profile_page(user, /*is_own=*/true, stats, message, error),
+                        "text/html");
     });
 
     svr.Get("/account/register", [](const httplib::Request& req, httplib::Response& res) {
@@ -1338,14 +1413,10 @@ void register_account_routes(httplib::Server& svr) {
     // ── Public profile pages /u/:display_name ──────────────────────────────
     //    Read-only, no auth. Shows counters only (tools used + downloads).
     svr.Get(R"(/u/([^/]+))", [](const httplib::Request& req, httplib::Response& res) {
-        string name = req.matches[1].str();
-        // url-decode the captured segment
-        name = url_decode(name);
-        AccountUser user;
-        bool found = !name.empty() && account_get_user_by_display_name(name, user);
+        string name = url_decode(req.matches[1].str());
+        AccountUser target;
+        bool found = !name.empty() && account_get_user_by_display_name(name, target);
         if (!found) {
-            // Look up by email-local-part as a fallback (Luma@... → "luma")
-            // so /u/dylan finds dylan@example.com if no display name is set.
             res.status = 404;
             std::ostringstream b;
             b << "<div class=\"card\" style=\"text-align:center\">"
@@ -1356,40 +1427,13 @@ void register_account_routes(httplib::Server& svr) {
             res.set_content(render_account_shell("Profile not found", b.str()), "text/html");
             return;
         }
-        AccountStats stats = account_get_user_stats(user.id);
-        string plan_chip = (user.plan == "pro" || user.plan == "starter")
-            ? "<span class=\"chip chip-pro\"><i class=\"fas fa-crown\"></i> Pro member</span>"
-            : "<span class=\"chip chip-free\">Free tier</span>";
-        string display = user.display_name.empty() ? user.email.substr(0, user.email.find('@')) : user.display_name;
-
-        std::ostringstream b;
-        b << "<div class=\"card\" style=\"text-align:center\">"
-          << "<div style=\"width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-3));margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:800;color:#fff\">"
-          << html_escape(display.empty() ? "?" : string(1, (char)std::toupper((unsigned char)display[0])))
-          << "</div>"
-          << "<h1 style=\"text-align:center;margin-bottom:6px\">" << html_escape(display) << "</h1>"
-          << "<p class=\"intro\" style=\"text-align:center;margin-bottom:14px\">Member since "
-          << html_escape(fmt_unix_short(user.created_ts)) << "</p>"
-          << "<div style=\"margin-bottom:22px\">" << plan_chip << "</div>"
-          << "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px\">"
-             "<div style=\"padding:18px;background:rgba(124,92,255,.08);border:1px solid rgba(124,92,255,.25);border-radius:14px\">"
-             "<div style=\"font-size:2rem;font-weight:800;color:var(--accent-light)\">" << stats.tools_used << "</div>"
-             "<div style=\"font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-top:4px\">files processed</div>"
-             "</div>"
-             "<div style=\"padding:18px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:14px\">"
-             "<div style=\"font-size:2rem;font-weight:800;color:var(--accent-2)\">" << stats.downloads << "</div>"
-             "<div style=\"font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-top:4px\">downloads</div>"
-             "</div>"
-             "</div>"
-          << "<div style=\"display:flex;gap:8px;margin-top:22px;justify-content:center;flex-wrap:wrap\">"
-          << "<button class=\"ghost\" onclick=\"navigator.share?navigator.share({title:'Luma Tools',text:'I have processed " << stats.tools_used << " files on Luma Tools',url:location.href}):navigator.clipboard.writeText(location.href).then(()=>alert('Link copied'))\"><i class=\"fas fa-share-nodes\"></i> Share profile</button>"
-          << "<a class=\"primary\" href=\"/\" style=\"min-width:160px\"><i class=\"fas fa-bolt\"></i> Try the tools</a>"
-          << "</div>"
-          << "</div>";
-        // no-store so plan changes (e.g. just-upgraded to Pro) show immediately
-        // instead of being stuck on the 60s edge cache.
+        // If the visitor IS the target user, show the full dashboard (= /account view).
+        AccountUser viewer;
+        bool viewer_signed_in = current_account(req, viewer);
+        bool is_own = viewer_signed_in && viewer.id == target.id;
+        AccountStats stats = account_get_user_stats(target.id);
         res.set_header("Cache-Control", "no-store");
-        res.set_content(render_account_shell(display + " — Luma Tools", b.str()), "text/html");
+        res.set_content(render_profile_page(target, is_own, stats, "", ""), "text/html");
     });
 
     // ── Shared OAuth helpers (used by Discord + Google) ─────────────────────
