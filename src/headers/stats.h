@@ -128,3 +128,16 @@ vector<AccountUser> account_list_users(int limit = 200, int offset = 0, const st
 int  account_count_users(const string& search = "");
 bool account_admin_set_plan(int user_id, const string& plan, const string& status);
 bool account_admin_delete_user(int user_id);
+
+// Lookup a user by display name (case-insensitive). For public profile pages.
+bool account_get_user_by_display_name(const string& display_name, AccountUser& out_user);
+
+// OAuth identity link (one row per (provider, provider_user_id)).
+bool account_link_oauth_identity(const string& provider, const string& provider_user_id, int user_id);
+bool account_find_user_by_oauth(const string& provider, const string& provider_user_id, AccountUser& out_user);
+
+// Per-user counters bumped each time a tool runs / download completes.
+void account_bump_tool_count(int user_id);
+void account_bump_download_count(int user_id);
+struct AccountStats { int tools_used = 0; int downloads = 0; };
+AccountStats account_get_user_stats(int user_id);

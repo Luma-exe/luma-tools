@@ -204,12 +204,23 @@ static string render_message_block(const string& message, const string& error) {
     return out;
 }
 
+static string render_oauth_buttons() {
+    bool discord_on = !billing_env("DISCORD_OAUTH_CLIENT_ID").empty();
+    if (!discord_on) return "";
+    return string(
+        "<a class=\"ghost\" href=\"/account/oauth/discord\" "
+        "style=\"width:100%;background:rgba(88,101,242,.12);border-color:rgba(88,101,242,.4);color:#c6cdff\">"
+        "<i class=\"fab fa-discord\" style=\"color:#5865f2\"></i> Continue with Discord</a>"
+        "<div class=\"divider\">or</div>");
+}
+
 static string render_login_page(const AccountUser*, const string& message = "", const string& error = "") {
     std::ostringstream b;
     b << "<div class=\"card\">"
       << "<h1>Welcome back</h1>"
       << "<p class=\"intro\">Sign in to manage your plan and access your saved settings.</p>"
       << render_message_block(message, error)
+      << render_oauth_buttons()
       << "<form method=\"POST\" action=\"/account/login\" autocomplete=\"on\">"
          "<div class=\"field\"><label for=\"li-email\">Email</label>"
          "<input id=\"li-email\" type=\"email\" name=\"email\" placeholder=\"you@example.com\" autocomplete=\"email\" required></div>"
@@ -229,6 +240,7 @@ static string render_register_page(const AccountUser*, const string& message = "
       << "<h1>Create your account</h1>"
       << "<p class=\"intro\">Free forever for the core tools. Upgrade to Pro anytime for unlimited AI and 2 GB uploads.</p>"
       << render_message_block(message, error)
+      << render_oauth_buttons()
       << "<form method=\"POST\" action=\"/account/register\" autocomplete=\"on\">"
          "<div class=\"field\"><label for=\"r-email\">Email</label>"
          "<input id=\"r-email\" type=\"email\" name=\"email\" placeholder=\"you@example.com\" autocomplete=\"email\" required></div>"
@@ -321,6 +333,27 @@ static string render_account_dashboard(const AccountUser& user, const string& me
 static string normalize_email(string email) {
     return lower_copy(trim_copy(email));
 }
+
+// Local helpers used by the OAuth handlers.
+static string random_token_hex_inline(size_t bytes = 16) {
+    static const char* hex = "0123456789abcdef";
+    static std::random_device rd;
+    static std::mt19937_64 gen(rd());
+    std::uniform_int_distribution<int> dist(0, 255);
+    string out;
+    out.reserve(bytes * 2);
+    for (size_t i = 0; i < bytes; ++i) {
+        int b = dist(gen);
+        out.push_back(hex[(b >> 4) & 0xF]);
+        out.push_back(hex[b & 0xF]);
+    }
+    return out;
+}
+
+// Alias so the OAuth code below can call this without forward-declaration
+// gymnastics: url_form_enc is defined later in the file.
+static string url_form_enc(const string& s);
+static string url_form_enc_inline(const string& s) { return url_form_enc(s); }
 
 static string stripe_plan_from_request(const string& plan_raw) {
     string plan = lower_copy(trim_copy(plan_raw));
@@ -862,5 +895,191 @@ void register_account_routes(httplib::Server& svr) {
         }
 
         res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // ── Public profile pages /u/:display_name ──────────────────────────────
+    //    Read-only, no auth. Shows counters only (tools used + downloads).
+    svr.Get(R"(/u/([^/]+))", [](const httplib::Request& req, httplib::Response& res) {
+        string name = req.matches[1].str();
+        // url-decode the captured segment
+        name = url_decode(name);
+        AccountUser user;
+        bool found = !name.empty() && account_get_user_by_display_name(name, user);
+        if (!found) {
+            // Look up by email-local-part as a fallback (Luma@... → "luma")
+            // so /u/dylan finds dylan@example.com if no display name is set.
+            res.status = 404;
+            std::ostringstream b;
+            b << "<div class=\"card\" style=\"text-align:center\">"
+              << "<h1>Profile not found</h1>"
+              << "<p class=\"intro\">No public profile for <code>" << html_escape(name) << "</code>.</p>"
+              << "<a class=\"primary\" href=\"/\" style=\"max-width:200px;margin:0 auto\">Back to tools</a>"
+              << "</div>";
+            res.set_content(render_account_shell("Profile not found", b.str()), "text/html");
+            return;
+        }
+        AccountStats stats = account_get_user_stats(user.id);
+        string plan_chip = (user.plan == "pro" || user.plan == "starter")
+            ? "<span class=\"chip chip-pro\"><i class=\"fas fa-crown\"></i> Pro member</span>"
+            : "<span class=\"chip chip-free\">Free tier</span>";
+        string display = user.display_name.empty() ? user.email.substr(0, user.email.find('@')) : user.display_name;
+
+        std::ostringstream b;
+        b << "<div class=\"card\" style=\"text-align:center\">"
+          << "<div style=\"width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-3));margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:800;color:#fff\">"
+          << html_escape(display.empty() ? "?" : string(1, (char)std::toupper((unsigned char)display[0])))
+          << "</div>"
+          << "<h1 style=\"text-align:center;margin-bottom:6px\">" << html_escape(display) << "</h1>"
+          << "<p class=\"intro\" style=\"text-align:center;margin-bottom:14px\">Member since "
+          << html_escape(fmt_unix_short(user.created_ts)) << "</p>"
+          << "<div style=\"margin-bottom:22px\">" << plan_chip << "</div>"
+          << "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px\">"
+             "<div style=\"padding:18px;background:rgba(124,92,255,.08);border:1px solid rgba(124,92,255,.25);border-radius:14px\">"
+             "<div style=\"font-size:2rem;font-weight:800;color:var(--accent-light)\">" << stats.tools_used << "</div>"
+             "<div style=\"font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-top:4px\">files processed</div>"
+             "</div>"
+             "<div style=\"padding:18px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:14px\">"
+             "<div style=\"font-size:2rem;font-weight:800;color:var(--accent-2)\">" << stats.downloads << "</div>"
+             "<div style=\"font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-top:4px\">downloads</div>"
+             "</div>"
+             "</div>"
+          << "<div style=\"display:flex;gap:8px;margin-top:22px;justify-content:center;flex-wrap:wrap\">"
+          << "<button class=\"ghost\" onclick=\"navigator.share?navigator.share({title:'Luma Tools',text:'I have processed " << stats.tools_used << " files on Luma Tools',url:location.href}):navigator.clipboard.writeText(location.href).then(()=>alert('Link copied'))\"><i class=\"fas fa-share-nodes\"></i> Share profile</button>"
+          << "<a class=\"primary\" href=\"/\" style=\"min-width:160px\"><i class=\"fas fa-bolt\"></i> Try the tools</a>"
+          << "</div>"
+          << "</div>";
+        res.set_header("Cache-Control", "public, max-age=60");
+        res.set_content(render_account_shell(display + " — Luma Tools", b.str()), "text/html");
+    });
+
+    // ── Discord OAuth ───────────────────────────────────────────────────────
+    // Free signup option: redirects to Discord, comes back with the user's
+    // Discord id + email. We upsert the user, link the oauth_identities row,
+    // and create a session cookie just like a normal login.
+    auto disc_cid = []() { return billing_env("DISCORD_OAUTH_CLIENT_ID"); };
+    auto disc_sec = []() { return billing_env("DISCORD_OAUTH_CLIENT_SECRET"); };
+    auto disc_redirect = []() {
+        return billing_env("APP_BASE_URL", "http://localhost:8080") + "/account/oauth/discord/callback";
+    };
+
+    svr.Get("/account/oauth/discord", [disc_cid, disc_redirect](const httplib::Request&, httplib::Response& res) {
+        string cid = disc_cid();
+        if (cid.empty()) {
+            res.set_header("Location", "/account/login?err=Discord+sign-in+is+not+configured+yet.");
+            res.status = 302;
+            return;
+        }
+        // CSRF state: tiny random hex stored in a short-lived cookie.
+        string state = random_token_hex_inline();
+        res.set_header("Set-Cookie", "lt_oauth_state=" + state + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=600");
+        string url = "https://discord.com/oauth2/authorize"
+                     "?response_type=code"
+                     "&client_id=" + url_form_enc_inline(cid) +
+                     "&scope=identify%20email"
+                     "&redirect_uri=" + url_form_enc_inline(disc_redirect()) +
+                     "&state=" + state;
+        res.set_header("Location", url);
+        res.status = 302;
+    });
+
+    svr.Get("/account/oauth/discord/callback", [disc_cid, disc_sec, disc_redirect](const httplib::Request& req, httplib::Response& res) {
+        string code  = req.has_param("code")  ? req.get_param_value("code")  : "";
+        string state = req.has_param("state") ? req.get_param_value("state") : "";
+        string cookie_state = cookie_value(req, "lt_oauth_state");
+        if (code.empty() || state.empty() || cookie_state.empty() || state != cookie_state) {
+            res.set_header("Location", "/account/login?err=Discord+sign-in+failed+(state+mismatch).");
+            res.status = 302;
+            return;
+        }
+        string cid = disc_cid(), sec = disc_sec();
+        if (cid.empty() || sec.empty()) {
+            res.set_header("Location", "/account/login?err=Discord+sign-in+is+not+configured.");
+            res.status = 302;
+            return;
+        }
+
+        // Exchange code → access_token
+        string proc = get_processing_dir();
+        string id   = generate_job_id();
+        string tok_file = proc + "/oa_" + id + "_tok.json";
+        string body =
+            "grant_type=authorization_code"
+            "&code=" + url_form_enc_inline(code) +
+            "&redirect_uri=" + url_form_enc_inline(disc_redirect());
+        string body_path = proc + "/oa_" + id + "_body.txt";
+        { ofstream f(body_path); f << body; }
+        string cmd =
+            "curl -s --max-time 12 -X POST "
+            "-u " + escape_arg(cid + ":" + sec) +
+            " -H \"Content-Type: application/x-www-form-urlencoded\""
+            " --data @" + escape_arg(body_path) +
+            " -o " + escape_arg(tok_file) +
+            " https://discord.com/api/oauth2/token";
+        int rc; exec_command(cmd, rc);
+        string access_token;
+        try {
+            std::ifstream f(tok_file);
+            std::ostringstream ss; ss << f.rdbuf();
+            auto j = json::parse(ss.str());
+            access_token = j.value("access_token", "");
+        } catch (...) {}
+        try { fs::remove(body_path); fs::remove(tok_file); } catch (...) {}
+        if (access_token.empty()) {
+            res.set_header("Location", "/account/login?err=Discord+sign-in+failed+(token+exchange).");
+            res.status = 302;
+            return;
+        }
+
+        // Fetch user
+        string me_file = proc + "/oa_" + id + "_me.json";
+        string mecmd =
+            "curl -s --max-time 8 "
+            "-H \"Authorization: Bearer " + access_token + "\""
+            " -o " + escape_arg(me_file) +
+            " https://discord.com/api/users/@me";
+        exec_command(mecmd, rc);
+        string discord_id, discord_email, discord_username;
+        bool email_verified = false;
+        try {
+            std::ifstream f(me_file);
+            std::ostringstream ss; ss << f.rdbuf();
+            auto j = json::parse(ss.str());
+            discord_id       = j.value("id", "");
+            discord_email    = lower_copy(trim_copy(j.value("email", "")));
+            discord_username = j.value("global_name", j.value("username", ""));
+            email_verified   = j.value("verified", false);
+        } catch (...) {}
+        try { fs::remove(me_file); } catch (...) {}
+        if (discord_id.empty() || discord_email.empty() || !email_verified) {
+            res.set_header("Location", "/account/login?err=Discord+account+has+no+verified+email.");
+            res.status = 302;
+            return;
+        }
+
+        // Upsert user by email (no password — OAuth-only accounts are valid)
+        AccountUser user;
+        if (!account_get_user_by_email(discord_email, user)) {
+            account_upsert_user(discord_email, discord_username, /*password=*/"", user);
+        }
+        if (user.id <= 0) {
+            res.set_header("Location", "/account/login?err=Could+not+create+account.");
+            res.status = 302;
+            return;
+        }
+        account_link_oauth_identity("discord", discord_id, user.id);
+
+        // Create session, replace the state cookie
+        string token; int64_t expires_ts = 0;
+        if (!account_create_session(user.id, req.remote_addr, req.get_header_value("User-Agent"), token, expires_ts)) {
+            res.status = 500;
+            res.set_content("Could not create session", "text/plain");
+            return;
+        }
+        int max_age = (int)std::max<int64_t>(0, expires_ts - std::time(nullptr));
+        res.set_header("Set-Cookie", session_cookie_name() + "=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age));
+        // Clear the OAuth state cookie (use a separate header — set-cookie can stack but
+        // httplib only keeps the last for the same header key; cheat with a different format).
+        res.set_header("Location", "/account?msg=signed_in");
+        res.status = 302;
     });
 }

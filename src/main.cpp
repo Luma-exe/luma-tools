@@ -426,6 +426,20 @@ int main() {
             stat_record("visitor", "page", true, real_ip);
         }
 
+        // ── Per-user counters (public profile badge) ────────────────────────
+        //    Optimistic: bumped at request time, regardless of success. Tiny
+        //    inflation from failures is acceptable for a vanity counter.
+        if (req.method == "POST" &&
+            (req.path.find("/api/tools/") == 0 ||
+             req.path == "/api/download" ||
+             is_ai_endpoint(req.path))) {
+            int uid = account_user_id_for_request(req);
+            if (uid > 0) {
+                if (req.path == "/api/download") account_bump_download_count(uid);
+                else                             account_bump_tool_count(uid);
+            }
+        }
+
         // ── Plan enforcement: applies to all POST /api/tools/* + AI endpoints ──
         bool is_tool_post  = (req.path.find("/api/tools/") == 0 && req.method == "POST");
         bool is_ai_post    = (req.method == "POST" && is_ai_endpoint(req.path));
@@ -569,6 +583,27 @@ int main() {
     register_tool_routes(svr, dl_dir);
     register_stats_routes(svr);
     register_account_routes(svr);
+
+    // ── /health — uptime monitoring (UptimeRobot, BetterStack, etc.) ────────
+    //    Public, no auth. Returns version/uptime; HEAD returns 200 with no body.
+    static const int64_t k_started_ts = (int64_t)std::time(nullptr);
+    svr.Get("/health", [](const httplib::Request&, httplib::Response& res) {
+        int64_t now = (int64_t)std::time(nullptr);
+        json payload = {
+            {"ok", true},
+            {"service", "luma-tools"},
+            {"version", g_git_commit},
+            {"branch",  g_git_branch},
+            {"uptime_seconds", now - k_started_ts},
+            {"now_unix", now}
+        };
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(payload.dump(), "application/json");
+    });
+    svr.Get("/healthz", [](const httplib::Request&, httplib::Response& res) {
+        // Minimal 200/OK for k8s-style liveness probes.
+        res.set_content("ok", "text/plain");
+    });
 
     // ── /api/account/quota — what the current requester can do and how much
     //     of their daily AI quota they have left. Used by the frontend to show

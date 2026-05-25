@@ -8,49 +8,357 @@
 #include "routes.h"
 
 // ─── Spotify -> YouTube proxy ──────────────────────────────────────────────
-// We cannot legally bypass Spotify's Widevine DRM. Instead, when a Spotify
-// track URL is given we look up its title via Spotify's public oEmbed endpoint
-// (no auth required), then ask yt-dlp to download the matching top YouTube
-// search result. This is the same approach spotdl uses by default.
-//
-// Returns true if `url_in` is a Spotify track URL we could resolve. On success:
-//   - `url_out` is rewritten to `ytsearch1:<query>` for yt-dlp
-//   - `resolved_title` contains the human title we extracted (artist - track)
-static bool maybe_resolve_spotify(const string& url_in, string& url_out, string& resolved_title) {
-    url_out = url_in;
-    resolved_title.clear();
-    if (url_in.find("spotify.com/") == string::npos) return false;
-    // Playlists/albums need the full Web API + OAuth — out of scope for now.
-    if (url_in.find("/track/") == string::npos) return false;
+// We cannot legally bypass Spotify's Widevine DRM. Instead we look up track
+// metadata (via Spotify Web API for playlists/albums, oEmbed as a no-creds
+// fallback for single tracks), then ask yt-dlp to download the matching top
+// YouTube search result for each track. Same approach spotdl uses.
 
+// Walk a json value and replace any invalid-UTF-8 bytes inside any string
+// (recursively) with '?'. Use before res.set_content(j.dump(),...) so we never
+// 500 with type_error.316 on a single bad byte from yt-dlp/Spotify metadata.
+static void sanitize_json_strings(json& j);  // fwd
+
+// Replace any byte that isn't part of a valid UTF-8 sequence with '?'.
+// Needed because yt-dlp on Windows hosts can emit CP-1252 bytes (e.g. 0x92)
+// inside its JSON output, which nlohmann::json::parse then rejects as
+// invalid UTF-8 (type_error.316).
+static string make_utf8_safe(const string& s) {
+    string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ) {
+        unsigned char c = (unsigned char)s[i];
+        if (c < 0x80) { out += s[i++]; continue; }
+        int extra = -1;
+        if      ((c & 0xE0) == 0xC0) extra = 1;
+        else if ((c & 0xF0) == 0xE0) extra = 2;
+        else if ((c & 0xF8) == 0xF0) extra = 3;
+        bool valid = (extra > 0) && (i + (size_t)extra < s.size());
+        for (int k = 1; valid && k <= extra; ++k) {
+            if (((unsigned char)s[i + k] & 0xC0) != 0x80) valid = false;
+        }
+        if (valid) {
+            for (int k = 0; k <= extra; ++k) out += s[i + k];
+            i += (size_t)extra + 1;
+        } else {
+            out += '?';
+            ++i;
+        }
+    }
+    return out;
+}
+
+static void sanitize_json_strings(json& j) {
+    if (j.is_string()) {
+        const string& s = j.get_ref<const string&>();
+        string clean = make_utf8_safe(s);
+        if (clean != s) j = clean;
+    } else if (j.is_object()) {
+        for (auto& kv : j.items()) sanitize_json_strings(kv.value());
+    } else if (j.is_array()) {
+        for (auto& el : j) sanitize_json_strings(el);
+    }
+}
+
+struct SpotifyTrack {
+    string title;        // "Artist - Track Name" — what we search YouTube for
+    string artist;
+    string name;
+    int    duration_sec = 0;
+    string thumbnail;
+    string spotify_url;
+};
+
+struct SpotifyResolveResult {
+    bool ok = false;
+    string kind;             // "track" | "playlist" | "album" | ""
+    string title;            // playlist/album name, or single-track display title
+    string thumbnail;
+    string uploader;         // playlist owner / album artist
+    vector<SpotifyTrack> items;
+    string error;
+};
+
+// Extract kind ("playlist" | "album" | "track") + base62 id from a Spotify URL/URI.
+static bool spotify_parse_url(const string& url, string& kind_out, string& id_out) {
+    static const regex re(R"((?:open\.spotify\.com(?:/intl-[a-z]{2})?/|spotify:)(playlist|album|track)[:/]([A-Za-z0-9]+))",
+                          std::regex::icase);
+    std::smatch m;
+    if (!std::regex_search(url, m, re)) return false;
+    kind_out = m[1].str();
+    id_out   = m[2].str();
+    return true;
+}
+
+// Cached client-credentials token.
+static std::mutex g_spotify_token_mutex;
+static string     g_spotify_token;
+static int64_t    g_spotify_token_exp = 0;
+
+static string spotify_access_token() {
+    const char* cid = std::getenv("SPOTIFY_CLIENT_ID");
+    const char* sec = std::getenv("SPOTIFY_CLIENT_SECRET");
+    if (!cid || !sec || !*cid || !*sec) return "";
+    int64_t now = (int64_t)std::time(nullptr);
+    {
+        lock_guard<mutex> lk(g_spotify_token_mutex);
+        if (!g_spotify_token.empty() && g_spotify_token_exp > now + 30) return g_spotify_token;
+    }
     string proc = get_processing_dir();
     string id = generate_job_id();
-    string out_file = proc + "/sp_" + id + "_oembed.json";
-    string cmd = "curl -s --max-time 8 -L "
-                 "\"https://open.spotify.com/oembed?url=" + url_in + "\""
-                 " -o " + escape_arg(out_file);
+    string out_file = proc + "/sp_" + id + "_tok.json";
+    // curl -u handles Basic auth + base64 for us.
+    string cmd = "curl -s --max-time 8 -X POST "
+                 "-u " + escape_arg(string(cid) + ":" + sec) +
+                 " -H \"Content-Type: application/x-www-form-urlencoded\""
+                 " --data \"grant_type=client_credentials\""
+                 " -o " + escape_arg(out_file) +
+                 " https://accounts.spotify.com/api/token";
     int rc;
     exec_command(cmd, rc);
-    string title;
+    string token;
+    int64_t expires_in = 0;
     if (fs::exists(out_file)) {
         try {
             std::ifstream f(out_file);
             std::ostringstream ss; ss << f.rdbuf();
             auto j = json::parse(ss.str());
-            title = j.value("title", "");
+            token = j.value("access_token", "");
+            expires_in = j.value("expires_in", (int64_t)3600);
         } catch (...) {}
         try { fs::remove(out_file); } catch (...) {}
     }
-    if (title.empty()) return false;
+    if (token.empty()) return "";
+    {
+        lock_guard<mutex> lk(g_spotify_token_mutex);
+        g_spotify_token = token;
+        g_spotify_token_exp = now + expires_in;
+    }
+    return token;
+}
 
-    resolved_title = title;
-    // Build YouTube search query. yt-dlp's `ytsearch1:` returns the top hit.
-    // Strip characters that confuse search; quote the query.
-    string q = title;
+static string spotify_search_query(const string& artist, const string& name) {
+    string q = (artist.empty() ? name : (artist + " - " + name));
     for (auto& c : q) {
         if (c == '"' || c == '\\' || c == '\n' || c == '\r') c = ' ';
     }
-    url_out = "ytsearch1:" + q + " audio";
+    return q;
+}
+
+// Make an authenticated GET request to api.spotify.com and return parsed JSON
+// (or json::object() on failure).
+static json spotify_api_get(const string& path_and_query, const string& token, string& error_out) {
+    error_out.clear();
+    string proc = get_processing_dir();
+    string id = generate_job_id();
+    string out_file = proc + "/sp_" + id + "_api.json";
+    string cmd = "curl -s --max-time 15 "
+                 "-H \"Authorization: Bearer " + token + "\""
+                 " -o " + escape_arg(out_file) +
+                 " " + escape_arg("https://api.spotify.com/v1" + path_and_query);
+    int rc;
+    exec_command(cmd, rc);
+    json out = json::object();
+    if (fs::exists(out_file)) {
+        try {
+            std::ifstream f(out_file);
+            std::ostringstream ss; ss << f.rdbuf();
+            string body = ss.str();
+            if (!body.empty()) out = json::parse(body);
+        } catch (const std::exception& e) { error_out = e.what(); }
+        try { fs::remove(out_file); } catch (...) {}
+    } else {
+        error_out = "No response from Spotify API";
+    }
+    if (out.contains("error") && out["error"].is_object()) {
+        error_out = out["error"].value("message", "Spotify API error");
+    }
+    return out;
+}
+
+// Extract a SpotifyTrack from a Spotify "track" object (as it appears in
+// /tracks/{id} or in playlist items[].track or album items[]).
+static bool spotify_track_from_obj(const json& t, SpotifyTrack& out) {
+    if (!t.is_object() || t.value("is_local", false)) return false;
+    string type = t.value("type", "track");
+    if (type != "track") return false;  // skip podcast episodes
+    out.name = t.value("name", "");
+    if (out.name.empty()) return false;
+    // Artists
+    string artist;
+    if (t.contains("artists") && t["artists"].is_array()) {
+        for (const auto& a : t["artists"]) {
+            if (!artist.empty()) artist += ", ";
+            artist += a.value("name", "");
+        }
+    }
+    out.artist = artist;
+    out.duration_sec = t.value("duration_ms", 0) / 1000;
+    // Spotify track URL (so the frontend can show a link if desired)
+    if (t.contains("external_urls") && t["external_urls"].is_object()) {
+        out.spotify_url = t["external_urls"].value("spotify", "");
+    }
+    // Album art (only present on playlist items; album endpoint omits it per-item)
+    if (t.contains("album") && t["album"].is_object()) {
+        const auto& al = t["album"];
+        if (al.contains("images") && al["images"].is_array() && !al["images"].empty()) {
+            out.thumbnail = al["images"][0].value("url", "");
+        }
+    }
+    out.title = spotify_search_query(out.artist, out.name);
+    return true;
+}
+
+// Resolve any Spotify URL into a normalized result. Returns ok=false with an
+// `error` populated if it failed (missing creds, private playlist, network, etc).
+static SpotifyResolveResult spotify_resolve(const string& url) {
+    SpotifyResolveResult r;
+    string kind, sid;
+    if (!spotify_parse_url(url, kind, sid)) {
+        r.error = "Not a recognised Spotify URL.";
+        return r;
+    }
+    r.kind = kind;
+
+    // Single track: prefer API (richer data) but fall back to oEmbed when no
+    // credentials are configured so people can at least download single tracks
+    // without any setup.
+    if (kind == "track") {
+        string tok = spotify_access_token();
+        if (!tok.empty()) {
+            string err;
+            json t = spotify_api_get("/tracks/" + sid, tok, err);
+            SpotifyTrack st;
+            if (spotify_track_from_obj(t, st)) {
+                r.items.push_back(st);
+                r.title = st.title;
+                r.thumbnail = st.thumbnail;
+                r.uploader = st.artist;
+                r.ok = true;
+                return r;
+            }
+        }
+        // oEmbed fallback (no auth).
+        string proc = get_processing_dir();
+        string id = generate_job_id();
+        string out_file = proc + "/sp_" + id + "_oembed.json";
+        string cmd = "curl -s --max-time 8 -L "
+                     "\"https://open.spotify.com/oembed?url=" + url + "\""
+                     " -o " + escape_arg(out_file);
+        int rc; exec_command(cmd, rc);
+        string title, thumb;
+        if (fs::exists(out_file)) {
+            try {
+                std::ifstream f(out_file);
+                std::ostringstream ss; ss << f.rdbuf();
+                auto j = json::parse(ss.str());
+                title = j.value("title", "");
+                thumb = j.value("thumbnail_url", "");
+            } catch (...) {}
+            try { fs::remove(out_file); } catch (...) {}
+        }
+        if (title.empty()) {
+            r.error = "Could not look up that Spotify track.";
+            return r;
+        }
+        SpotifyTrack st;
+        st.title = title;
+        st.thumbnail = thumb;
+        r.items.push_back(st);
+        r.title = title;
+        r.thumbnail = thumb;
+        r.ok = true;
+        return r;
+    }
+
+    // Playlist / album: needs API credentials.
+    string tok = spotify_access_token();
+    if (tok.empty()) {
+        r.error = "Spotify playlist/album support needs API credentials. "
+                  "Ask the site admin to set SPOTIFY_CLIENT_ID and "
+                  "SPOTIFY_CLIENT_SECRET (free at developer.spotify.com).";
+        return r;
+    }
+
+    if (kind == "playlist") {
+        // Header metadata
+        string err;
+        json meta = spotify_api_get("/playlists/" + sid + "?fields=name,owner(display_name),images", tok, err);
+        if (meta.contains("error")) {
+            r.error = "Spotify: " + err;
+            return r;
+        }
+        r.title    = meta.value("name", "Spotify playlist");
+        if (meta.contains("owner") && meta["owner"].is_object())
+            r.uploader = meta["owner"].value("display_name", "");
+        if (meta.contains("images") && meta["images"].is_array() && !meta["images"].empty())
+            r.thumbnail = meta["images"][0].value("url", "");
+
+        // Paged tracks (100 max per call).
+        string path = "/playlists/" + sid + "/tracks?limit=100&offset=0&fields=items(track(name,duration_ms,is_local,type,artists(name),album(images),external_urls)),next";
+        int safety = 20;  // up to 2000 tracks
+        while (!path.empty() && safety-- > 0) {
+            json page = spotify_api_get(path, tok, err);
+            if (page.contains("items") && page["items"].is_array()) {
+                for (const auto& it : page["items"]) {
+                    if (!it.contains("track")) continue;
+                    SpotifyTrack st;
+                    if (spotify_track_from_obj(it["track"], st)) r.items.push_back(st);
+                }
+            }
+            // Spotify's `next` is a full URL; strip the prefix to reuse spotify_api_get.
+            string next = page.value("next", "");
+            if (next.find("https://api.spotify.com/v1") == 0) {
+                path = next.substr(std::string("https://api.spotify.com/v1").size());
+            } else {
+                path = "";
+            }
+        }
+        r.ok = !r.items.empty();
+        if (!r.ok && r.error.empty()) r.error = "Playlist appears to be empty or private.";
+        return r;
+    }
+
+    if (kind == "album") {
+        string err;
+        json meta = spotify_api_get("/albums/" + sid + "?market=US", tok, err);
+        if (meta.contains("error")) { r.error = "Spotify: " + err; return r; }
+        r.title = meta.value("name", "Spotify album");
+        if (meta.contains("artists") && meta["artists"].is_array() && !meta["artists"].empty())
+            r.uploader = meta["artists"][0].value("name", "");
+        if (meta.contains("images") && meta["images"].is_array() && !meta["images"].empty())
+            r.thumbnail = meta["images"][0].value("url", "");
+        if (meta.contains("tracks") && meta["tracks"].is_object() &&
+            meta["tracks"].contains("items") && meta["tracks"]["items"].is_array()) {
+            for (const auto& t : meta["tracks"]["items"]) {
+                SpotifyTrack st;
+                // Album endpoint returns simplified tracks WITHOUT album art per-item;
+                // backfill from the album-level image.
+                if (spotify_track_from_obj(t, st)) {
+                    if (st.thumbnail.empty()) st.thumbnail = r.thumbnail;
+                    r.items.push_back(st);
+                }
+            }
+        }
+        r.ok = !r.items.empty();
+        if (!r.ok && r.error.empty()) r.error = "Album returned no playable tracks.";
+        return r;
+    }
+
+    r.error = "Unsupported Spotify URL type.";
+    return r;
+}
+
+// Legacy single-track helper used by /api/download: rewrites a spotify URL to a
+// ytsearch1 URL. Returns true if the rewrite happened.
+static bool maybe_resolve_spotify(const string& url_in, string& url_out, string& resolved_title) {
+    url_out = url_in;
+    resolved_title.clear();
+    if (url_in.find("spotify.com/") == string::npos &&
+        url_in.find("spotify:") != 0) return false;
+    auto r = spotify_resolve(url_in);
+    if (!r.ok || r.kind != "track" || r.items.empty()) return false;
+    resolved_title = r.items[0].title;
+    url_out = "ytsearch1:" + r.items[0].title + " audio";
     return true;
 }
 
@@ -99,28 +407,11 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             }
 
             // Spotify → YouTube proxy: detect first so the user sees the right
-            // platform chip, but pass the rewritten query to yt-dlp.
+            // platform chip. Tracks get rewritten inline; playlists/albums get
+            // returned immediately as a synthetic playlist response.
             auto platform = detect_platform(url);
             string spotify_title;
             bool via_spotify = false;
-            if (platform.id == "spotify") {
-                string rewritten;
-                if (maybe_resolve_spotify(url, rewritten, spotify_title)) {
-                    url = rewritten;
-                    via_spotify = true;
-                } else if (url.find("/track/") == string::npos) {
-                    // Playlist/album: not supported yet.
-                    res.status = 400;
-                    res.set_content(json({
-                        {"error", "Spotify playlists aren't supported yet — only individual track links work. We download the matching track from YouTube (no DRM bypass), so albums need to be added one track at a time for now."}
-                    }).dump(), "application/json");
-                    return;
-                } else {
-                    res.status = 502;
-                    res.set_content(json({{"error", "Could not look up that Spotify track. Try again or paste the YouTube link directly."}}).dump(), "application/json");
-                    return;
-                }
-            }
 
             json platform_json = {
                 {"id", platform.id}, {"name", platform.name},
@@ -128,6 +419,62 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 {"supports_video", platform.supports_video},
                 {"supports_audio", platform.supports_audio}
             };
+
+            if (platform.id == "spotify") {
+                auto sr = spotify_resolve(url);
+                if (!sr.ok) {
+                    res.status = 502;
+                    res.set_content(json({{"error", sr.error.empty() ? "Could not resolve that Spotify link." : sr.error}}).dump(), "application/json");
+                    return;
+                }
+                auto utf8_replace = [](json& j) {
+                    return j.dump(-1, ' ', false, json::error_handler_t::replace);
+                };
+                if (sr.kind == "playlist" || sr.kind == "album") {
+                    // Return as our standard playlist response. Each entry's URL is
+                    // a yt-dlp `ytsearch1:` query that resolves at download time.
+                    json items = json::array();
+                    int idx = 0;
+                    for (const auto& t : sr.items) {
+                        items.push_back({
+                            {"index", idx++},
+                            {"title", t.name.empty() ? t.title : (t.artist.empty() ? t.name : (t.artist + " — " + t.name))},
+                            {"url",   "ytsearch1:" + t.title + " audio"},
+                            {"duration",  t.duration_sec},
+                            {"thumbnail", t.thumbnail},
+                            {"uploader",  t.artist},
+                        });
+                    }
+                    platform_json["spotify_proxy"] = true;
+                    platform_json["proxy_notice"]  = "Spotify uses DRM, so we download each matching track from YouTube. Quality and runtime may differ from the Spotify master.";
+                    json resp = {
+                        {"type", "playlist"},
+                        {"title",     sr.title.empty()    ? std::string("Spotify ") + sr.kind : sr.title},
+                        {"uploader",  sr.uploader},
+                        {"thumbnail", sr.thumbnail},
+                        {"item_count", (int)items.size()},
+                        {"items", items},
+                        {"platform", platform_json},
+                        {"spotify_proxy", true},
+                        {"spotify_kind",  sr.kind},
+                    };
+                    cout << "[Luma Tools] Spotify " << sr.kind << " resolved: "
+                         << sr.items.size() << " tracks (" << sr.title << ")" << endl;
+                    sanitize_json_strings(resp);
+                    res.set_content(resp.dump(), "application/json");
+                    return;
+                }
+                // kind == "track"
+                if (sr.items.empty()) {
+                    res.status = 502;
+                    res.set_content(json({{"error", "Spotify resolved no playable track."}}).dump(), "application/json");
+                    return;
+                }
+                spotify_title = sr.items[0].title;
+                url = "ytsearch1:" + spotify_title + " audio";
+                via_spotify = true;
+            }
+
             if (via_spotify) {
                 platform_json["spotify_proxy"] = true;
                 platform_json["resolved_title"] = spotify_title;
@@ -158,7 +505,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
                 if (json_start != string::npos) {
                     try {
-                        json probe = json::parse(probe_output.substr(json_start));
+                        json probe = json::parse(make_utf8_safe(probe_output.substr(json_start)));
                         string ptype = json_str(probe, "_type");
 
                         if ((ptype == "playlist" || ptype == "multi_video") &&
@@ -238,6 +585,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                             };
 
                             cout << "[Luma Tools] Playlist detected: " << items.size() << " items" << endl;
+                            sanitize_json_strings(response);
                             res.set_content(response.dump(), "application/json");
                             return;
                         }
@@ -272,7 +620,10 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                     }
 
                     res.status = 500;
-                    res.set_content(json({{"error", error_msg}, {"details", output}}).dump(), "application/json");
+                    res.set_content(json({
+                        {"error",   make_utf8_safe(error_msg)},
+                        {"details", make_utf8_safe(output)}
+                    }).dump(-1, ' ', false, json::error_handler_t::replace), "application/json");
                     return;
                 }
             }
@@ -281,7 +632,8 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
             if (end_pos != string::npos) output = output.substr(0, end_pos + 1);
 
-            json info = json::parse(output);
+            json info = json::parse(make_utf8_safe(output));
+            sanitize_json_strings(info);  // defense in depth — also clean the parsed object
 
             json formats = json::array();
             set<string> seen_qualities;
@@ -325,14 +677,20 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 {"thumbnail", json_str(info, "thumbnail")},
                 {"duration", json_num(info, "duration", 0)},
                 {"uploader", json_str(info, "uploader", json_str(info, "channel", "Unknown"))},
-                {"description", json_str(info, "description").substr(0, std::min((size_t)200, json_str(info, "description").size()))},
+                {"description", make_utf8_safe(json_str(info, "description").substr(0, std::min((size_t)200, json_str(info, "description").size())))},
                 {"platform", platform_json},
                 {"formats", formats}
             };
+            // yt-dlp/Spotify metadata occasionally contains bytes that aren't
+            // valid UTF-8 (e.g. CP-1252 smart quotes). Recursively scrub all
+            // string fields before dump so we never 500 on a bad codepoint.
+            sanitize_json_strings(response);
             res.set_content(response.dump(), "application/json");
         } catch (const json::exception& e) {
             res.status = 500;
-            res.set_content(json({{"error", string("JSON parse error: ") + e.what()}}).dump(), "application/json");
+            cerr << "[Luma Tools] /api/analyze json error: " << e.what()
+                 << "  (id=" << e.id << ")" << endl;
+            res.set_content(json({{"error", string("JSON parse error: ") + e.what()}}).dump(-1, ' ', false, json::error_handler_t::replace), "application/json");
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(json({{"error", e.what()}}).dump(), "application/json");

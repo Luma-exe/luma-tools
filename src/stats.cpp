@@ -307,6 +307,22 @@ void stat_init_db() {
         CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
         CREATE INDEX IF NOT EXISTS idx_subscriptions_customer_id ON subscriptions(provider_customer_id);
         CREATE INDEX IF NOT EXISTS idx_subscriptions_subscription_id ON subscriptions(provider_subscription_id);
+        CREATE TABLE IF NOT EXISTS account_counters (
+            user_id    INTEGER PRIMARY KEY,
+            tools_used INTEGER NOT NULL DEFAULT 0,
+            downloads  INTEGER NOT NULL DEFAULT 0,
+            updated_ts INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS oauth_identities (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider        TEXT    NOT NULL,
+            provider_user_id TEXT   NOT NULL,
+            user_id         INTEGER NOT NULL,
+            created_ts      INTEGER NOT NULL,
+            UNIQUE(provider, provider_user_id),
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_oauth_user_id ON oauth_identities(user_id);
     )";
     char* errmsg = nullptr;
     if (sqlite3_exec(g_db, schema, nullptr, nullptr, &errmsg) != SQLITE_OK) {
@@ -1027,6 +1043,98 @@ bool account_admin_set_plan(int user_id, const string& plan, const string& statu
     }
     if (stmt) sqlite3_finalize(stmt);
     return ok;
+}
+
+bool account_get_user_by_display_name(const string& display_name, AccountUser& out_user) {
+    if (!g_db || display_name.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT id, email, display_name, account_status, created_ts, updated_ts, "
+        "stripe_customer_id, stripe_price_id, stripe_subscription_id, plan "
+        "FROM users WHERE LOWER(display_name) = LOWER(?) LIMIT 1";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, display_name.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) ok = load_account_user_row(stmt, out_user);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+static void account_bump_counter(int user_id, const char* col) {
+    if (!g_db || user_id <= 0) return;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    string sql = string("INSERT INTO account_counters(user_id, ") + col + ", updated_ts) "
+                 "VALUES (?, 1, ?) "
+                 "ON CONFLICT(user_id) DO UPDATE SET "
+               + col + "=" + col + "+1, updated_ts=excluded.updated_ts";
+    if (sqlite3_prepare_v2(g_db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, user_id);
+        sqlite3_bind_int64(stmt, 2, now_unix());
+        sqlite3_step(stmt);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+}
+
+void account_bump_tool_count(int user_id)     { account_bump_counter(user_id, "tools_used"); }
+void account_bump_download_count(int user_id) { account_bump_counter(user_id, "downloads"); }
+
+bool account_link_oauth_identity(const string& provider, const string& provider_user_id, int user_id) {
+    if (!g_db || provider.empty() || provider_user_id.empty() || user_id <= 0) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "INSERT INTO oauth_identities(provider, provider_user_id, user_id, created_ts) "
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(provider, provider_user_id) DO UPDATE SET user_id=excluded.user_id";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, provider.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, provider_user_id.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 3, user_id);
+        sqlite3_bind_int64(stmt, 4, now_unix());
+        ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool account_find_user_by_oauth(const string& provider, const string& provider_user_id, AccountUser& out_user) {
+    if (!g_db || provider.empty() || provider_user_id.empty()) return false;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT u.id, u.email, u.display_name, u.account_status, u.created_ts, u.updated_ts, "
+        "u.stripe_customer_id, u.stripe_price_id, u.stripe_subscription_id, u.plan "
+        "FROM oauth_identities o JOIN users u ON u.id = o.user_id "
+        "WHERE o.provider = ? AND o.provider_user_id = ? LIMIT 1";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, provider.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, provider_user_id.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) ok = load_account_user_row(stmt, out_user);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+AccountStats account_get_user_stats(int user_id) {
+    AccountStats s;
+    if (!g_db || user_id <= 0) return s;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "SELECT tools_used, downloads FROM account_counters WHERE user_id = ?";
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, user_id);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            s.tools_used = sqlite3_column_int(stmt, 0);
+            s.downloads  = sqlite3_column_int(stmt, 1);
+        }
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return s;
 }
 
 bool account_admin_delete_user(int user_id) {
