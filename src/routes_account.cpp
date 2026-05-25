@@ -1226,43 +1226,25 @@ void register_account_routes(httplib::Server& svr) {
                                   const string& provider_user_id,
                                   const string& email,
                                   const string& display_name) {
-        auto step = [](const char* label) {
-            cerr << "[oauth/" << label << "] @ "
-                 << std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now().time_since_epoch()).count()
-                 << "ms" << endl;
-        };
         AccountUser user;
-        step("finish.find_by_oauth.start");
-        bool found = account_find_user_by_oauth(provider, provider_user_id, user);
-        step(found ? "finish.find_by_oauth.HIT" : "finish.find_by_oauth.miss");
-        if (!found) {
-            step("finish.get_by_email.start");
-            found = account_get_user_by_email(email, user);
-            step(found ? "finish.get_by_email.HIT" : "finish.get_by_email.miss");
-        }
-        if (!found) {
-            step("finish.upsert_user.start");
+        // Prefer the oauth-linked row (same provider account used before),
+        // otherwise look up by email so we merge with any password-based
+        // account on the same address.
+        if (!account_find_user_by_oauth(provider, provider_user_id, user) &&
+            !account_get_user_by_email(email, user)) {
             account_upsert_user(email, display_name, /*password=*/"", user);
-            step("finish.upsert_user.done");
         }
         if (user.id <= 0) {
-            cerr << "[oauth/finish] user.id <= 0 after upsert — bailing" << endl;
             res.set_header("Location", "/account/login?err=Could+not+create+account.");
             res.status = 302;
             return;
         }
-        step("finish.link_oauth.start");
         account_link_oauth_identity(provider, provider_user_id, user.id);
-        step("finish.link_oauth.done");
 
         string token; int64_t expires_ts = 0;
-        step("finish.create_session.start");
-        bool ses_ok = account_create_session(user.id, req.remote_addr,
-                                              req.get_header_value("User-Agent"),
-                                              token, expires_ts);
-        step(ses_ok ? "finish.create_session.OK" : "finish.create_session.FAIL");
-        if (!ses_ok) {
+        if (!account_create_session(user.id, req.remote_addr,
+                                     req.get_header_value("User-Agent"),
+                                     token, expires_ts)) {
             res.status = 500;
             res.set_content("Could not create session", "text/plain");
             return;
@@ -1273,7 +1255,6 @@ void register_account_routes(httplib::Server& svr) {
             "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age));
         res.set_header("Location", "/account?msg=signed_in");
         res.status = 302;
-        step("finish.responded");
     };
 
     // ── Discord OAuth ───────────────────────────────────────────────────────
@@ -1307,14 +1288,9 @@ void register_account_routes(httplib::Server& svr) {
     });
 
     svr.Get("/account/oauth/discord/callback", [disc_cid, disc_sec, disc_redirect, oauth_finish_login](const httplib::Request& req, httplib::Response& res) {
-        cerr << "[oauth/discord] callback start  ip=" << req.remote_addr << endl;
         string code  = req.has_param("code")  ? req.get_param_value("code")  : "";
         string state = req.has_param("state") ? req.get_param_value("state") : "";
         string cookie_state = cookie_value(req, "lt_oauth_state");
-        cerr << "[oauth/discord] code.len=" << code.size()
-             << " state.len=" << state.size()
-             << " cookie_state.len=" << cookie_state.size()
-             << " match=" << (state == cookie_state) << endl;
         if (code.empty() || state.empty() || cookie_state.empty() || state != cookie_state) {
             res.set_header("Location", "/account/login?err=Discord+sign-in+failed+(state+mismatch).");
             res.status = 302;
@@ -1345,42 +1321,29 @@ void register_account_routes(httplib::Server& svr) {
             " -o " + escape_arg(tok_file) +
             " https://discord.com/api/oauth2/token";
         int rc;
-        cerr << "[oauth/discord] POST token exchange…" << endl;
-        auto t0 = std::chrono::steady_clock::now();
         exec_command(cmd, rc);
-        auto t1 = std::chrono::steady_clock::now();
-        cerr << "[oauth/discord] token exchange rc=" << rc << " took="
-             << std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count() << "ms" << endl;
         string access_token;
         try {
             std::ifstream f(tok_file);
             std::ostringstream ss; ss << f.rdbuf();
             auto j = json::parse(ss.str());
             access_token = j.value("access_token", "");
-        } catch (const std::exception& e) {
-            cerr << "[oauth/discord] token parse error: " << e.what() << endl;
-        }
+        } catch (...) {}
         try { fs::remove(body_path); fs::remove(tok_file); } catch (...) {}
         if (access_token.empty()) {
-            cerr << "[oauth/discord] empty access_token → redirect login" << endl;
             res.set_header("Location", "/account/login?err=Discord+sign-in+failed+(token+exchange).");
             res.status = 302;
             return;
         }
 
         // Fetch user
-        cerr << "[oauth/discord] GET users/@me…" << endl;
         string me_file = proc + "/oa_" + id + "_me.json";
         string mecmd =
             "curl -s --max-time 8 "
             "-H \"Authorization: Bearer " + access_token + "\""
             " -o " + escape_arg(me_file) +
             " https://discord.com/api/users/@me";
-        auto t2 = std::chrono::steady_clock::now();
         exec_command(mecmd, rc);
-        auto t3 = std::chrono::steady_clock::now();
-        cerr << "[oauth/discord] users/@me rc=" << rc << " took="
-             << std::chrono::duration_cast<std::chrono::milliseconds>(t3-t2).count() << "ms" << endl;
         string discord_id, discord_email, discord_username;
         bool email_verified = false;
         try {
@@ -1391,27 +1354,15 @@ void register_account_routes(httplib::Server& svr) {
             discord_email    = lower_copy(trim_copy(j.value("email", "")));
             discord_username = j.value("global_name", j.value("username", ""));
             email_verified   = j.value("verified", false);
-        } catch (const std::exception& e) {
-            cerr << "[oauth/discord] users/@me parse error: " << e.what() << endl;
-        }
+        } catch (...) {}
         try { fs::remove(me_file); } catch (...) {}
-        cerr << "[oauth/discord] user id.len=" << discord_id.size()
-             << " email.len=" << discord_email.size()
-             << " verified=" << email_verified << endl;
         if (discord_id.empty() || discord_email.empty() || !email_verified) {
-            cerr << "[oauth/discord] missing/unverified email → redirect" << endl;
             res.set_header("Location", "/account/login?err=Discord+account+has+no+verified+email.");
             res.status = 302;
             return;
         }
 
-        cerr << "[oauth/discord] calling oauth_finish_login…" << endl;
-        auto t4 = std::chrono::steady_clock::now();
         oauth_finish_login(req, res, "discord", discord_id, discord_email, discord_username);
-        auto t5 = std::chrono::steady_clock::now();
-        cerr << "[oauth/discord] oauth_finish_login took="
-             << std::chrono::duration_cast<std::chrono::milliseconds>(t5-t4).count() << "ms"
-             << " status=" << res.status << endl;
     });
 
     // ── Google OAuth ────────────────────────────────────────────────────────
