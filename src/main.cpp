@@ -377,6 +377,27 @@ int main() {
     svr.set_payload_max_length(2LL * 1024 * 1024 * 1024);
     svr.set_read_timeout(300, 0);
     svr.set_write_timeout(300, 0);
+    // Per-connection idle timeout — without this, slow/dead clients pin worker
+    // threads in the thread pool until exhaustion.
+    svr.set_idle_interval(0, 500'000'000);  // 0.5s
+
+    // Bump the thread pool well above httplib's default (≈ hardware
+    // concurrency). With AI calls that can legitimately take 60s and a busy
+    // tunnel, the default exhausts and the listener stops accepting.
+    svr.new_task_queue = [] {
+        return new httplib::ThreadPool(64);
+    };
+
+    // Heartbeat thread: prints to stderr every 30s so docker logs prove the
+    // process is alive AND the runtime isn't blocked. If this stops, we know
+    // something is wrong with the whole process (not just the listener).
+    std::thread([]() {
+        int64_t start = (int64_t)std::time(nullptr);
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(30));
+            cerr << "[Luma Tools] heartbeat uptime=" << ((int64_t)std::time(nullptr) - start) << "s" << endl;
+        }
+    }).detach();
 
     // CORS headers + rate limiting on /api/tools/*
     static std::mutex g_rate_mutex;

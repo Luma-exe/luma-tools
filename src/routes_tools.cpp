@@ -54,7 +54,10 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
     string rf  = proc + "/" + prefix + "_resp.json";
     string dhf = proc + "/" + prefix + "_dump.txt";   // response header dump
     { ofstream f(hf); f << "Authorization: Bearer " << g_groq_key << "\r\nContent-Type: application/json"; }
-    string curl_cmd = "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+    // --max-time 90 caps AI calls that would otherwise hang request workers
+    // indefinitely if Groq stops responding mid-stream.
+    string curl_cmd = "curl -s --max-time 90 --connect-timeout 8 "
+                      "-X POST https://api.groq.com/openai/v1/chat/completions"
                       " -H @" + escape_arg(hf) +
                       " -D " + escape_arg(dhf) +
                       " -d @" + escape_arg(pf) +
@@ -168,7 +171,8 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
         ol_payload["model"] = "llama3.1:8b";
         string ol_pf = proc + "/" + prefix + "_ollama_pl.json";
         { ofstream f(ol_pf); f << ol_payload.dump(-1, ' ', false, json::error_handler_t::replace); }
-        string ol_cmd = "curl -s -X POST http://localhost:11434/v1/chat/completions"
+        string ol_cmd = "curl -s --max-time 90 --connect-timeout 4 "
+                        "-X POST http://localhost:11434/v1/chat/completions"
                         " -H \"Content-Type: application/json\""
                         " -d @" + escape_arg(ol_pf) +
                         " -o " + escape_arg(ollama_rf);
@@ -4064,7 +4068,8 @@ CRITICAL RULES:
             string accept_file = proc + "/" + jid + "_accept.txt";
             { ofstream fa(accept_file); fa << "Accept: application/vnd.citationstyles.csl+json"; }
             string doi_url = "https://doi.org/" + doi;
-            string curl_cmd = "curl -s -L -H @" + escape_arg(accept_file) +
+            string curl_cmd = "curl -s --max-time 15 --connect-timeout 5 "
+                              "-L -H @" + escape_arg(accept_file) +
                               " " + escape_arg(doi_url) +
                               " -o " + escape_arg(resp_file);
             int rc; exec_command(curl_cmd, rc);
@@ -4109,7 +4114,8 @@ CRITICAL RULES:
             string jid = generate_job_id();
             string resp_file = proc + "/" + jid + "_page.html";
             
-            string curl_cmd = "curl -s -L -A Mozilla/5.0 " + escape_arg(url) +
+            string curl_cmd = "curl -s --max-time 15 --connect-timeout 5 "
+                              "-L -A Mozilla/5.0 " + escape_arg(url) +
                               " -o " + escape_arg(resp_file);
             int rc; exec_command(curl_cmd, rc);
             

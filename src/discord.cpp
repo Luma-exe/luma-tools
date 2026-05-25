@@ -43,7 +43,12 @@ static void discord_send(const json& payload) {
                 f << payload.dump();
             }
 
-            string cmd = "curl -s -X POST -H \"Content-Type: application/json\" -d @" +
+            // --max-time 8 is critical: without it, a slow/unresponsive Discord
+            // webhook would leak this detached thread forever. After enough
+            // leaks the OS thread limit hits and std::thread() blocks the
+            // caller — that's the deadlock pattern that took prod down twice.
+            string cmd = "curl -s --max-time 8 --connect-timeout 4 "
+                "-X POST -H \"Content-Type: application/json\" -d @" +
                 escape_arg(tmp) + " " + escape_arg(WEBHOOK_URL);
             int code;
             exec_command(cmd, code);
@@ -262,7 +267,8 @@ void discord_log_server_start(int port, const string& version) {
                                             << "\r\nContent-Type: application/json"; }
 
                         string cmd =
-                            "curl -s -X POST https://api.groq.com/openai/v1/chat/completions"
+                            "curl -s --max-time 60 --connect-timeout 8 "
+                            "-X POST https://api.groq.com/openai/v1/chat/completions"
                             " -H @" + escape_arg(hf) +
                             " -D " + escape_arg(dhf) +
                             " -d @" + escape_arg(pf) +
