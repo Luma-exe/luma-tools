@@ -451,18 +451,32 @@ static string render_profile_page(const AccountUser& target, bool is_own,
                      : "Buy a one-off AI top-up if you don't want a subscription.")
           << "</p></div></div>";
 
-        // Credits balance display (only meaningful for free users)
+        // Credits balance + top-up packs (free users only).
+        // Pricing recap: Pro = A$5/mo unlimited. Top-ups are deliberately
+        // worse-per-call so any heavy user reaches for Pro instead — these
+        // are aimed at the "I hit the wall once" / no-subscription cohort.
         if (!is_pro) {
             b << "<div style=\"display:flex;gap:14px;align-items:center;padding:10px 14px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:10px;margin-bottom:14px\">"
                  "<i class=\"fas fa-coins\" style=\"color:var(--accent-2)\"></i>"
                  "<div style=\"flex:1\"><div style=\"font-weight:600\">"
               << credits_balance << " AI credits</div>"
                  "<div style=\"font-size:.78rem;color:var(--text-secondary)\">"
-                 "Used automatically when your daily 20-call quota is exhausted.</div></div></div>"
-                 "<div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px\">"
-                 "<button class=\"ghost\" onclick=\"buyTopup('small')\"><i class=\"fas fa-plus\"></i> 100 calls — A$1.99</button>"
-                 "<button class=\"ghost\" onclick=\"buyTopup('medium')\"><i class=\"fas fa-plus\"></i> 500 calls — A$7.99</button>"
-                 "<button class=\"ghost\" onclick=\"buyTopup('large')\"><i class=\"fas fa-plus\"></i> 2000 calls — A$24.99</button>"
+                 "Used automatically when your daily 20-call quota is exhausted. Credits never expire.</div></div></div>"
+                 "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px\">"
+                 "<button class=\"ghost\" onclick=\"buyTopup('small')\" style=\"flex-direction:column;align-items:flex-start;padding:14px;height:auto;text-align:left\">"
+                 "<div style=\"font-size:.95rem;font-weight:700;color:var(--text-primary)\">⚡ Quick — 100 calls</div>"
+                 "<div style=\"font-size:1.1rem;font-weight:800;color:var(--accent-light);margin-top:4px\">A$2.99</div>"
+                 "<div style=\"font-size:.72rem;color:var(--text-secondary);margin-top:2px\">One-off, no subscription</div>"
+                 "</button>"
+                 "<button class=\"ghost\" onclick=\"buyTopup('large')\" style=\"flex-direction:column;align-items:flex-start;padding:14px;height:auto;text-align:left\">"
+                 "<div style=\"font-size:.95rem;font-weight:700;color:var(--text-primary)\">📦 Bulk — 500 calls</div>"
+                 "<div style=\"font-size:1.1rem;font-weight:800;color:var(--accent-light);margin-top:4px\">A$9.99</div>"
+                 "<div style=\"font-size:.72rem;color:var(--text-secondary);margin-top:2px\">Save 33% per call</div>"
+                 "</button>"
+                 "</div>"
+                 "<div style=\"font-size:.78rem;color:var(--text-secondary);margin-bottom:14px;padding:8px 10px;background:rgba(124,92,255,.06);border-radius:6px\">"
+                 "<i class=\"fas fa-crown\" style=\"color:var(--accent-light)\"></i> "
+                 "Using AI most days? <a href=\"#\" onclick=\"startProCheckout(this.closest('div'));return false\" style=\"color:var(--accent-light)\">Pro is A$5/month for unlimited calls</a> — usually cheaper than two top-ups."
                  "</div>";
         }
 
