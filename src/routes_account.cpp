@@ -108,8 +108,15 @@ html,body{height:100%}
 body{
   margin:0;background:var(--bg-primary);color:var(--text-primary);
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  min-height:100vh;display:flex;align-items:center;justify-content:center;
-  padding:24px;position:relative;overflow-x:hidden;
+  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  /* generous top + bottom padding so tall content (account / profile with API
+     keys card) doesn't crop the avatar/header off the top of the viewport.
+     align-items:center was the original culprit — for content taller than
+     100vh it pushed the start off-screen and there's no negative-scroll. */
+  padding:48px 24px 80px;position:relative;overflow-x:hidden;
+}
+@media (max-width: 640px){
+  body{ padding:24px 16px 48px; }
 }
 .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;filter:blur(80px);opacity:.35}
 .orb{position:absolute;border-radius:50%;animation:float 22s ease-in-out infinite}
