@@ -43,8 +43,16 @@ services:
     volumes:
       - downloads:/app/downloads
       - processing:/app/processing
-      # Uncomment to persist stats.db (create the file first — see above):
-      # - ./stats.db:/app/stats.db
+      # stats.db persistence — bind-mounted from the host so user accounts,
+      # sessions, oauth links, plan overrides etc. SURVIVE container
+      # recreations (force-recreate, image rebuilds, etc.). Without this,
+      # every `docker compose up --force-recreate` wipes the DB and silently
+      # logs every user out — that bug bit us on 2026-05-25.
+      # Operator must `touch stats.db` on the host once before first start;
+      # SQLite then opens it normally and creates the schema.
+      - ./stats.db:/app/stats.db
+      - ./stats.db-wal:/app/stats.db-wal
+      - ./stats.db-shm:/app/stats.db-shm
 
   # Watches every container with label autoheal=true and restarts it after the
   # HEALTHCHECK has reported "unhealthy" for AUTOHEAL_INTERVAL consecutive
