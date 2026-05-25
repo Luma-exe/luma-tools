@@ -1213,7 +1213,9 @@ void register_account_routes(httplib::Server& svr) {
           << "<a class=\"primary\" href=\"/\" style=\"min-width:160px\"><i class=\"fas fa-bolt\"></i> Try the tools</a>"
           << "</div>"
           << "</div>";
-        res.set_header("Cache-Control", "public, max-age=60");
+        // no-store so plan changes (e.g. just-upgraded to Pro) show immediately
+        // instead of being stuck on the 60s edge cache.
+        res.set_header("Cache-Control", "no-store");
         res.set_content(render_account_shell(display + " — Luma Tools", b.str()), "text/html");
     });
 
