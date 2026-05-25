@@ -90,6 +90,8 @@ const FILE_TOOL_MAP = {
         { id: 'pdf-merge',       label: 'Merge',        icon: 'fas fa-layer-group' },
         { id: 'pdf-split',       label: 'Split',        icon: 'fas fa-scissors' },
         { id: 'pdf-to-images',   label: 'To Images',    icon: 'fas fa-images' },
+        { id: 'pdf-to-word',     label: 'To Word',      icon: 'fas fa-file-word' },
+        { id: 'word-to-pdf',     label: 'Word to PDF',  icon: 'fas fa-file-pdf' },
         { id: 'ocr',             label: 'Image Extract Text', icon: 'fas fa-font' },
         { id: 'ai-study-notes',  label: 'Study Notes',  icon: 'fas fa-brain' },
         { id: 'ai-flashcards',   label: 'Flashcards',   icon: 'fas fa-clone' },

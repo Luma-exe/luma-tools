@@ -1174,6 +1174,97 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         res.set_content(result.dump(), "application/json");
     });
 
+    // ── POST /api/tools/pdf-to-word ─────────────────────────────────────────
+    //    PDF → .docx via LibreOffice headless. soffice is the only reliable
+    //    way to convert (Pandoc and Pandoc+LaTeX cannot; pdftotext loses
+    //    layout). Adds ~500 MB to the image; see Dockerfile for the apt
+    //    install of libreoffice-core + libreoffice-writer.
+    svr.Post("/api/tools/pdf-to-word", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        discord_log_tool("PDF to Word", file.filename, req.remote_addr);
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+        string input_path = save_upload(file, jid);
+        // soffice converts INTO an output directory, naming the output after
+        // the input filename with the new extension. Give each job its own
+        // out dir so parallel jobs don't collide.
+        string out_dir = proc + "/" + jid + "_out";
+        try { fs::create_directories(out_dir); } catch (...) {}
+        // Per-job user profile dir (-env:UserInstallation) — without this,
+        // concurrent soffice runs share ~/.config/libreoffice and one blocks
+        // the others (typical "another instance is running" failure).
+        string profile_dir = proc + "/" + jid + "_lo_profile";
+        try { fs::create_directories(profile_dir); } catch (...) {}
+        string cmd = "soffice --headless --norestore "
+                     "-env:UserInstallation=file://" + profile_dir +
+                     " --convert-to docx --outdir " + escape_arg(out_dir) +
+                     " " + escape_arg(input_path);
+        int code;
+        exec_command(cmd, code);
+        // soffice writes <stem>.docx into out_dir
+        string out_name = fs::path(file.filename).stem().string() + ".docx";
+        string out_path = out_dir + "/" + fs::path(file.filename).stem().string() + ".docx";
+        if (fs::exists(out_path) && fs::file_size(out_path) > 0) {
+            send_file_response(res, out_path, out_name);
+        } else {
+            res.status = 500;
+            discord_log_error("PDF to Word", "Failed for: " + mask_filename(file.filename));
+            res.set_content(json({{"error", "PDF→Word conversion failed. Some PDFs (scanned-image only, encrypted, or malformed) cannot be converted — try Image Extract Text (OCR) first if it's a scan."}}).dump(),
+                            "application/json");
+        }
+        try {
+            fs::remove(input_path);
+            fs::remove_all(out_dir);
+            fs::remove_all(profile_dir);
+        } catch (...) {}
+    });
+
+    // ── POST /api/tools/word-to-pdf ─────────────────────────────────────────
+    //    .docx → PDF (also handles .doc / .odt / .rtf since soffice supports
+    //    them out of the box).
+    svr.Post("/api/tools/word-to-pdf", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) {
+            res.status = 400;
+            res.set_content(json({{"error", "No file uploaded"}}).dump(), "application/json");
+            return;
+        }
+        auto file = req.get_file_value("file");
+        discord_log_tool("Word to PDF", file.filename, req.remote_addr);
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+        string input_path = save_upload(file, jid);
+        string out_dir = proc + "/" + jid + "_out";
+        try { fs::create_directories(out_dir); } catch (...) {}
+        string profile_dir = proc + "/" + jid + "_lo_profile";
+        try { fs::create_directories(profile_dir); } catch (...) {}
+        string cmd = "soffice --headless --norestore "
+                     "-env:UserInstallation=file://" + profile_dir +
+                     " --convert-to pdf --outdir " + escape_arg(out_dir) +
+                     " " + escape_arg(input_path);
+        int code;
+        exec_command(cmd, code);
+        string out_name = fs::path(file.filename).stem().string() + ".pdf";
+        string out_path = out_dir + "/" + fs::path(file.filename).stem().string() + ".pdf";
+        if (fs::exists(out_path) && fs::file_size(out_path) > 0) {
+            send_file_response(res, out_path, out_name);
+        } else {
+            res.status = 500;
+            discord_log_error("Word to PDF", "Failed for: " + mask_filename(file.filename));
+            res.set_content(json({{"error", "Word→PDF conversion failed. Accepted: .docx, .doc, .odt, .rtf."}}).dump(),
+                            "application/json");
+        }
+        try {
+            fs::remove(input_path);
+            fs::remove_all(out_dir);
+            fs::remove_all(profile_dir);
+        } catch (...) {}
+    });
+
     // ── POST /api/tools/pdf-compress ────────────────────────────────────────
     svr.Post("/api/tools/pdf-compress", [](const httplib::Request& req, httplib::Response& res) {
         if (g_ghostscript_path.empty()) {

@@ -89,6 +89,8 @@ const TOOL_DEFAULTS = {
     'pdf-merge':           { endpoint: 'pdf-merge',       field: 'files' },
     'pdf-split':           { endpoint: 'pdf-split',       field: 'file' },
     'pdf-to-images':       { endpoint: 'pdf-to-images',   field: 'file' },
+    'pdf-to-word':         { endpoint: 'pdf-to-word',     field: 'file' },
+    'word-to-pdf':         { endpoint: 'word-to-pdf',     field: 'file' },
     'ocr':                 { endpoint: 'ocr',             field: 'file' },
     'hash':                { endpoint: 'hash-generate',   field: 'file' },
 };

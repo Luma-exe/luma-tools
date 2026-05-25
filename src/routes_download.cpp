@@ -754,6 +754,16 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             string title = body.value("title", "download");
             string download_id = generate_download_id();
             string out_template = dl_dir + "/" + download_id + ".%(ext)s";
+            // Optional async completion webhook. If supplied, after the
+            // download finishes (success OR error) we POST the final status
+            // JSON to that URL. Allows scripts/CLIs to skip polling.
+            // Limit to https:// + sane length to prevent SSRF abuse.
+            string webhook_url = body.value("webhook_url", "");
+            if (!webhook_url.empty()) {
+                bool valid = webhook_url.size() < 2000 &&
+                             webhook_url.rfind("https://", 0) == 0;
+                if (!valid) webhook_url.clear();
+            }
 
             register_active_download(client_ip, download_id);
 
@@ -803,7 +813,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
             cout << "[Luma Tools] Download cmd: " << cmd << endl;
 
-            thread([cmd, download_id, dl_dir, client_ip, title, format]() {
+            thread([cmd, download_id, dl_dir, client_ip, title, format, webhook_url]() {
                 update_download_status(download_id, {
                     {"status", "downloading"}, {"progress", 0},
                     {"eta", nullptr}, {"speed", ""}, {"filesize", ""}
@@ -984,18 +994,47 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
 
                 unregister_active_download(client_ip);
 
+                json final_status;
                 if (!found_file.empty()) {
-                    update_download_status(download_id, {
+                    final_status = {
                         {"status", "completed"}, {"progress", 100}, {"eta", 0}, {"speed", ""},
                         {"filename", found_file}, {"download_url", "/downloads/" + found_file}
-                    });
+                    };
                 } else {
                     cerr << "[Luma Tools] Download failed. Output:\n" << sanitize_utf8(full_output) << endl;
                     discord_log_error("Download", "Failed for: " + title);
-                    update_download_status(download_id, {
+                    final_status = {
                         {"status", "error"}, {"progress", 0},
                         {"error", "Download failed"}, {"details", sanitize_utf8(full_output)}
-                    });
+                    };
+                }
+                update_download_status(download_id, final_status);
+
+                // Fire async completion webhook if requested. Detached + bounded
+                // by --max-time so a slow webhook target can't hold this thread.
+                if (!webhook_url.empty()) {
+                    json payload = final_status;
+                    payload["download_id"] = download_id;
+                    payload["title"] = title;
+                    payload["format"] = format;
+                    string base = "https://" +
+                        (std::getenv("APP_BASE_URL") ? string("")
+                            : std::string("tools.lumaplayground.com"));  // best-effort
+                    if (payload.contains("download_url")) {
+                        // Promote relative URL to absolute for the webhook recipient.
+                        payload["download_absolute_url"] =
+                            string("https://tools.lumaplayground.com") + payload.value("download_url", "");
+                    }
+                    string proc = get_processing_dir();
+                    string id = generate_job_id();
+                    string body_file = proc + "/dlw_" + id + ".json";
+                    { ofstream f(body_file); f << payload.dump(); }
+                    string cmd = "curl -s --max-time 10 --connect-timeout 4 "
+                                 "-X POST -H \"Content-Type: application/json\" "
+                                 "--data-binary @" + escape_arg(body_file) + " " +
+                                 escape_arg(webhook_url) + " >/dev/null 2>&1";
+                    int rc; exec_command(cmd, rc);
+                    try { fs::remove(body_file); } catch (...) {}
                 }
             }).detach();
 

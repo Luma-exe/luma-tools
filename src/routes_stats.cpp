@@ -572,6 +572,8 @@ const ALL_TOOLS = [
   {id:'pdf-merge',          loc:'server'},
   {id:'pdf-split',          loc:'server'},
   {id:'pdf-to-images',      loc:'server'},
+  {id:'pdf-to-word',        loc:'server'},
+  {id:'word-to-pdf',        loc:'server'},
   {id:'images-to-pdf',      loc:'server'},
   {id:'markdown-to-pdf',    loc:'server'},
   {id:'hash-generate',      loc:'server'},

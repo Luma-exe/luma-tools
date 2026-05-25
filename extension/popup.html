@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Luma Tools</title>
+<style>
+body{width:280px;margin:0;padding:16px;background:#0a0a0f;color:#f0f0f5;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:13px}
+h1{font-size:14px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+h1 span{color:#7c5cff}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8888a0;margin:0 0 6px}
+input{width:100%;box-sizing:border-box;padding:8px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#fff;font-size:12px;font-family:monospace}
+input:focus{outline:none;border-color:#7c5cff}
+button{margin-top:10px;width:100%;padding:9px;background:linear-gradient(135deg,#7c5cff,#9b80ff);border:0;border-radius:6px;color:#fff;font-weight:600;font-size:12px;cursor:pointer}
+button:hover{filter:brightness(1.1)}
+.help{margin-top:12px;color:#8888a0;font-size:11px;line-height:1.4}
+.help a{color:#a88aff}
+.status{margin-top:8px;font-size:11px;min-height:14px}
+.status.ok{color:#86efac}
+.status.err{color:#fca5a5}
+</style></head><body>
+<h1><span>⚡</span> Luma Tools</h1>
+<label for="k">API key</label>
+<input id="k" type="password" placeholder="lt_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+<button id="save">Save</button>
+<div id="status" class="status"></div>
+<div class="help">
+  Get a Pro API key at <a href="https://tools.lumaplayground.com/account" target="_blank">tools.lumaplayground.com/account</a>.<br><br>
+  Then right-click any image / video / audio on the web → <em>Compress with Luma Tools</em>.
+</div>
+<script src="popup.js"></script>
+</body></html>

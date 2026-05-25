@@ -79,6 +79,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         tesseract-ocr-ara \
         # HEIC/HEIF support
         libheif-examples \
+        # LibreOffice headless — for pdf↔docx conversion. Adds ~500 MB to the
+        # image; the only reliable way to do high-fidelity PDF→Word.
+        libreoffice-core \
+        libreoffice-writer \
         # Misc
         ca-certificates \
         curl \
