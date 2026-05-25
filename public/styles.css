@@ -2086,8 +2086,12 @@ body {
     transition: background 0.2s, color 0.2s;
 }
 .disabled-tool-modal .dtm-close:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
-/* Stack action buttons (CTA + cancel) with a clean gap. */
-.disabled-tool-modal .dtm-close + .dtm-close { margin-top: 10px; }
+/* Stack action buttons (CTA + cancel) full-width with a clean gap.
+   display:block forces them onto separate lines deterministically; margin-top
+   gives ~16px between the bottom of one and the top of the next regardless
+   of font size / line-height. */
+.disabled-tool-modal .dtm-close { display: block; width: 100%; margin: 0 auto; }
+.disabled-tool-modal .dtm-close + .dtm-close { margin-top: 16px; }
 /* Make the first button (primary CTA) actually look primary */
 .disabled-tool-modal .dtm-close:first-of-type {
     background: linear-gradient(135deg, var(--accent), var(--accent-light));
