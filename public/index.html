@@ -2906,9 +2906,9 @@
                     <p>Decode and inspect JSON Web Tokens — header, payload, and signature — entirely in your browser.</p>
                 </div>
                 <div class="tool-body">
-                    <div class="tool-options">
-                        <label class="option-label">Paste JWT Token</label>
-                        <textarea id="jwtInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." rows="4" oninput="decodeJWT()" style="font-family:var(--font-mono);font-size:12px;width:100%;resize:vertical"></textarea>
+                    <div class="input-group" style="margin-bottom:12px">
+                        <label for="jwtInput">Paste JWT Token</label>
+                        <textarea id="jwtInput" rows="4" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." oninput="decodeJWT()"></textarea>
                     </div>
                     <div id="jwtResult" class="hidden">
                         <div class="jwt-parts">
