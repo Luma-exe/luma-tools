@@ -423,8 +423,10 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
             if (platform.id == "spotify") {
                 auto sr = spotify_resolve(url);
                 if (!sr.ok) {
-                    res.status = 502;
-                    res.set_content(json({{"error", sr.error.empty() ? "Could not resolve that Spotify link." : sr.error}}).dump(), "application/json");
+                    // 400 (not 502) — Cloudflare intercepts origin 502s and
+                    // replaces them with its own error page, hiding our JSON.
+                    res.status = 400;
+                    res.set_content(json({{"error", sr.error.empty() ? "Could not resolve that Spotify link." : sr.error}}).dump(-1, ' ', false, json::error_handler_t::replace), "application/json");
                     return;
                 }
                 auto utf8_replace = [](json& j) {
@@ -466,7 +468,7 @@ void register_download_routes(httplib::Server& svr, string dl_dir) {
                 }
                 // kind == "track"
                 if (sr.items.empty()) {
-                    res.status = 502;
+                    res.status = 400;
                     res.set_content(json({{"error", "Spotify resolved no playable track."}}).dump(), "application/json");
                     return;
                 }
