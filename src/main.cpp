@@ -723,9 +723,55 @@ int main() {
         cout << "[Luma Tools] Discord logging enabled." << endl;
     }
 
-    if (!svr.listen("0.0.0.0", port)) {
-        cerr << "[Luma Tools] Failed to start server on port " << port << endl;
-        return 1;
+    // ── Per-request exception safety net ────────────────────────────────────
+    //    Without this, an uncaught exception in any handler propagates up to
+    //    httplib's worker thread and can corrupt server state (worst case:
+    //    the accept loop stops scheduling new work). With it, we always send
+    //    a JSON 500 and keep the listener healthy.
+    svr.set_exception_handler([](const httplib::Request& req, httplib::Response& res,
+                                  std::exception_ptr ep) {
+        string msg = "Internal error";
+        try { if (ep) std::rethrow_exception(ep); }
+        catch (const std::exception& e) { msg = e.what(); }
+        catch (...)                     { msg = "unknown exception"; }
+        cerr << "[Luma Tools] Handler threw on " << req.method << " " << req.path
+             << " : " << msg << endl;
+        try {
+            discord_log("⚠️ luma-tools handler exception",
+                        "**" + req.method + "** `" + req.path + "`\n```\n" + msg + "\n```",
+                        0xF59E0B);
+        } catch (...) {}
+        res.status = 500;
+        res.set_content(json({{"error", "Server hit an unexpected error. Please try again."},
+                              {"path", req.path}}).dump(), "application/json");
+    });
+
+    // ── Listener + crash recovery ────────────────────────────────────────────
+    //    Wrap svr.listen() so any exception that escapes a handler is logged
+    //    instead of silently killing the accept loop (which is what caused the
+    //    "process alive but unresponsive" outage on 2026-05-25). On exception
+    //    or false return we exit non-zero so Docker's restart-policy recreates
+    //    the container; the HEALTHCHECK below also catches the stuck state.
+    try {
+        bool ok = svr.listen("0.0.0.0", port);
+        if (!ok) {
+            cerr << "[Luma Tools] svr.listen returned false (port " << port
+                 << " busy? socket error?). Exiting so Docker restarts us." << endl;
+            return 1;
+        }
+    } catch (const std::exception& e) {
+        cerr << "[Luma Tools] FATAL: listener threw uncaught exception: "
+             << e.what() << ". Exiting." << endl;
+        try {
+            discord_log("🚨 luma-tools listener crashed",
+                        string("Uncaught exception: ") + e.what() +
+                        "\nDocker will restart the container.",
+                        0xEF4444);
+        } catch (...) {}
+        return 2;
+    } catch (...) {
+        cerr << "[Luma Tools] FATAL: listener threw unknown exception. Exiting." << endl;
+        return 2;
     }
 
     return 0;

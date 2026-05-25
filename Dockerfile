@@ -105,4 +105,11 @@ ENV PORT=8080
 
 EXPOSE 8080
 
+# Healthcheck: hits the cheap /healthz endpoint. After 3 consecutive failures
+# Docker flags the container "unhealthy" — the autoheal sidecar (see
+# docker-compose.yml) watches for that label and restarts the container.
+# start-period gives the binary 30s to come up before failures start counting.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS --max-time 4 http://127.0.0.1:8080/healthz || exit 1
+
 ENTRYPOINT ["./luma-tools"]

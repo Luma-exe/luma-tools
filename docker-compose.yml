@@ -36,11 +36,30 @@ services:
     restart: unless-stopped
     container_name: luma-tools-app
     env_file: .env
+    # Tells the autoheal sidecar below to monitor this container's healthcheck
+    # state and recreate it if it goes "unhealthy".
+    labels:
+      - "autoheal=true"
     volumes:
       - downloads:/app/downloads
       - processing:/app/processing
       # Uncomment to persist stats.db (create the file first — see above):
       # - ./stats.db:/app/stats.db
+
+  # Watches every container with label autoheal=true and restarts it after the
+  # HEALTHCHECK has reported "unhealthy" for AUTOHEAL_INTERVAL consecutive
+  # checks. ~6 MB, no config needed. Fixes the "process alive but unresponsive
+  # to its own port" outage class that took us down on 2026-05-25.
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    container_name: luma-tools-autoheal
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: "30"
+      AUTOHEAL_START_PERIOD: "60"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   cloudflared:
     image: cloudflare/cloudflared:latest
