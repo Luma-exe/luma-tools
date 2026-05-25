@@ -1,30 +1,25 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// FEEDBACK WIDGET — floating bottom-right button that opens a textarea modal
-// and POSTs the text to /api/feedback (server forwards to Discord webhook).
-// Skipped in embed mode so 3rd-party embeds don't show our button.
+// FEEDBACK PILL — floating bottom-right button styled like the existing
+// portfolio + ko-fi pills (pill shape, glass background, expands on hover
+// to show its label). Click → opens a textarea modal → POSTs to /api/feedback
+// (server forwards to Discord webhook).
+// Skipped in embed mode.
 // ═══════════════════════════════════════════════════════════════════════════
 (function () {
     if (document.body.classList.contains('lt-embed')) return;
-    // Inject button + modal markup once
+
     function init() {
         if (document.getElementById('lt-feedback-btn')) return;
-        const btn = document.createElement('button');
+        const btn = document.createElement('a');
         btn.id = 'lt-feedback-btn';
-        btn.type = 'button';
+        btn.href = '#';
+        btn.className = 'feedback-float';
+        btn.title = 'Send feedback';
         btn.setAttribute('aria-label', 'Send feedback');
-        btn.innerHTML = '<i class="fas fa-comment-dots"></i>';
-        btn.style.cssText = [
-            'position:fixed', 'right:18px', 'bottom:18px', 'z-index:9000',
-            'width:44px', 'height:44px', 'border-radius:50%', 'border:0',
-            'background:linear-gradient(135deg,#7c5cff,#00d4ff)',
-            'color:#fff', 'font-size:1.1rem', 'cursor:pointer',
-            'box-shadow:0 8px 24px rgba(124,92,255,0.4)',
-            'display:flex', 'align-items:center', 'justify-content:center',
-            'transition:transform .15s'
-        ].join(';');
-        btn.addEventListener('mouseenter', () => btn.style.transform = 'scale(1.08)');
-        btn.addEventListener('mouseleave', () => btn.style.transform = 'scale(1)');
-        btn.addEventListener('click', open);
+        btn.innerHTML =
+            '<span class="feedback-icon"><i class="fas fa-comment-dots"></i></span>' +
+            '<span class="feedback-label">Feedback</span>';
+        btn.addEventListener('click', e => { e.preventDefault(); open(); });
         document.body.appendChild(btn);
     }
 
@@ -51,11 +46,14 @@
         setTimeout(() => document.getElementById('lt-fb-text')?.focus(), 30);
         document.getElementById('lt-fb-cancel').onclick = close;
         document.getElementById('lt-fb-send').onclick   = send;
+        document.addEventListener('keydown', escClose);
     }
 
     function close() {
         document.getElementById('lt-feedback-modal')?.remove();
+        document.removeEventListener('keydown', escClose);
     }
+    function escClose(e) { if (e.key === 'Escape') close(); }
 
     async function send() {
         const ta = document.getElementById('lt-fb-text');

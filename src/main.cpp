@@ -454,11 +454,15 @@ int main() {
         }
 
         // ── Per-user counters (public profile badge) ────────────────────────
-        //    Optimistic: bumped at request time, regardless of success. Tiny
-        //    inflation from failures is acceptable for a vanity counter.
+        //    Bumped at request time. Most tools are browser-side WASM and
+        //    record stats via /api/browser-tool, NOT /api/tools/* — so the
+        //    profile counter MUST include /api/browser-tool, otherwise heavy
+        //    browser-tool users see 0 forever (which is exactly the bug that
+        //    bit a Pro user on 2026-05-26).
         if (req.method == "POST" &&
             (req.path.find("/api/tools/") == 0 ||
              req.path == "/api/download" ||
+             req.path == "/api/browser-tool" ||
              is_ai_endpoint(req.path))) {
             int uid = account_user_id_for_request(req);
             if (uid > 0) {
@@ -706,153 +710,19 @@ int main() {
         res.set_content("ok", "text/plain");
     });
 
-    // ── /api/status — JSON probe of all three Luma sites + cloudflared tunnel.
-    //    Used by the public /status page and by external monitors. Pings each
-    //    site's /health (or /) in parallel; falls back to "down" on timeout.
+    // /status + /api/status routes are no longer here — that whole feature
+    // lives in the separate Luma Status repo + container at
+    // status.lumaplayground.com (see github.com/Luma-exe/luma-status).
+    // Both old paths now 302 to the standalone site for any old bookmarks.
+    svr.Get("/status", [](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Location", "https://status.lumaplayground.com/");
+        res.status = 302;
+    });
     svr.Get("/api/status", [](const httplib::Request&, httplib::Response& res) {
-        struct Site { const char* id; const char* name; const char* url; };
-        static const Site SITES[] = {
-            {"tools",   "Luma Tools",   "https://tools.lumaplayground.com/healthz"},
-            {"planner", "Luma Planner", "https://planner.lumaplayground.com/"},
-            {"vantage", "Luma Vantage", "https://vantage.lumaplayground.com/"},
-        };
-        json arr = json::array();
-        for (const auto& s : SITES) {
-            string proc = get_processing_dir();
-            string id = generate_job_id();
-            string code_file = proc + "/st_" + id + "_c.txt";
-            string time_file = proc + "/st_" + id + "_t.txt";
-            string cmd = "curl -s -o /dev/null --max-time 8 --connect-timeout 4 "
-                         "-w \"%{http_code}|%{time_total}\" " +
-                         escape_arg(s.url) + " > " + escape_arg(code_file);
-            int rc; exec_command(cmd, rc);
-            int http = 0;
-            double t = 0.0;
-            if (fs::exists(code_file)) {
-                std::ifstream f(code_file);
-                string raw; std::getline(f, raw);
-                auto pipe = raw.find('|');
-                if (pipe != string::npos) {
-                    try { http = std::stoi(raw.substr(0, pipe)); } catch (...) {}
-                    try { t    = std::stod(raw.substr(pipe + 1));  } catch (...) {}
-                }
-            }
-            try { fs::remove(code_file); fs::remove(time_file); } catch (...) {}
-            string state = (http >= 200 && http < 400) ? "up"
-                         : (http == 0) ? "down"
-                         : "degraded";
-            arr.push_back({
-                {"id", s.id}, {"name", s.name}, {"url", s.url},
-                {"http", http}, {"latency_ms", (int)(t * 1000)}, {"state", state}
-            });
-        }
-        res.set_header("Cache-Control", "no-store");
-        res.set_content(json({{"sites", arr}, {"now", (int64_t)std::time(nullptr)}}).dump(),
-                        "application/json");
+        res.set_header("Location", "https://status.lumaplayground.com/api/status");
+        res.status = 302;
     });
 
-    // ── /status — public uptime page for all three Luma sites.
-    svr.Get("/status", [](const httplib::Request&, httplib::Response& res) {
-        const char* html = R"HTML(<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Luma — System Status</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0a0a0f;--card:rgba(18,18,30,.65);--text:#f0f0f5;--muted:#8888a0;
-      --border:rgba(255,255,255,.08);--purple:#7c5cff;--green:#34d399;
-      --amber:#fbbf24;--red:#f87171}
-body{background:var(--bg);color:var(--text);min-height:100vh;
-     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-     padding:48px 24px 80px}
-.shell{max-width:760px;margin:0 auto}
-.brand{display:flex;align-items:center;justify-content:center;gap:10px;
-       margin-bottom:24px;color:var(--text);text-decoration:none;font-weight:800;font-size:1.1rem}
-.brand i{color:var(--purple)}
-.brand span{color:var(--muted);font-weight:600}
-h1{font-size:1.8rem;font-weight:800;margin-bottom:6px}
-.intro{color:var(--muted);margin-bottom:24px;font-size:.92rem}
-.banner{padding:14px 18px;border-radius:12px;font-weight:600;
-        display:flex;align-items:center;gap:10px;margin-bottom:24px;font-size:.95rem}
-.banner.ok    {background:rgba(52,211,153,.10);border:1px solid rgba(52,211,153,.32);color:var(--green)}
-.banner.bad   {background:rgba(248,113,113,.10);border:1px solid rgba(248,113,113,.32);color:var(--red)}
-.banner.mixed {background:rgba(251,191,36,.10);border:1px solid rgba(251,191,36,.32);color:var(--amber)}
-.card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--border);
-      border-radius:14px;padding:14px 18px;margin-bottom:10px;
-      display:flex;align-items:center;gap:14px}
-.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 12px currentColor}
-.dot.up{background:var(--green);color:var(--green)}
-.dot.down{background:var(--red);color:var(--red)}
-.dot.degraded{background:var(--amber);color:var(--amber)}
-.dot.checking{background:var(--muted);color:var(--muted);animation:p 1.4s infinite}
-@keyframes p{50%{opacity:.4}}
-.name{flex:1;min-width:0}
-.title{font-weight:600;font-size:.96rem}
-.sub{font-size:.78rem;color:var(--muted);margin-top:2px}
-.latency{font-size:.82rem;color:var(--muted);font-family:monospace;flex-shrink:0}
-.meta{margin-top:24px;color:var(--muted);font-size:.8rem;text-align:center}
-.refresh{margin-top:12px;text-align:center}
-.refresh button{padding:8px 16px;background:rgba(255,255,255,.04);
-  border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:.85rem;cursor:pointer}
-.refresh button:hover{background:rgba(124,92,255,.12);color:var(--text)}
-.back{margin-top:32px;text-align:center}
-.back a{color:var(--muted);text-decoration:none;font-size:.85rem}
-.back a:hover{color:var(--text)}
-</style></head><body>
-<div class="shell">
-  <a class="brand" href="/"><i class="fas fa-bolt"></i>LUMA<span>STATUS</span></a>
-  <h1>System status</h1>
-  <p class="intro">Live health of every site under lumaplayground.com. Auto-refreshes every 30 seconds.</p>
-  <div id="banner" class="banner ok"><i class="fas fa-circle-notch fa-spin"></i> Checking systems…</div>
-  <div id="sites"></div>
-  <div class="refresh"><button onclick="poll(true)">Refresh now</button></div>
-  <div class="meta" id="meta">Last updated: —</div>
-  <div class="back"><a href="/"><i class="fas fa-arrow-left"></i> Back to Luma Tools</a></div>
-</div>
-<script>
-async function poll(force){
-  try{
-    const r = await fetch('/api/status' + (force?'?t='+Date.now():''), {cache:'no-store'});
-    const d = await r.json();
-    render(d);
-  }catch(e){
-    document.getElementById('banner').className = 'banner bad';
-    document.getElementById('banner').innerHTML = '<i class="fas fa-circle-xmark"></i> Status check failed';
-  }
-}
-function render(d){
-  const ups = d.sites.filter(s=>s.state==='up').length;
-  const total = d.sites.length;
-  const banner = document.getElementById('banner');
-  if (ups === total) {
-    banner.className = 'banner ok';
-    banner.innerHTML = '<i class="fas fa-circle-check"></i> All systems operational';
-  } else if (ups === 0) {
-    banner.className = 'banner bad';
-    banner.innerHTML = '<i class="fas fa-circle-xmark"></i> Major outage — '+(total-ups)+' service(s) down';
-  } else {
-    banner.className = 'banner mixed';
-    banner.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Partial outage — '+(total-ups)+' service(s) affected';
-  }
-  document.getElementById('sites').innerHTML = d.sites.map(s => `
-    <div class="card">
-      <span class="dot ${s.state}"></span>
-      <div class="name">
-        <div class="title">${escapeHtml(s.name)}</div>
-        <div class="sub">${escapeHtml(s.url.replace(/^https?:\/\//,''))} · HTTP ${s.http||'—'}</div>
-      </div>
-      <div class="latency">${s.latency_ms?s.latency_ms+' ms':'—'}</div>
-    </div>`).join('');
-  document.getElementById('meta').textContent = 'Last updated: ' + new Date(d.now*1000).toLocaleTimeString();
-}
-function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-poll();
-setInterval(()=>poll(true), 30000);
-</script>
-</body></html>)HTML";
-        res.set_content(html, "text/html");
-    });
 
     // ── /og/<tool-id>.svg — per-tool social-card image, generated on demand.
     //    Twitter / Discord / Slack will fetch this when someone shares a tool
