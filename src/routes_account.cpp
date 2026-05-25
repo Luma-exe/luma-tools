@@ -173,7 +173,33 @@ button.ghost:hover,a.ghost:hover{background:rgba(255,255,255,.07);border-color:v
 .profile-value{color:var(--text-primary);font-size:.95rem;word-break:break-word}
 .actions-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
 .actions-row > *{flex:1;min-width:160px}
+/* Password field with show/hide eye toggle */
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:42px}
+.pw-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent;border:0;color:var(--text-secondary);cursor:pointer;padding:6px 8px;border-radius:6px;font-size:.95rem;line-height:1}
+.pw-eye:hover{color:var(--text-primary);background:rgba(255,255,255,.05)}
+.pw-eye:focus{outline:none;color:var(--accent-light)}
+.pw-mismatch{color:#fca5a5;font-size:.8rem;margin-top:-4px;margin-bottom:10px;display:none}
+.pw-mismatch.show{display:block}
 )CSS";
+
+static string pw_field(const string& id, const string& name, const string& placeholder,
+                       const string& autocomplete, bool required = true, int min_len = 0) {
+    std::ostringstream f;
+    f << "<div class=\"pw-wrap\">"
+      << "<input id=\"" << id << "\" type=\"password\" name=\"" << name
+      << "\" placeholder=\"" << placeholder << "\" autocomplete=\"" << autocomplete << "\""
+      << (required ? " required" : "")
+      << (min_len > 0 ? (" minlength=\"" + to_string(min_len) + "\"") : "")
+      << ">"
+      << "<button type=\"button\" class=\"pw-eye\" aria-label=\"Show password\" "
+         "onclick=\"(function(b){var i=b.previousElementSibling;var on=i.type==='password';"
+         "i.type=on?'text':'password';b.innerHTML=on?'<i class=\\'fas fa-eye-slash\\'></i>':'<i class=\\'fas fa-eye\\'></i>';"
+         "b.setAttribute('aria-label',on?'Hide password':'Show password');})(this)\">"
+         "<i class=\"fas fa-eye\"></i></button>"
+      << "</div>";
+    return f.str();
+}
 
 static string render_account_shell(const string& title, const string& body_html) {
     std::ostringstream html;
@@ -225,9 +251,11 @@ static string render_login_page(const AccountUser*, const string& message = "", 
          "<div class=\"field\"><label for=\"li-email\">Email</label>"
          "<input id=\"li-email\" type=\"email\" name=\"email\" placeholder=\"you@example.com\" autocomplete=\"email\" required></div>"
          "<div class=\"field\"><label for=\"li-pw\">Password</label>"
-         "<input id=\"li-pw\" type=\"password\" name=\"password\" placeholder=\"Your password\" autocomplete=\"current-password\" required></div>"
+      << pw_field("li-pw", "password", "Your password", "current-password", true)
+      << "</div>"
          "<button class=\"primary\" type=\"submit\"><i class=\"fas fa-sign-in-alt\"></i> Sign in</button>"
          "</form>"
+      << "<div style=\"text-align:right;margin-top:-4px;margin-bottom:4px\"><a href=\"/account/forgot\" style=\"color:var(--text-secondary);font-size:.84rem;text-decoration:none\">Forgot password?</a></div>"
       << "<div class=\"divider\">or</div>"
       << "<div class=\"alt-link\">New here? <a href=\"/account/register\">Create an account</a></div>"
       << "</div>";
@@ -241,15 +269,26 @@ static string render_register_page(const AccountUser*, const string& message = "
       << "<p class=\"intro\">Free forever for the core tools. Upgrade to Pro anytime for unlimited AI and 2 GB uploads.</p>"
       << render_message_block(message, error)
       << render_oauth_buttons()
-      << "<form method=\"POST\" action=\"/account/register\" autocomplete=\"on\">"
+      << "<form method=\"POST\" action=\"/account/register\" autocomplete=\"on\" onsubmit=\"return ltCheckMatch(this)\">"
          "<div class=\"field\"><label for=\"r-email\">Email</label>"
          "<input id=\"r-email\" type=\"email\" name=\"email\" placeholder=\"you@example.com\" autocomplete=\"email\" required></div>"
          "<div class=\"field\"><label for=\"r-name\">Display name <span style=\"text-transform:none;letter-spacing:0;color:var(--text-muted)\">(optional)</span></label>"
          "<input id=\"r-name\" type=\"text\" name=\"display_name\" placeholder=\"What should we call you?\" autocomplete=\"nickname\"></div>"
          "<div class=\"field\"><label for=\"r-pw\">Password</label>"
-         "<input id=\"r-pw\" type=\"password\" name=\"password\" placeholder=\"At least 4 characters\" autocomplete=\"new-password\" required minlength=\"4\"></div>"
+      << pw_field("r-pw", "password", "At least 8 characters", "new-password", true, 8)
+      << "</div>"
+         "<div class=\"field\"><label for=\"r-pw2\">Confirm password</label>"
+      << pw_field("r-pw2", "password_confirm", "Re-type your password", "new-password", true, 8)
+      << "<div id=\"pwMismatch\" class=\"pw-mismatch\"><i class=\"fas fa-exclamation-circle\"></i> Passwords don't match</div>"
+         "</div>"
          "<button class=\"primary\" type=\"submit\"><i class=\"fas fa-user-plus\"></i> Create account</button>"
          "</form>"
+         "<script>function ltCheckMatch(f){var a=f.password.value,b=f.password_confirm.value,w=document.getElementById('pwMismatch');"
+         "if(a!==b){w.classList.add('show');f.password_confirm.focus();return false}"
+         "w.classList.remove('show');return true}"
+         "document.getElementById('r-pw2').addEventListener('input',function(){"
+         "var a=document.getElementById('r-pw').value,b=this.value,w=document.getElementById('pwMismatch');"
+         "if(b&&a!==b)w.classList.add('show');else w.classList.remove('show')});</script>"
       << "<div class=\"divider\">or</div>"
       << "<div class=\"alt-link\">Already have an account? <a href=\"/account/login\">Sign in</a></div>"
       << "</div>";
@@ -439,6 +478,75 @@ static json stripe_api_post(const string& path, const vector<pair<string,string>
     return result;
 }
 
+// ─── Transactional email via Resend (used for password reset) ───────────────
+// Returns true on a 2xx response from Resend. Silently no-ops if RESEND_API_KEY
+// isn't configured (callers can still treat the reset as initiated).
+static bool send_email_via_resend(const string& to, const string& subject,
+                                   const string& html_body, const string& text_body,
+                                   string& error_out) {
+    error_out.clear();
+    string api_key = billing_env("RESEND_API_KEY");
+    if (api_key.empty()) { error_out = "RESEND_API_KEY not configured."; return false; }
+    string from = billing_env("RESEND_FROM",
+        "Luma Tools <noreply@" +
+        billing_env("APP_BASE_URL", "tools.lumaplayground.com")
+            .substr(billing_env("APP_BASE_URL", "https://tools.lumaplayground.com").find("//") + 2) +
+        ">");
+    // Strip any trailing path from APP_BASE_URL when synthesizing the From.
+    auto slash = from.find('/', from.find('@'));
+    if (slash != string::npos) from = from.substr(0, slash) + ">";
+
+    json payload = {
+        {"from", from},
+        {"to", json::array({ to })},
+        {"subject", subject},
+        {"html", html_body},
+        {"text", text_body}
+    };
+
+    string proc = get_processing_dir();
+    string id = generate_job_id();
+    string body_file = proc + "/em_" + id + "_body.json";
+    string resp_file = proc + "/em_" + id + "_resp.json";
+    string hdr_file  = proc + "/em_" + id + "_hdr.txt";
+    string code_file = proc + "/em_" + id + "_code.txt";
+    { ofstream f(body_file); f << payload.dump(); }
+
+    string cmd =
+        "curl -s --max-time 12 -X POST "
+        "-H " + escape_arg("Authorization: Bearer " + api_key) +
+        " -H " + escape_arg("Content-Type: application/json") +
+        " --data-binary @" + escape_arg(body_file) +
+        " -o " + escape_arg(resp_file) +
+        " -D " + escape_arg(hdr_file) +
+        " -w \"%{http_code}\""
+        " https://api.resend.com/emails > " + escape_arg(code_file);
+
+    int rc;
+    exec_command(cmd, rc);
+
+    int status = 0;
+    if (fs::exists(code_file)) {
+        std::ifstream f(code_file);
+        std::ostringstream ss; ss << f.rdbuf();
+        try { status = std::stoi(trim_copy(ss.str())); } catch (...) {}
+    }
+    bool ok = (status >= 200 && status < 300);
+    if (!ok) {
+        // Grab the body so we can log what Resend complained about.
+        string body;
+        if (fs::exists(resp_file)) {
+            std::ifstream f(resp_file);
+            std::ostringstream ss; ss << f.rdbuf();
+            body = ss.str();
+        }
+        cerr << "[Luma Tools] Resend send failed: HTTP " << status << "  body=" << body << endl;
+        error_out = "Email provider returned HTTP " + to_string(status);
+    }
+    try { fs::remove(body_file); fs::remove(resp_file); fs::remove(hdr_file); fs::remove(code_file); } catch (...) {}
+    return ok;
+}
+
 // ─── Stripe webhook signature verification ──────────────────────────────────
 
 static string hmac_sha256_hex(const string& secret, const string& payload) {
@@ -525,6 +633,11 @@ static string auth_feedback_text(const string& code, bool is_error) {
     if (code == "duplicate_account") return "An account with that email already exists. Please sign in instead.";
     if (code == "checkout_success") return "Payment received! Your plan will activate within a few seconds.";
     if (code == "checkout_canceled") return "Checkout was canceled. You can try again any time.";
+    if (code == "password_mismatch") return "Passwords don't match. Please re-type them.";
+    if (code == "password_too_short") return "Password must be at least 8 characters long.";
+    if (code == "reset_sent") return "If that email is registered, a reset link is on its way (check spam).";
+    if (code == "reset_invalid") return "That reset link is invalid or has expired. Please request a new one.";
+    if (code == "reset_success") return "Password updated. You can sign in now.";
     if (is_error && !code.empty()) return code;
     return "";
 }
@@ -589,15 +702,21 @@ void register_account_routes(httplib::Server& svr) {
     svr.Post("/account/register", [](const httplib::Request& req, httplib::Response& res) {
         string email = normalize_email(form_value(req.body, "email"));
         string password = form_value(req.body, "password");
+        string password_confirm = form_value(req.body, "password_confirm");
         string display_name = trim_copy(form_value(req.body, "display_name"));
-        
+
         if (email.empty() || email.find('@') == string::npos) {
             res.set_header("Location", "/account?err=invalid_email");
             res.status = 302;
             return;
         }
-        if (password.empty() || password.length() < 4) {
+        if (password.empty() || password.length() < 8) {
             res.set_header("Location", "/account?err=password_too_short");
+            res.status = 302;
+            return;
+        }
+        if (!password_confirm.empty() && password != password_confirm) {
+            res.set_header("Location", "/account/register?err=password_mismatch");
             res.status = 302;
             return;
         }
@@ -658,6 +777,143 @@ void register_account_routes(httplib::Server& svr) {
         string cookie = session_cookie_name() + "=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + to_string(max_age);
         res.set_header("Set-Cookie", cookie);
         res.set_header("Location", "/account?msg=signed_in");
+        res.status = 302;
+    });
+
+    // ── Forgot password ─────────────────────────────────────────────────────
+    auto render_forgot_page = [](const string& message, const string& error) {
+        std::ostringstream b;
+        b << "<div class=\"card\">"
+          << "<h1>Reset your password</h1>"
+          << "<p class=\"intro\">Enter the email on your account. We'll send a one-click reset link that expires in 30 minutes.</p>"
+          << render_message_block(message, error)
+          << "<form method=\"POST\" action=\"/account/forgot\" autocomplete=\"on\">"
+             "<div class=\"field\"><label for=\"f-email\">Email</label>"
+             "<input id=\"f-email\" type=\"email\" name=\"email\" placeholder=\"you@example.com\" autocomplete=\"email\" required></div>"
+             "<button class=\"primary\" type=\"submit\"><i class=\"fas fa-paper-plane\"></i> Send reset link</button>"
+             "</form>"
+          << "<div class=\"divider\">or</div>"
+          << "<div class=\"alt-link\">Remembered it? <a href=\"/account/login\">Sign in</a></div>"
+          << "</div>";
+        return render_account_shell("Reset password", b.str());
+    };
+
+    svr.Get("/account/forgot", [render_forgot_page](const httplib::Request& req, httplib::Response& res) {
+        string message = req.has_param("msg") ? req.get_param_value("msg") : "";
+        string error   = req.has_param("err") ? req.get_param_value("err") : "";
+        message = auth_feedback_text(message, false);
+        error   = auth_feedback_text(error, true);
+        res.set_content(render_forgot_page(message, error), "text/html");
+    });
+
+    svr.Post("/account/forgot", [](const httplib::Request& req, httplib::Response& res) {
+        string email = normalize_email(form_value(req.body, "email"));
+        // Always 302 with the same generic message so attackers can't enumerate emails.
+        res.set_header("Location", "/account/forgot?msg=reset_sent");
+        res.status = 302;
+
+        if (email.empty() || email.find('@') == string::npos) return;
+        AccountUser user;
+        if (!account_get_user_by_email(email, user) || user.id <= 0) return;
+
+        string token;
+        if (!account_create_password_reset(user.id, token)) return;
+
+        string base = billing_env("APP_BASE_URL", "http://localhost:8080");
+        string reset_url = base + "/account/reset?token=" + token;
+        string name = user.display_name.empty() ? user.email.substr(0, user.email.find('@')) : user.display_name;
+
+        string text =
+            "Hi " + name + ",\n\n"
+            "Someone (hopefully you) asked to reset the password on your Luma Tools account.\n"
+            "Click the link below to choose a new one — it works once and expires in 30 minutes:\n\n"
+            + reset_url + "\n\n"
+            "If you didn't request this, you can safely ignore this email — your password won't change.\n\n"
+            "— Luma Tools";
+
+        string html =
+            "<div style=\"font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;color:#222\">"
+            "<h2 style=\"color:#7c5cff\">Reset your Luma Tools password</h2>"
+            "<p>Hi " + html_escape(name) + ",</p>"
+            "<p>Someone (hopefully you) asked to reset the password on your Luma Tools account. Click the button below to choose a new one. The link works once and expires in <strong>30 minutes</strong>.</p>"
+            "<p style=\"margin:24px 0\"><a href=\"" + html_escape(reset_url) + "\" "
+            "style=\"display:inline-block;background:#7c5cff;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700\">"
+            "Choose a new password</a></p>"
+            "<p style=\"color:#888;font-size:.85rem\">Or copy this link:<br><code style=\"word-break:break-all\">" + html_escape(reset_url) + "</code></p>"
+            "<hr style=\"border:0;border-top:1px solid #eee;margin:24px 0\">"
+            "<p style=\"color:#888;font-size:.85rem\">Didn't request this? You can safely ignore this email — your password won't change.</p>"
+            "</div>";
+
+        string err;
+        send_email_via_resend(user.email, "Reset your Luma Tools password", html, text, err);
+    });
+
+    // ── Reset password (token from email) ───────────────────────────────────
+    auto render_reset_page = [](const string& token, const string& message, const string& error) {
+        std::ostringstream b;
+        b << "<div class=\"card\">"
+          << "<h1>Choose a new password</h1>"
+          << "<p class=\"intro\">Pick something memorable. Your existing sessions will be signed out after the change.</p>"
+          << render_message_block(message, error)
+          << "<form method=\"POST\" action=\"/account/reset\" autocomplete=\"on\" onsubmit=\"return ltCheckMatchR(this)\">"
+          << "<input type=\"hidden\" name=\"token\" value=\"" << html_escape(token) << "\">"
+             "<div class=\"field\"><label for=\"rs-pw\">New password</label>"
+          << pw_field("rs-pw", "password", "At least 8 characters", "new-password", true, 8)
+          << "</div>"
+             "<div class=\"field\"><label for=\"rs-pw2\">Confirm new password</label>"
+          << pw_field("rs-pw2", "password_confirm", "Re-type your new password", "new-password", true, 8)
+          << "<div id=\"pwMismatchR\" class=\"pw-mismatch\"><i class=\"fas fa-exclamation-circle\"></i> Passwords don't match</div>"
+             "</div>"
+             "<button class=\"primary\" type=\"submit\"><i class=\"fas fa-key\"></i> Update password</button>"
+             "</form>"
+          << "<script>function ltCheckMatchR(f){var a=f.password.value,b=f.password_confirm.value,w=document.getElementById('pwMismatchR');"
+             "if(a!==b){w.classList.add('show');f.password_confirm.focus();return false}w.classList.remove('show');return true}"
+             "document.getElementById('rs-pw2').addEventListener('input',function(){"
+             "var a=document.getElementById('rs-pw').value,b=this.value,w=document.getElementById('pwMismatchR');"
+             "if(b&&a!==b)w.classList.add('show');else w.classList.remove('show')});</script>"
+          << "</div>";
+        return render_account_shell("Reset password", b.str());
+    };
+
+    svr.Get("/account/reset", [render_reset_page](const httplib::Request& req, httplib::Response& res) {
+        string token = req.has_param("token") ? req.get_param_value("token") : "";
+        if (token.empty() || account_consume_password_reset(token, /*mark_used=*/false) == 0) {
+            res.set_header("Location", "/account/forgot?err=reset_invalid");
+            res.status = 302;
+            return;
+        }
+        res.set_content(render_reset_page(token, "", ""), "text/html");
+    });
+
+    svr.Post("/account/reset", [](const httplib::Request& req, httplib::Response& res) {
+        string token            = form_value(req.body, "token");
+        string password         = form_value(req.body, "password");
+        string password_confirm = form_value(req.body, "password_confirm");
+
+        if (token.empty() || password.empty() || password.length() < 8) {
+            res.set_header("Location", "/account/reset?token=" + token + "&err=password_too_short");
+            res.status = 302;
+            return;
+        }
+        if (!password_confirm.empty() && password != password_confirm) {
+            res.set_header("Location", "/account/reset?token=" + token + "&err=password_mismatch");
+            res.status = 302;
+            return;
+        }
+
+        int user_id = account_consume_password_reset(token, /*mark_used=*/true);
+        if (user_id == 0) {
+            res.set_header("Location", "/account/forgot?err=reset_invalid");
+            res.status = 302;
+            return;
+        }
+        if (!account_update_password(user_id, password)) {
+            res.set_header("Location", "/account/forgot?err=Could+not+update+password.");
+            res.status = 302;
+            return;
+        }
+        account_invalidate_all_sessions(user_id);
+        res.set_header("Location", "/account/login?msg=reset_success");
         res.status = 302;
     });
 

@@ -323,6 +323,15 @@ void stat_init_db() {
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_oauth_user_id ON oauth_identities(user_id);
+        CREATE TABLE IF NOT EXISTS password_resets (
+            token_hash  TEXT    PRIMARY KEY,
+            user_id     INTEGER NOT NULL,
+            created_ts  INTEGER NOT NULL,
+            expires_ts  INTEGER NOT NULL,
+            used_ts     INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_pwresets_user_id ON password_resets(user_id);
     )";
     char* errmsg = nullptr;
     if (sqlite3_exec(g_db, schema, nullptr, nullptr, &errmsg) != SQLITE_OK) {
@@ -1080,6 +1089,104 @@ static void account_bump_counter(int user_id, const char* col) {
 
 void account_bump_tool_count(int user_id)     { account_bump_counter(user_id, "tools_used"); }
 void account_bump_download_count(int user_id) { account_bump_counter(user_id, "downloads"); }
+
+// ─── Password reset ──────────────────────────────────────────────────────────
+
+bool account_create_password_reset(int user_id, string& out_token, int ttl_seconds) {
+    if (!g_db || user_id <= 0) return false;
+    out_token = random_token_hex(32);  // 64 hex chars
+    const string token_hash = hash_text(out_token);
+    const int64_t now = now_unix();
+    const int64_t expires = now + (ttl_seconds > 0 ? ttl_seconds : 1800);
+
+    lock_guard<mutex> lk(g_stats_mutex);
+    // Drop any pre-existing unused tokens for this user so only the newest works.
+    sqlite3_stmt* del = nullptr;
+    if (sqlite3_prepare_v2(g_db,
+        "DELETE FROM password_resets WHERE user_id=? AND used_ts=0", -1, &del, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(del, 1, user_id);
+        sqlite3_step(del);
+    }
+    if (del) sqlite3_finalize(del);
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "INSERT INTO password_resets (token_hash, user_id, created_ts, expires_ts) VALUES (?, ?, ?, ?)";
+    bool ok = false;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, token_hash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(stmt, 2, user_id);
+        sqlite3_bind_int64(stmt, 3, now);
+        sqlite3_bind_int64(stmt, 4, expires);
+        ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+int account_consume_password_reset(const string& token, bool mark_used) {
+    if (!g_db || token.empty()) return 0;
+    const string token_hash = hash_text(token);
+    const int64_t now = now_unix();
+    lock_guard<mutex> lk(g_stats_mutex);
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "SELECT user_id, expires_ts, used_ts FROM password_resets WHERE token_hash = ?";
+    int user_id = 0;
+    int64_t expires = 0, used = 0;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, token_hash.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            user_id = sqlite3_column_int(stmt, 0);
+            expires = sqlite3_column_int64(stmt, 1);
+            used    = sqlite3_column_int64(stmt, 2);
+        }
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    if (user_id == 0 || used != 0 || expires < now) return 0;
+
+    if (mark_used) {
+        sqlite3_stmt* up = nullptr;
+        if (sqlite3_prepare_v2(g_db,
+            "UPDATE password_resets SET used_ts=? WHERE token_hash=?", -1, &up, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int64(up, 1, now);
+            sqlite3_bind_text(up, 2, token_hash.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_step(up);
+        }
+        if (up) sqlite3_finalize(up);
+    }
+    return user_id;
+}
+
+bool account_update_password(int user_id, const string& new_password) {
+    if (!g_db || user_id <= 0 || new_password.empty()) return false;
+    string salt = random_token_hex(16);
+    string hash = hash_password(new_password, salt);
+    const int64_t now = now_unix();
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    bool ok = false;
+    const char* sql = "UPDATE users SET password_hash=?, password_salt=?, updated_ts=? WHERE id=?";
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, hash.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 2, salt.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int64(stmt, 3, now);
+        sqlite3_bind_int(stmt, 4, user_id);
+        ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+    return ok;
+}
+
+void account_invalidate_all_sessions(int user_id) {
+    if (!g_db || user_id <= 0) return;
+    lock_guard<mutex> lk(g_stats_mutex);
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(g_db, "DELETE FROM sessions WHERE user_id = ?", -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, user_id);
+        sqlite3_step(stmt);
+    }
+    if (stmt) sqlite3_finalize(stmt);
+}
 
 bool account_link_oauth_identity(const string& provider, const string& provider_user_id, int user_id) {
     if (!g_db || provider.empty() || provider_user_id.empty() || user_id <= 0) return false;

@@ -136,6 +136,18 @@ bool account_get_user_by_display_name(const string& display_name, AccountUser& o
 bool account_link_oauth_identity(const string& provider, const string& provider_user_id, int user_id);
 bool account_find_user_by_oauth(const string& provider, const string& provider_user_id, AccountUser& out_user);
 
+// Password reset (forgot-password) flow.
+// Issues a single-use plaintext token; only its hash is stored. Token is valid
+// for `ttl_seconds` (default 30 min). Returns false if user_id is invalid.
+bool account_create_password_reset(int user_id, string& out_token, int ttl_seconds = 1800);
+// Looks up an unexpired, unused reset token. On success, returns user_id;
+// pass `mark_used=true` once you've actually applied the password change.
+int  account_consume_password_reset(const string& token, bool mark_used);
+// Hashes and stores a new password for a user. Also invalidates all sessions
+// for that user (so an attacker with a stolen session is logged out).
+bool account_update_password(int user_id, const string& new_password);
+void account_invalidate_all_sessions(int user_id);
+
 // Per-user counters bumped each time a tool runs / download completes.
 void account_bump_tool_count(int user_id);
 void account_bump_download_count(int user_id);
