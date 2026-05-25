@@ -1770,27 +1770,48 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
     });
 
     // ── POST /api/tools/audio-normalize (async) ─────────────────────────────
+    //    Loudnorm presets (industry standards):
+    //      podcast  → I=-16 LUFS, TP=-1.5 dBTP, LRA=11   (Apple Podcasts spec)
+    //      music    → I=-14 LUFS, TP=-1.0 dBTP, LRA=11   (Spotify / streaming)
+    //      broadcast→ I=-23 LUFS, TP=-1.0 dBTP, LRA=7    (EBU R128 broadcast)
+    //      youtube  → I=-14 LUFS, TP=-1.0 dBTP, LRA=11   (YouTube reference)
+    //      voice    → I=-19 LUFS, TP=-1.0 dBTP, LRA=7    (audiobook / single voice)
     svr.Post("/api/tools/audio-normalize", [](const httplib::Request& req, httplib::Response& res) {
         if (!req.has_file("file")) { res.status = 400; res.set_content(json({{"error","No file uploaded"}}).dump(),"application/json"); return; }
         auto file = req.get_file_value("file");
-        discord_log_tool("Audio Normalize", file.filename, req.remote_addr);
+        string preset = req.has_file("preset") ? req.get_file_value("preset").content : "podcast";
+        // Allowlist preset names to keep them out of the ffmpeg filter string raw.
+        struct P { const char* I; const char* TP; const char* LRA; const char* label; };
+        static const std::unordered_map<string, P> PRESETS = {
+            {"podcast",   {"-16", "-1.5", "11", "podcast (Apple Podcasts, -16 LUFS)"}},
+            {"music",     {"-14", "-1.0", "11", "music (Spotify, -14 LUFS)"}},
+            {"broadcast", {"-23", "-1.0",  "7", "broadcast (EBU R128, -23 LUFS)"}},
+            {"youtube",   {"-14", "-1.0", "11", "youtube (-14 LUFS)"}},
+            {"voice",     {"-19", "-1.0",  "7", "voice / audiobook (-19 LUFS)"}},
+        };
+        auto pit = PRESETS.find(preset);
+        if (pit == PRESETS.end()) { pit = PRESETS.find("podcast"); preset = "podcast"; }
+        const P& cfg = pit->second;
+
+        discord_log_tool("Audio Normalize", file.filename + " (" + cfg.label + ")", req.remote_addr);
         string jid = generate_job_id();
         string input_path = save_upload(file, jid);
         string ext = fs::path(file.filename).extension().string();
         string output_path = get_processing_dir() + "/" + jid + "_out" + ext;
         string orig_name = fs::path(file.filename).stem().string();
         update_job(jid, {{"status","processing"},{"progress",0},{"stage","Normalizing audio..."}});
-        thread([jid, input_path, output_path, orig_name, ext]() {
+        string filter = string("loudnorm=I=") + cfg.I + ":TP=" + cfg.TP + ":LRA=" + cfg.LRA;
+        thread([jid, input_path, output_path, orig_name, ext, filter, preset]() {
             string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(input_path) +
-                " -af loudnorm=I=-16:TP=-1.5:LRA=11 " + escape_arg(output_path);
+                " -af " + escape_arg(filter) + " " + escape_arg(output_path);
             int code; exec_command(cmd, code);
 
             if (fs::exists(output_path) && fs::file_size(output_path) > 0)
-                update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_normalized" + ext}}, output_path);
+                update_job(jid, {{"status","completed"},{"progress",100},{"filename", orig_name + "_" + preset + ext}}, output_path);
             else { discord_log_error("Audio Normalize", "Failed for: " + mask_filename(orig_name)); update_job(jid, {{"status","error"},{"error","Normalization failed"}}); }
             try { fs::remove(input_path); } catch (...) {}
         }).detach();
-        res.set_content(json({{"job_id", jid}}).dump(), "application/json");
+        res.set_content(json({{"job_id", jid}, {"preset", preset}}).dump(), "application/json");
     });
 
     // ── POST /api/tools/subtitle-extract ────────────────────────────────────

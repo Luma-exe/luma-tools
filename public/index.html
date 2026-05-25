@@ -1555,7 +1555,7 @@
             <div class="tool-panel" id="tool-audio-normalize">
                 <div class="tool-header">
                     <h2><i class="fas fa-balance-scale-right"></i> Audio Normalize</h2>
-                    <p>Automatically adjust audio volume to a consistent level (EBU R128)</p>
+                    <p>Loudness-normalize audio to industry standards (Apple Podcasts, Spotify, EBU R128 broadcast and more).</p>
                 </div>
                 <div class="tool-body">
                     <div class="upload-zone" id="uz-audio-normalize" data-accept="audio/*,video/*" data-max="209715200">
@@ -1565,6 +1565,16 @@
                     <div class="file-preview hidden" data-tool="audio-normalize">
                         <div class="file-info"><i class="fas fa-music"></i><div><span class="file-name"></span><span class="file-size"></span></div></div>
                         <button class="file-remove" onclick="removeFile('audio-normalize')"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="tool-options">
+                        <label class="option-label">Preset (target loudness)</label>
+                        <div class="format-select-grid" data-tool="audio-normalize">
+                            <button class="fmt-btn active" data-fmt="podcast"   onclick="selectOutputFmt(this)" title="Apple Podcasts spec">🎙️ Podcast<br><small style="opacity:.6">-16 LUFS</small></button>
+                            <button class="fmt-btn"        data-fmt="music"     onclick="selectOutputFmt(this)" title="Spotify / Apple Music / Tidal">🎵 Music<br><small style="opacity:.6">-14 LUFS</small></button>
+                            <button class="fmt-btn"        data-fmt="broadcast" onclick="selectOutputFmt(this)" title="EBU R128 broadcast standard (TV / radio)">📺 Broadcast<br><small style="opacity:.6">-23 LUFS</small></button>
+                            <button class="fmt-btn"        data-fmt="youtube"   onclick="selectOutputFmt(this)" title="YouTube reference loudness">▶ YouTube<br><small style="opacity:.6">-14 LUFS</small></button>
+                            <button class="fmt-btn"        data-fmt="voice"     onclick="selectOutputFmt(this)" title="Single-voice / audiobook">🎤 Voice<br><small style="opacity:.6">-19 LUFS</small></button>
+                        </div>
                     </div>
                     <button class="process-btn" onclick="processFile('audio-normalize')"><i class="fas fa-balance-scale-right"></i> Normalize Audio</button>
                     <div class="processing-status hidden" data-tool="audio-normalize"><div class="processing-spinner"><i class="fas fa-circle-notch fa-spin"></i></div><span class="processing-text">Processing...</span><div class="processing-progress"><div class="progress-bar-container small"><div class="progress-bar"></div></div><span class="progress-pct"></span></div></div>
@@ -2902,33 +2912,73 @@
             <!-- ── JWT DECODER ───────────────────────────────────────────── -->
             <div class="tool-panel" id="tool-jwt-decode">
                 <div class="tool-header">
-                    <h2><i class="fas fa-shield-alt"></i> JWT Decoder</h2>
-                    <p>Decode and inspect JSON Web Tokens — header, payload, and signature — entirely in your browser.</p>
+                    <h2><i class="fas fa-shield-alt"></i> JWT Decoder &amp; Generator</h2>
+                    <p>Decode any JWT, or generate a fresh HS256-signed one. Entirely in your browser via WebCrypto — secrets never leave your machine.</p>
                 </div>
                 <div class="tool-body">
-                    <div class="input-group" style="margin-bottom:12px">
-                        <label for="jwtInput">Paste JWT Token</label>
-                        <textarea id="jwtInput" rows="4" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." oninput="decodeJWT()"></textarea>
+                    <!-- Mode switcher: decode (default) vs generate -->
+                    <div class="format-select-grid" data-tool="jwt-mode" style="margin-bottom:14px">
+                        <button class="fmt-btn active" data-mode="decode"   onclick="setJwtMode('decode')"><i class="fas fa-key"></i> Decode</button>
+                        <button class="fmt-btn"        data-mode="generate" onclick="setJwtMode('generate')"><i class="fas fa-pen"></i> Generate</button>
                     </div>
-                    <div id="jwtResult" class="hidden">
-                        <div class="jwt-parts">
-                            <div class="jwt-part">
-                                <div class="jwt-part-header"><span class="jwt-dot jwt-dot-header"></span><strong>Header</strong><button class="btn-icon" onclick="copyJWTPart('header')" title="Copy"><i class="fas fa-copy"></i></button></div>
-                                <pre class="jwt-json" id="jwtHeader"></pre>
-                            </div>
-                            <div class="jwt-part">
-                                <div class="jwt-part-header"><span class="jwt-dot jwt-dot-payload"></span><strong>Payload</strong><button class="btn-icon" onclick="copyJWTPart('payload')" title="Copy"><i class="fas fa-copy"></i></button></div>
-                                <pre class="jwt-json" id="jwtPayload"></pre>
-                            </div>
-                            <div class="jwt-part">
-                                <div class="jwt-part-header"><span class="jwt-dot jwt-dot-sig"></span><strong>Signature</strong></div>
-                                <code class="jwt-sig" id="jwtSig"></code>
-                            </div>
+
+                    <!-- ── DECODE ────────────────────────────────────── -->
+                    <div id="jwt-decode-section">
+                        <div class="input-group" style="margin-bottom:12px">
+                            <label for="jwtInput">Paste JWT Token</label>
+                            <textarea id="jwtInput" rows="4" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." oninput="decodeJWT()"></textarea>
                         </div>
-                        <div id="jwtMeta" class="jwt-meta"></div>
-                        <div id="jwtWarning" class="jwt-warning hidden"><i class="fas fa-exclamation-triangle"></i> <span id="jwtWarningText"></span></div>
+                        <div id="jwtResult" class="hidden">
+                            <div class="jwt-parts">
+                                <div class="jwt-part">
+                                    <div class="jwt-part-header"><span class="jwt-dot jwt-dot-header"></span><strong>Header</strong><button class="btn-icon" onclick="copyJWTPart('header')" title="Copy"><i class="fas fa-copy"></i></button></div>
+                                    <pre class="jwt-json" id="jwtHeader"></pre>
+                                </div>
+                                <div class="jwt-part">
+                                    <div class="jwt-part-header"><span class="jwt-dot jwt-dot-payload"></span><strong>Payload</strong><button class="btn-icon" onclick="copyJWTPart('payload')" title="Copy"><i class="fas fa-copy"></i></button></div>
+                                    <pre class="jwt-json" id="jwtPayload"></pre>
+                                </div>
+                                <div class="jwt-part">
+                                    <div class="jwt-part-header"><span class="jwt-dot jwt-dot-sig"></span><strong>Signature</strong></div>
+                                    <code class="jwt-sig" id="jwtSig"></code>
+                                </div>
+                            </div>
+                            <div id="jwtMeta" class="jwt-meta"></div>
+                            <div id="jwtWarning" class="jwt-warning hidden"><i class="fas fa-exclamation-triangle"></i> <span id="jwtWarningText"></span></div>
+                        </div>
+                        <div id="jwtError" class="hidden" style="color:var(--error);margin-top:12px;font-size:13px"><i class="fas fa-times-circle"></i> <span id="jwtErrorText"></span></div>
                     </div>
-                    <div id="jwtError" class="hidden" style="color:var(--error);margin-top:12px;font-size:13px"><i class="fas fa-times-circle"></i> <span id="jwtErrorText"></span></div>
+
+                    <!-- ── GENERATE ──────────────────────────────────── -->
+                    <div id="jwt-generate-section" class="hidden">
+                        <div class="input-group" style="margin-bottom:12px">
+                            <label for="jwtGenPayload">Payload (JSON)</label>
+                            <textarea id="jwtGenPayload" rows="6" oninput="generateJWT()" placeholder='{"sub":"1234567890","name":"Luma","iat":1730000000}'>{
+  "sub": "1234567890",
+  "name": "Luma",
+  "iat": 1730000000
+}</textarea>
+                        </div>
+                        <div class="input-group" style="margin-bottom:12px">
+                            <label for="jwtGenSecret">Secret (HMAC key)</label>
+                            <input type="text" id="jwtGenSecret" oninput="generateJWT()" placeholder="your-256-bit-secret" value="your-256-bit-secret">
+                        </div>
+                        <div class="input-group" style="margin-bottom:12px">
+                            <label for="jwtGenAlg">Algorithm</label>
+                            <select id="jwtGenAlg" onchange="generateJWT()">
+                                <option value="HS256">HS256 (HMAC + SHA-256)</option>
+                                <option value="HS384">HS384 (HMAC + SHA-384)</option>
+                                <option value="HS512">HS512 (HMAC + SHA-512)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="jwtGenOutput">Generated JWT
+                                <button class="btn-icon" onclick="copyJWTGenerated()" title="Copy token" style="float:right"><i class="fas fa-copy"></i></button>
+                            </label>
+                            <textarea id="jwtGenOutput" rows="4" readonly style="font-family:var(--font-mono);font-size:12px;word-break:break-all"></textarea>
+                        </div>
+                        <div id="jwtGenError" class="hidden" style="color:var(--error);margin-top:8px;font-size:13px"><i class="fas fa-times-circle"></i> <span id="jwtGenErrorText"></span></div>
+                    </div>
                 </div>
             </div>
 

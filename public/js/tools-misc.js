@@ -989,6 +989,87 @@ function copyJWTPart(part) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// JWT GENERATOR (HS256/HS384/HS512) — WebCrypto, no backend needed.
+// Sibling to decodeJWT(). Both live under #tool-jwt-decode; mode is toggled
+// by setJwtMode() (called from the Decode/Generate buttons).
+// ═══════════════════════════════════════════════════════════════════════════
+
+function setJwtMode(mode) {
+    const dec = document.getElementById('jwt-decode-section');
+    const gen = document.getElementById('jwt-generate-section');
+    if (!dec || !gen) return;
+    dec.classList.toggle('hidden', mode !== 'decode');
+    gen.classList.toggle('hidden', mode !== 'generate');
+    document.querySelectorAll('[data-tool="jwt-mode"] .fmt-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    if (mode === 'generate') {
+        // Render once on switch so the user sees output without typing.
+        generateJWT();
+    }
+}
+
+// base64url encoding without padding (per RFC 7515)
+function b64url(buf) {
+    let s;
+    if (buf instanceof Uint8Array || buf instanceof ArrayBuffer) {
+        const bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
+        let str = '';
+        for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+        s = btoa(str);
+    } else {
+        s = btoa(unescape(encodeURIComponent(String(buf))));
+    }
+    return s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+const _ALG_TO_HASH = { HS256: 'SHA-256', HS384: 'SHA-384', HS512: 'SHA-512' };
+
+async function generateJWT() {
+    const payloadRaw = document.getElementById('jwtGenPayload')?.value || '';
+    const secret     = document.getElementById('jwtGenSecret')?.value || '';
+    const alg        = document.getElementById('jwtGenAlg')?.value || 'HS256';
+    const outEl      = document.getElementById('jwtGenOutput');
+    const errEl      = document.getElementById('jwtGenError');
+    const errText    = document.getElementById('jwtGenErrorText');
+    errEl.classList.add('hidden');
+    if (!secret) { outEl.value = ''; return; }
+    let payload;
+    try { payload = JSON.parse(payloadRaw); }
+    catch (e) {
+        outEl.value = '';
+        errText.textContent = 'Payload is not valid JSON: ' + e.message;
+        errEl.classList.remove('hidden');
+        return;
+    }
+    try {
+        const header = { alg, typ: 'JWT' };
+        const headerB64  = b64url(JSON.stringify(header));
+        const payloadB64 = b64url(JSON.stringify(payload));
+        const signingInput = headerB64 + '.' + payloadB64;
+        const enc  = new TextEncoder();
+        const key  = await crypto.subtle.importKey(
+            'raw', enc.encode(secret),
+            { name: 'HMAC', hash: { name: _ALG_TO_HASH[alg] } },
+            false, ['sign']
+        );
+        const sig  = await crypto.subtle.sign('HMAC', key, enc.encode(signingInput));
+        const sigB64 = b64url(sig);
+        outEl.value = signingInput + '.' + sigB64;
+    } catch (e) {
+        outEl.value = '';
+        errText.textContent = 'Could not sign: ' + (e.message || e);
+        errEl.classList.remove('hidden');
+    }
+}
+
+function copyJWTGenerated() {
+    const el = document.getElementById('jwtGenOutput');
+    if (!el || !el.value) return;
+    navigator.clipboard.writeText(el.value).then(() => showToast('Token copied', 'success'));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // BULK PROGRAM INSTALLER
 // ═══════════════════════════════════════════════════════════════════════════
 

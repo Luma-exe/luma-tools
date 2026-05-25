@@ -274,6 +274,10 @@ async function processFileServer(toolId) {
 
             formData.append('level', getSelectedPreset('pdf-compress') || 'ebook');
             break;
+        case 'audio-normalize':
+
+            formData.append('preset', getSelectedFmt('audio-normalize') || 'podcast');
+            break;
         case 'pdf-to-images':
 
             formData.append('format', getSelectedFmt('pdf-to-images') || 'png');
