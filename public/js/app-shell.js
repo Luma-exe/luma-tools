@@ -495,6 +495,36 @@
   function afterToolSwitch(id) {
     const t = window.LUMA_TOOL_BY_ID[id];
     if (!t) { showHome(); return; }
+
+    // Spec-driven path: if a v2 tool spec exists, render the pixel-perfect
+    // form directly into #toolHost — bypass the legacy panel entirely.
+    if (window.LumaToolPage && window.LumaToolPage.has(id)) {
+      const host = $('#toolHost');
+      if (host) {
+        // Stash any legacy panel currently in the host back to storage
+        const storage = $('#toolPanelStorage');
+        if (storage) {
+          [...host.children].forEach(c => {
+            if (c.classList && c.classList.contains('tool-panel')) storage.appendChild(c);
+          });
+        }
+        host.innerHTML = '';
+        host.appendChild(window.LumaToolPage.render(id));
+      }
+      $('#tpageTitle').textContent = t.name;
+      $('#tpageSub').textContent = t.desc;
+      renderSidePanel(t);
+      hideAllPanels();
+      const wrap = $('#tool-page-wrap');
+      if (wrap) wrap.classList.add('active');
+      setCrumb(`<a data-nav="cat:${t.cat}">${escape(t.catLabel)}</a><span class="crumb-sep">/</span><span class="crumb-now">${escape(t.name)}</span>`);
+      setBackVisible(true);
+      setSbActive('cat:' + t.cat);
+      try { history.pushState({ view: 'tool', tool: id }, '', '#' + id); } catch {}
+      return;
+    }
+
+    // Fall-through: legacy tool-panel path
     const panel = document.getElementById('tool-' + id);
     if (!panel) { console.warn('No panel for tool', id); return; }
 
@@ -677,9 +707,25 @@
     try { window.toggleHistoryDrawer && window.toggleHistoryDrawer(true); } catch {}
   }
 
-  // ── Click delegation for crumbs / back / install / etc ────────────────
+  // ── Click delegation for crumbs / back / install / tool rows / etc ────
   function wireGlobalClicks() {
     document.addEventListener('click', e => {
+      // Tool rows / featured cards / showcase pills / related rows
+      // (anything with data-tool, anywhere in the document)
+      const toolEl = e.target.closest('[data-tool]');
+      if (toolEl) {
+        e.preventDefault();
+        openTool(toolEl.dataset.tool);
+        return;
+      }
+      // Category cards on Home
+      const catEl = e.target.closest('[data-cat]');
+      if (catEl) {
+        e.preventDefault();
+        showCategory(catEl.dataset.cat);
+        return;
+      }
+      // Breadcrumb / nav links
       const nav = e.target.closest('[data-nav]');
       if (nav) {
         e.preventDefault();
@@ -692,7 +738,6 @@
       const back = e.target.closest('#topBackBtn');
       if (back) {
         e.preventDefault();
-        // Best guess: go back to the tool's category, else home
         const cur = window.LUMA_TOOL_BY_ID[window.state && window.state.currentTool];
         if (cur) showCategory(cur.cat); else showHome();
         return;
@@ -706,6 +751,18 @@
       const signup = e.target.closest('[data-act="signup"]');
       if (signup) { e.preventDefault(); location.href = '/account/login?signup=1'; return; }
     });
+  }
+
+  // ── Platform-aware ⌘/Ctrl shortcut label ──────────────────────────────
+  function isMac() {
+    if (navigator.userAgentData && navigator.userAgentData.platform) {
+      return /mac/i.test(navigator.userAgentData.platform);
+    }
+    return /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+  }
+  function applyShortcutLabels() {
+    const sym = isMac() ? '⌘K' : 'Ctrl K';
+    document.querySelectorAll('.sb-search .kbd').forEach(el => { el.textContent = sym; });
   }
 
   // ── Initial route from URL hash ───────────────────────────────────────
@@ -724,6 +781,7 @@
     renderHome();
     wireSearch();
     wireGlobalClicks();
+    applyShortcutLabels();
     loadAccount();
     loadTicker();
     setInterval(loadTicker, 60000);

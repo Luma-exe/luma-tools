@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v302';
+const CACHE_NAME = 'lumatools-v303';
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
@@ -17,6 +17,8 @@ const PRECACHE_ASSETS = [
     '/js/health.js',
     '/js/pwa.js',
     '/js/tools-catalog.js',
+    '/js/tool-specs.js',
+    '/js/tool-page.js',
     '/js/app-shell.js',
     '/manifest.json',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
