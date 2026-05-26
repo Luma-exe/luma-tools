@@ -1,7 +1,8 @@
-const CACHE_NAME = 'lumatools-v42';
+const CACHE_NAME = 'lumatools-v300';
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',
+    '/styles-v2.css',
     '/js/state.js',
     '/js/utils.js',
     '/js/ui.js',
@@ -15,6 +16,8 @@ const PRECACHE_ASSETS = [
     '/js/downloader.js',
     '/js/health.js',
     '/js/pwa.js',
+    '/js/tools-catalog.js',
+    '/js/app-shell.js',
     '/manifest.json',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap',

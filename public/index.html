@@ -33,6 +33,7 @@
     <meta name="twitter:description" content="40+ free tools — AI study notes &amp; flashcards, media downloader, image editing, video &amp; audio conversion, PDF tools and more. Most processing happens right in your browser.">
     <meta name="twitter:image" content="https://tools.lumaplayground.com/icon-512.png">
     <link rel="stylesheet" href="styles.css?v=251">
+    <link rel="stylesheet" href="styles-v2.css?v=300">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -69,16 +70,93 @@
       onload="window.LumaVantageQ&&window.LumaVantageQ.forEach(function(c){window.LumaVantage[c[0]]&&window.LumaVantage[c[0]].apply(window.LumaVantage,c[1])});window.LumaVantageQ=[];"></script>
 </head>
 <body>
-    <!-- Animated background -->
-    <div class="bg-animation">
-        <div class="gradient-orb orb-1"></div>
-        <div class="gradient-orb orb-2"></div>
-        <div class="gradient-orb orb-3"></div>
-        <div class="grid-overlay"></div>
+    <!-- v2 atmospheric background (replaces old .bg-animation) -->
+    <div class="bg-fx" aria-hidden="true">
+      <div class="bg-orb bg-orb-1"></div>
+      <div class="bg-orb bg-orb-2"></div>
+      <div class="bg-orb bg-orb-3"></div>
+      <div class="bg-grid"></div>
     </div>
-    <canvas id="particles"></canvas>
 
-    <div class="app-layout">
+    <!-- v2 SHELL ─────────────────────────────────────────────────────── -->
+    <div class="luma dens-regular">
+      <aside class="sb" id="sb">
+        <div class="sb-head">
+          <div class="sb-logo">
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+              <path d="M18 4 L10 18 L15.5 18 L14 28 L22 14 L16.5 14 Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="sb-wordmark">LUMA<span class="sb-wordmark-accent">TOOLS</span></div>
+          <button class="sb-mobile-trigger" id="sbMobileClose" aria-label="Close menu">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+          </button>
+        </div>
+
+        <div class="sb-search">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
+          <input id="sbSearch" type="text" placeholder="Search tools" autocomplete="off" spellcheck="false">
+          <span class="kbd">⌘K</span>
+        </div>
+
+        <nav class="sb-nav" id="sbNav"><!-- populated by app-shell.js --></nav>
+
+        <div class="sb-foot">
+          <button class="sb-pro" data-act="pro">
+            <span class="sb-pro-ic"><svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M3 6.5l3 3 4-5 4 5 3-3 -1 8.5H4z"/></svg></span>
+            <span class="sb-pro-text">Pro — unlimited AI</span>
+          </button>
+
+          <a id="sbUserCard" class="sb-user" href="/account/login">
+            <div class="sb-user-avatar">L</div>
+            <div class="sb-user-meta">
+              <div class="sb-user-name">Sign in</div>
+              <div class="sb-user-tier">to save your usage</div>
+            </div>
+            <span class="sb-user-arrow"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 10h12"/><path d="M12 6l4 4-4 4"/></svg></span>
+          </a>
+
+          <div class="sb-actions">
+            <button class="sb-action sb-action-primary" id="sbInstall">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v10"/><path d="M6 9l4 4 4-4"/><path d="M4 16h12"/></svg>
+              Install App
+            </button>
+            <button class="sb-action" id="sbHistory">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/></svg>
+              History
+            </button>
+          </div>
+
+          <div class="sb-ticker">
+            <span class="sb-ticker-dot"></span>
+            <div class="sb-ticker-mask">
+              <div class="sb-ticker-track" id="sbTicker"><span class="sb-ticker-item"><span class="sb-ticker-label">Status:</span> <span class="sb-ticker-val sb-ticker-ok">checking…</span></span></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div class="sb-backdrop" id="sbBackdrop"></div>
+
+      <main class="main">
+        <div class="main-top">
+          <button class="sb-mobile-trigger" id="sbMobileOpen" aria-label="Open menu">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+          </button>
+          <div class="crumb" id="crumb"><span class="crumb-now">Home</span></div>
+          <div class="main-top-r">
+            <button id="topBackBtn" class="btn-ghost" style="display:none">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M16 10H4"/><path d="M8 14l-4-4 4-4"/></svg>
+              Back
+            </button>
+            <a id="topSignIn" class="btn-primary" href="/account/login">Sign in</a>
+          </div>
+        </div>
+
+        <div class="content">
+          <!-- Legacy app-layout retained as a wrapper so the existing
+               main-content + tool-panel system keeps working. The CSS
+               in styles-v2.css neutralises its visual chrome. -->
+          <div class="app-layout">
         <!-- ═══════════════ SIDEBAR ═══════════════ -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
@@ -385,202 +463,7 @@
             </div>
 
             <!-- ──────────── LANDING / WELCOME PAGE ──────────── -->
-            <div class="tool-panel active" id="tool-landing">
-                <div class="landing-page">
-                    <div class="landing-hero">
-                        <div class="landing-logo-icon"><i class="fas fa-bolt"></i></div>
-                        <h1 class="landing-title">LUMA<span>TOOLS</span></h1>
-                        <p class="landing-tagline">A free, open source toolkit for students, creators and developers.</p>
-                    </div>
-
-                    <div class="landing-about">
-                        <p>LumaTools started as a media toolkit and has grown into a free, open source platform for everyone. Use AI to generate study notes from lecture slides, compress a video, convert a PDF, or format JSON &mdash; all in one place. <strong>Most tools run entirely in your browser</strong> and never upload your files anywhere. Tools that need server power are clearly labelled, and your files are deleted the moment you&rsquo;re done.</p>
-                    </div>
-
-                    <div class="landing-behind">
-                        <h3>Behind the scenes</h3>
-                        <div class="landing-behind-grid">
-                            <div class="landing-behind-card in-browser">
-                                <span class="landing-behind-badge"><i class="fas fa-lock"></i> In your browser</span>
-                                <p>Tools marked <strong>In your browser</strong> in the sidebar run entirely on your device using WebAssembly. Your files are never uploaded anywhere.</p>
-                            </div>
-                            <div class="landing-behind-card on-server">
-                                <span class="landing-behind-badge"><i class="fas fa-server"></i> On our server</span>
-                                <p>Tools marked <strong>On our server</strong> use our backend (FFmpeg, Ghostscript, yt-dlp) because they need native processing power. Files are processed and immediately deleted — we don't keep them.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="landing-drop-cta">
-                        <div class="landing-drop-icon"><i class="fas fa-cloud-upload-alt"></i></div>
-                        <h2>Drop any file to get started</h2>
-                        <p>Drag an image, video, audio, or PDF anywhere on this website. LumaTools will detect the file type and suggest the right tools instantly.</p>
-                    </div>
-
-                    <div class="landing-features">
-                        <div class="landing-feature">
-                            <div class="landing-feature-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
-                            <h3>Smart Drag &amp; Drop</h3>
-                            <p>Drop a file anywhere and a quick-action panel appears with every tool that matches your file type. No searching required.</p>
-                        </div>
-                        <div class="landing-feature">
-                            <div class="landing-feature-icon"><i class="fas fa-layer-group"></i></div>
-                            <h3>Batch Processing</h3>
-                            <p>Drop multiple files at once. LumaTools processes them in a queue and bundles the results into a single .zip download.</p>
-                        </div>
-                        <div class="landing-feature">
-                            <div class="landing-feature-icon"><i class="fas fa-microchip"></i></div>
-                            <h3>Transparent by design</h3>
-                            <p>Open any tool and check the tag on the right  green means it runs entirely in your browser, purple means it uses our server. No surprises, no hidden uploads.</p>
-                        </div>
-                        <div class="landing-feature">
-                            <div class="landing-feature-icon"><i class="fas fa-download"></i></div>
-                            <h3>Install as an App</h3>
-                            <p>LumaTools is a Progressive Web App. Install it to your desktop or phone for instant access and a native app experience.</p>
-                        </div>
-                    </div>
-
-                    <div class="landing-planner">
-                        <div class="landing-planner-inner">
-                            <div class="landing-planner-left">
-                                <div class="landing-planner-badge"><i class="fas fa-calendar-check"></i> From the same developer</div>
-                                <h2 class="landing-planner-title">Meet <span>Luma Planner</span></h2>
-                                <p class="landing-planner-desc">You&rsquo;ll never miss an assignment again. Luma Planner pulls your deadlines from Canvas, Moodle, iCal, or Outlook into one clean dashboard &mdash; then keeps you on track with Pomodoro timers, email reminders, AI study tools, and custom themes.</p>
-                                <div class="landing-planner-chips">
-                                    <span><i class="fas fa-graduation-cap"></i> Canvas &amp; Moodle sync</span>
-                                    <span><i class="fas fa-clock"></i> Pomodoro focus</span>
-                                    <span><i class="fas fa-envelope"></i> Email reminders</span>
-                                    <span><i class="fas fa-brain"></i> AI study tools</span>
-                                    <span><i class="fas fa-table-columns"></i> Kanban board</span>
-                                    <span><i class="fas fa-palette"></i> Custom themes</span>
-                                </div>
-                                <a href="https://planner.lumaplayground.com" target="_blank" rel="noopener" class="landing-planner-btn"><i class="fas fa-arrow-right"></i> Try Luma Planner</a>
-                            </div>
-                            <div class="landing-planner-right">
-                                <div class="landing-planner-icon-wrap">
-                                    <i class="fas fa-calendar-check"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="landing-tools-overview">
-                        <h2>55+ Tools, Zero Ads</h2>
-                        <div class="landing-tool-chips">
-                            <span class="landing-chip" onclick="switchTool('ai-study-notes')"><i class="fas fa-brain"></i> AI Study Notes</span>
-                            <span class="landing-chip" onclick="switchTool('ai-flashcards')"><i class="fas fa-clone"></i> Flashcards</span>
-                            <span class="landing-chip" onclick="switchTool('ai-quiz')"><i class="fas fa-question-circle"></i> Practice Quiz</span>
-                            <span class="landing-chip" onclick="switchTool('ai-paraphrase')"><i class="fas fa-sync-alt"></i> Paraphraser</span>
-                            <span class="landing-chip" onclick="switchTool('mind-map')"><i class="fas fa-project-diagram"></i> Mind Map</span>
-                            <span class="landing-chip" onclick="switchTool('youtube-summary')"><i class="fab fa-youtube"></i> YouTube Summary</span>
-                            <span class="landing-chip" onclick="switchTool('citation-gen')"><i class="fas fa-quote-left"></i> Citation Gen</span>
-                            <span class="landing-chip" onclick="switchTool('downloader')"><i class="fas fa-download"></i> Media Downloader</span>
-                            <span class="landing-chip" onclick="switchTool('screenshot-annotate')"><i class="fas fa-pencil-alt"></i> Annotator</span>
-                            <span class="landing-chip" onclick="switchTool('color-palette')"><i class="fas fa-eye-dropper"></i> Color Palette</span>
-                            <span class="landing-chip" onclick="switchTool('image-compress')"><i class="fas fa-compress-alt"></i> Image Compress</span>
-                            <span class="landing-chip" onclick="switchTool('image-resize')"><i class="fas fa-expand-arrows-alt"></i> Image Resize</span>
-                            <span class="landing-chip" onclick="switchTool('image-convert')"><i class="fas fa-exchange-alt"></i> Image Convert</span>
-                            <span class="landing-chip" onclick="switchTool('image-crop')"><i class="fas fa-crop-alt"></i> Image Crop</span>
-                            <span class="landing-chip" onclick="switchTool('image-bg-remove')"><i class="fas fa-user-alt"></i> Background Remover</span>
-                            <span class="landing-chip" onclick="switchTool('redact')"><i class="fas fa-user-secret"></i> Privacy Redaction</span>
-                            <span class="landing-chip" onclick="switchTool('favicon-generate')"><i class="fas fa-star"></i> Favicon Generator</span>
-                            <span class="landing-chip" onclick="switchTool('metadata-strip')"><i class="fas fa-eraser"></i> Metadata Strip</span>
-                            <span class="landing-chip" onclick="switchTool('video-compress')"><i class="fas fa-file-video"></i> Video Compress</span>
-                            <span class="landing-chip" onclick="switchTool('video-trim')"><i class="fas fa-cut"></i> Video Trim</span>
-                            <span class="landing-chip" onclick="switchTool('video-convert')"><i class="fas fa-film"></i> Video Convert</span>
-                            <span class="landing-chip" onclick="switchTool('video-to-gif')"><i class="fas fa-magic"></i> Video to GIF</span>
-                            <span class="landing-chip" onclick="switchTool('gif-to-video')"><i class="fas fa-photo-video"></i> GIF to Video</span>
-                            <span class="landing-chip" onclick="switchTool('gif-frame-remove')"><i class="fas fa-trash-alt"></i> Remove Frames</span>
-                            <span class="landing-chip" onclick="switchTool('video-extract-audio')"><i class="fas fa-volume-up"></i> Extract Audio</span>
-                            <span class="landing-chip" onclick="switchTool('video-remove-audio')"><i class="fas fa-volume-mute"></i> Remove Audio</span>
-                            <span class="landing-chip" onclick="switchTool('video-speed')"><i class="fas fa-tachometer-alt"></i> Speed Change</span>
-                            <span class="landing-chip" onclick="switchTool('video-frame')"><i class="fas fa-camera"></i> Frame Extract</span>
-                            <span class="landing-chip" onclick="switchTool('video-stabilize')"><i class="fas fa-hand-paper"></i> Stabilize</span>
-                            <span class="landing-chip" onclick="switchTool('subtitle-extract')"><i class="fas fa-closed-captioning"></i> Subtitles</span>
-                            <span class="landing-chip" onclick="switchTool('audio-convert')"><i class="fas fa-headphones"></i> Audio Convert</span>
-                            <span class="landing-chip" onclick="switchTool('audio-normalize')"><i class="fas fa-balance-scale-right"></i> Audio Normalise</span>
-                            <span class="landing-chip" onclick="switchTool('pdf-compress')"><i class="fas fa-file-pdf"></i> PDF Compress</span>
-                            <span class="landing-chip" onclick="switchTool('pdf-merge')"><i class="fas fa-object-group"></i> PDF Merge</span>
-                            <span class="landing-chip" onclick="switchTool('pdf-split')"><i class="fas fa-scissors"></i> PDF Split</span>
-                            <span class="landing-chip" onclick="switchTool('pdf-to-images')"><i class="fas fa-images"></i> PDF to Images</span>
-                            <span class="landing-chip" onclick="switchTool('images-to-pdf')"><i class="fas fa-file-image"></i> Images to PDF</span>
-                            <span class="landing-chip" onclick="switchTool('markdown-to-pdf')"><i class="fab fa-markdown"></i> Markdown to PDF</span>
-                            <span class="landing-chip" onclick="switchTool('resume-builder')"><i class="fas fa-file-alt"></i> Resume Builder</span>
-                            <span class="landing-chip" onclick="switchTool('invoice-gen')"><i class="fas fa-file-invoice-dollar"></i> Invoice Generator</span>
-                            <span class="landing-chip" onclick="switchTool('qr-generate')"><i class="fas fa-qrcode"></i> QR Code</span>
-                            <span class="landing-chip" onclick="switchTool('hash-generate')"><i class="fas fa-fingerprint"></i> Hash Generator</span>
-                            <span class="landing-chip" onclick="switchTool('archive-extract')"><i class="fas fa-box-open"></i> Archive Extractor</span>
-                            <span class="landing-chip" onclick="switchTool('base64')"><i class="fas fa-code"></i> Base64</span>
-                            <span class="landing-chip" onclick="switchTool('json-format')"><i class="fas fa-file-code"></i> JSON Formatter</span>
-                            <span class="landing-chip" onclick="switchTool('color-convert')"><i class="fas fa-palette"></i> Color Converter</span>
-                            <span class="landing-chip" onclick="switchTool('markdown-preview')"><i class="fab fa-markdown"></i> Markdown Preview</span>
-                            <span class="landing-chip" onclick="switchTool('diff-checker')"><i class="fas fa-code-compare"></i> Difference Checker</span>
-                            <span class="landing-chip" onclick="switchTool('word-counter')"><i class="fas fa-align-left"></i> Word Counter</span>
-                            <span class="landing-chip" onclick="switchTool('csv-json')"><i class="fas fa-table"></i> CSV &harr; JSON</span>
-                            <span class="landing-chip" onclick="switchTool('unix-date')"><i class="fas fa-clock"></i> Unix &harr; Date</span>
-                            <span class="landing-chip" onclick="switchTool('regex-tester')"><i class="fas fa-asterisk"></i> Regex Tester</span>
-                            <span class="landing-chip" onclick="switchTool('code-beautify')"><i class="fas fa-indent"></i> Code Beautify</span>
-                            <span class="landing-chip" onclick="switchTool('uuid-gen')"><i class="fas fa-id-badge"></i> UUID Generator</span>
-                            <span class="landing-chip" onclick="switchTool('url-encode')"><i class="fas fa-link"></i> URL Encoder</span>
-                            <span class="landing-chip" onclick="switchTool('image-upscale')"><i class="fas fa-expand"></i> Image Upscale</span>
-                            <span class="landing-chip" onclick="switchTool('ocr')"><i class="fas fa-font"></i> Image Extract Text</span>
-                            <span class="landing-chip" onclick="switchTool('audio-separate')"><i class="fas fa-guitar"></i> Vocal Separator</span>
-                            <span class="landing-chip" onclick="switchTool('password-gen')"><i class="fas fa-key"></i> Password Generator</span>
-                            <span class="landing-chip" onclick="switchTool('jwt-decode')"><i class="fas fa-shield-alt"></i> JWT Decoder</span>
-                            <span class="landing-chip" onclick="switchTool('bulk-install')"><i class="fas fa-boxes-stacked"></i> Bulk Installer</span>
-                        </div>
-                    </div>
-                    <div class="landing-cta-row">
-                        <button class="landing-cta-btn" onclick="switchTool('ai-study-notes')"><i class="fas fa-rocket"></i> Try AI Study Tools</button>
-                        <button class="landing-install-btn" id="landingInstallBtn" onclick="installPWA()"><i class="fas fa-download"></i> Install App</button>
-                    </div>
-                    <div class="landing-pricing" id="landingPricing">
-                        <h3>Support the project, unlock faster workflow</h3>
-                        <p class="landing-pricing-sub">Core tools are free forever. Pro removes the limits and keeps the servers running.</p>
-                        <div class="tier-table-wrap">
-                            <table class="tier-table" aria-label="Plan comparison">
-                                <thead>
-                                    <tr>
-                                        <th>Feature</th>
-                                        <th>
-                                            <div class="tier-plan-name">Free</div>
-                                            <div class="tier-plan-price">$0.00</div>
-                                        </th>
-                                        <th class="tier-pro-col">
-                                            <div class="tier-plan-name">Pro</div>
-                                            <div class="tier-plan-price">A$5 / mo</div>
-                                            <div class="tier-plan-price-sub">billed monthly in AUD</div>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr><td>All 50+ tools</td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
-                                    <tr><td>In-browser processing</td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
-                                    <tr><td>AI study tools</td><td><span class="tier-check">✓</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
-                                    <tr><td>Daily AI requests</td><td>20 / day</td><td class="tier-pro-col">Unlimited</td></tr>
-                                    <tr><td>Max file size</td><td>100 MB</td><td class="tier-pro-col">2 GB</td></tr>
-                                    <tr><td>Batch processing</td><td><span class="tier-dash">—</span></td><td class="tier-pro-col">Full</td></tr>
-                                    <tr><td>Priority queue</td><td><span class="tier-dash">—</span></td><td class="tier-pro-col"><span class="tier-check">✓</span></td></tr>
-                                    <tr><td>Support</td><td>Community</td><td class="tier-pro-col">Priority</td></tr>
-                                    <tr class="tier-cta-row">
-                                        <td></td>
-                                        <td><button class="tier-join-btn" onclick="window.location.href='/account/register';this.blur()">Get started</button></td>
-                                        <td class="tier-pro-col"><button class="tier-join-btn tier-join-pro" onclick="openUpgradeModal('pro');this.blur()">Join Pro</button></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="landing-privacy-notice">
-                        <i class="fas fa-shield-halved"></i>
-                        <div>
-                            <strong>What we track &amp; why</strong>
-                            <p>We collect the bare minimum needed to understand how the site is used: which tools are used, whether a request succeeded or failed, and an anonymous daily visitor count. Your IP address is never stored &mdash; it is immediately hashed (one-way, irreversible) and discarded. No personal data, no cookies, no third-party analytics, no ads. Files you process are deleted from our server as soon as your download is ready.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <div class="tool-panel active" id="tool-landing"><!-- rendered by app-shell.js renderHome() --></div>
 
             <!-- ──────────── MEDIA DOWNLOADER ──────────── -->
             <div class="tool-panel" id="tool-downloader">
@@ -2982,7 +2865,32 @@
                 </div>
             </div>
 
-            <footer class="footer">
+            <!-- v2 SHELL VIEWS (rendered by app-shell.js) ─────────── -->
+            <div class="tool-panel" id="tool-categories"><!-- category list --></div>
+            <div class="tool-panel" id="tool-all"><!-- all tools grouped --></div>
+            <div class="tool-panel" id="tool-search"><!-- search results --></div>
+
+            <!-- v2 TOOL PAGE WRAPPER: every per-tool panel is hoisted
+                 into #toolHost when activated, so it renders inside the
+                 design's .tpage chrome with breadcrumb + side panel. -->
+            <div class="tool-panel" id="tool-page-wrap">
+              <div class="tpage">
+                <div class="page-head">
+                  <h1 class="page-title" id="tpageTitle">Tool</h1>
+                  <p class="page-sub" id="tpageSub"></p>
+                </div>
+                <div class="tpage-grid">
+                  <div class="tpage-main" id="toolHost"><!-- active tool-panel lives here --></div>
+                  <aside class="tpage-side" id="tpageSide"></aside>
+                </div>
+              </div>
+            </div>
+
+            <!-- Storage for tool panels not currently visible -->
+            <div id="toolPanelStorage" aria-hidden="true"></div>
+
+            <!-- Legacy footer kept hidden — new home page has its own tech-foot -->
+            <footer class="footer" style="display:none">
                 <span>Powered by <strong>C++</strong>, <strong>WebAssembly</strong>, <strong>FFmpeg</strong>, <strong>yt-dlp</strong> &amp; <strong>Ghostscript</strong> &mdash; Built with <i class="fas fa-heart"></i> by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener" style="color:var(--accent-light);text-decoration:none;font-weight:600">Luma</a></span>
                 <br>
                 <a href="https://ko-fi.com/lumaexe" target="_blank" rel="noopener" class="footer-kofi"><i class="fas fa-mug-hot"></i> Buy me a coffee</a>
@@ -2990,6 +2898,9 @@
         </main>
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     </div>
+        </div><!-- /.content -->
+      </main><!-- /.main (v2) -->
+    </div><!-- /.luma (v2) -->
 
     <!-- Portfolio + Ko-fi floats: hidden (kept in markup as a quick re-enable). -->
     <a href="https://portfolio.lumaplayground.com/" target="_blank" rel="noopener" class="portfolio-float" title="My Portfolio" hidden style="display:none">
@@ -3108,6 +3019,30 @@
     <script src="js/health.js?v=251"></script>
     <!-- PWA, particles, init (must be last) -->
     <script src="js/pwa.js"></script>
+
+    <!-- v2 shell: catalog + controller (runs after all tool JS so it can
+         wrap window.switchTool and hoist active panels into .tpage-main) -->
+    <script src="js/tools-catalog.js?v=300"></script>
+    <script src="js/app-shell.js?v=300"></script>
+    <script>
+      // Bridge: clicks on the legacy sidebar nav-items (now hidden but
+      // still in DOM) shouldn't bypass the new chrome — already handled
+      // by switchTool wrapper. Also mirror sidebar toggle for mobile.
+      (function () {
+        const open  = document.getElementById('sbMobileOpen');
+        const close = document.getElementById('sbMobileClose');
+        const back  = document.getElementById('sbBackdrop');
+        const sb    = document.getElementById('sb');
+        function setOpen(v) {
+          if (!sb || !back) return;
+          sb.classList.toggle('sb-open', v);
+          back.classList.toggle('sb-open', v);
+        }
+        open  && open.addEventListener('click', () => setOpen(true));
+        close && close.addEventListener('click', () => setOpen(false));
+        back  && back.addEventListener('click', () => setOpen(false));
+      })();
+    </script>
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
