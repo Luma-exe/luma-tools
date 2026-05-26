@@ -26,13 +26,18 @@ static std::string join(const std::vector<std::string>& v, const std::string& de
 #include "routes.h"
 
 // ── Groq model chain with automatic fallback ─────────────────────────────────
+// All IDs verified live against https://api.groq.com/openai/v1/models. The
+// previous chain had 4 dead model IDs (llama-3.3-70b-specdec, both deepseek-r1
+// distills, qwen-qwq-32b) which were Groq-retired in early 2025; calling them
+// 400'd and short-circuited the fallback ladder. Current chain uses only live
+// Groq IDs across three different model families so a per-model issue on one
+// doesn't kill the request — different providers (Cerebras, Gemini) follow.
 static const vector<string> GROQ_MODEL_CHAIN = {
-    "llama-3.3-70b-versatile",          // Step 1 – most powerful
-    "llama-3.3-70b-specdec",             // Step 2
-    "deepseek-r1-distill-llama-70b",     // Step 3
-    "qwen-qwq-32b",                      // Step 4
-    "deepseek-r1-distill-qwen-32b"       // Step 5
-    // Steps 6-8 are tried below via try_provider after Groq quota is exhausted
+    "llama-3.3-70b-versatile",                              // Step 1 – Meta 70B, primary
+    "openai/gpt-oss-120b",                                  // Step 2 – OpenAI OSS 120B (high quality)
+    "meta-llama/llama-4-scout-17b-16e-instruct",            // Step 3 – Llama 4 Scout MoE
+    "qwen/qwen3-32b",                                       // Step 4 – Qwen 3 32B
+    // Steps 5-8 are tried below via try_provider once Groq is exhausted.
 };
 
 // ── Last-used AI model cache (updated on every successful AI call) ────────────
@@ -84,7 +89,21 @@ static GroqResult call_groq(json payload, const string& proc, const string& pref
     };
 
     GroqResult result;
-    for (const auto& model : GROQ_MODEL_CHAIN) {
+    // Build the effective chain: if the caller pre-selected a model in the
+    // payload, try it FIRST, then fall back through the default chain. Without
+    // this, the loop's `payload["model"] = model;` line silently overwrites
+    // every per-tool model preference, so light tools like Paraphrase always
+    // ran on 70B even though they asked for 8B.
+    vector<string> chain;
+    string preferred;
+    if (payload.contains("model") && payload["model"].is_string()) {
+        preferred = payload["model"].get<string>();
+        if (!preferred.empty()) chain.push_back(preferred);
+    }
+    for (const auto& m : GROQ_MODEL_CHAIN) {
+        if (m != preferred) chain.push_back(m);
+    }
+    for (const auto& model : chain) {
         payload["model"] = model;
         // Use error_handler_t::replace so invalid UTF-8 bytes (e.g. 0xA0 from
         // Windows-1252 encoded PDFs) never cause type_error.316 to throw here.
@@ -3993,7 +4012,7 @@ CRITICAL RULES:
         }
         // Clamp unknown difficulty values to "medium"
         if (difficulty != "easy" && difficulty != "medium" && difficulty != "hard") difficulty = "medium";
-        count = std::min(std::max(count, 5), 20);
+        count = std::min(std::max(count, 3), 20);
 
         string text;
         string proc = get_processing_dir();
@@ -4126,8 +4145,11 @@ CRITICAL RULES:
         string system_prompt = "You are an expert writer and editor. Paraphrase the given text while preserving its meaning. " + tone_instruction +
             " Output ONLY the paraphrased text, nothing else.";
 
+        // Paraphrasing is a low-complexity rewrite — 8B-instant has the largest
+        // Groq free-tier daily quota and 100% adequate quality for this task.
+        // Falls through the regular chain if 8B is rate-limited.
         json payload = {
-            {"model", "llama-3.3-70b-versatile"},
+            {"model", "llama-3.1-8b-instant"},
             {"messages", {
                 {{"role", "system"}, {"content", system_prompt}},
                 {{"role", "user"}, {"content", "Paraphrase this text:\n\n" + text}}
@@ -4389,8 +4411,12 @@ CRITICAL RULES:
         string user_prompt = "Create a mind map from this content:\n\n" + text +
             "\n\nOutput as JSON: {\"central\": \"Main Topic\", \"nodes\": [{\"id\": \"n1\", \"label\": \"Subtopic\", \"parent\": \"root\"}, ...]}";
 
+        // Mind Map = structured-JSON extraction with small output (<2k tokens).
+        // gpt-oss-20b is purpose-built for this and ~5x faster than 70B at
+        // matching JSON-schema quality. The chain will retry up the family
+        // ladder if 20B is rate-limited.
         json payload = {
-            {"model", "llama-3.3-70b-versatile"},
+            {"model", "openai/gpt-oss-20b"},
             {"messages", {
                 {{"role", "system"}, {"content", system_prompt}},
                 {{"role", "user"}, {"content", user_prompt}}
