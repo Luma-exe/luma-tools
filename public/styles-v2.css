@@ -502,12 +502,81 @@ a { color: inherit; text-decoration: none; }
   display: flex; flex-direction: column; gap: 6px;
   margin-bottom: 28px;
 }
+.page-head-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
 .page-title {
   font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.015em;
   line-height: 1.25;
 }
+
+/* AI model chain badge — sits next to the tool title in the page-head */
+.tpv-model-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 11.5px; font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent-light);
+  position: relative;
+  cursor: help;
+  white-space: nowrap;
+}
+.tpv-model-badge .tpv-mb-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-light);
+  box-shadow: 0 0 6px var(--accent-light);
+  flex-shrink: 0;
+}
+.tpv-model-badge.is-checking { color: var(--text-3); border-color: var(--border-2); background: var(--surface-2); }
+.tpv-model-badge.is-checking .tpv-mb-dot { background: var(--text-3); box-shadow: none; }
+.tpv-model-badge.is-error { color: #fca5a5; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.10); }
+.tpv-model-badge.is-error .tpv-mb-dot { background: #fca5a5; box-shadow: 0 0 6px #fca5a5; }
+.tpv-model-badge.is-fallback { color: #fcd34d; border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.12); }
+.tpv-model-badge.is-fallback .tpv-mb-dot { background: #fcd34d; box-shadow: 0 0 6px #fcd34d; }
+
+/* Hover tooltip with the full AI chain */
+.tpv-mb-tip {
+  position: absolute; top: calc(100% + 8px); left: 0;
+  background: rgba(12,12,20,0.97);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  width: 340px;
+  z-index: 30;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--t-fast);
+  font-weight: 400; letter-spacing: 0; text-transform: none;
+}
+.tpv-model-badge:hover .tpv-mb-tip { opacity: 1; pointer-events: auto; }
+.tpv-mb-tip-head {
+  font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 8px;
+}
+.tpv-mb-tip-sub { font-size: 11px; color: var(--text-3); margin-bottom: 8px; line-height: 1.45; font-weight: 500; }
+.tpv-mb-tip-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; font-size: 11.5px; color: var(--text-2);
+  border-top: 1px solid var(--border);
+}
+.tpv-mb-tip-row:first-of-type { border-top: 0; }
+.tpv-mb-tip-row .step { color: var(--text-3); font-family: var(--font-mono); min-width: 24px; font-size: 10.5px; }
+.tpv-mb-tip-row .name { flex: 1; color: var(--text); font-weight: 500; }
+.tpv-mb-tip-row .prov { color: var(--text-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.tpv-mb-tip-row.active {
+  background: var(--accent-soft);
+  border-radius: var(--r-xs);
+  padding: 5px 8px;
+  margin: 0 -8px;
+}
+.tpv-mb-tip-row.active .name { color: var(--accent-light); font-weight: 600; }
+.tpv-mb-tip-row.active .step { color: var(--accent-light); }
 .page-sub {
   font-size: 14px;
   color: var(--text-2);
@@ -1349,10 +1418,12 @@ a { color: inherit; text-decoration: none; }
    regressions.
    ════════════════════════════════════════════════════════════════════════ */
 
-/* Hide the original page chrome that lives at /styles.css */
+/* Hide the original page chrome that lives at /styles.css.
+   .history-drawer is kept renderable (just position: fixed off-screen
+   until toggleHistoryDrawer adds .open) so the sidebar's History
+   button still works. */
 .app-layout > .sidebar,
-.app-layout > .mobile-header,
-.app-layout > .history-drawer { display: none !important; }
+.app-layout > .mobile-header { display: none !important; }
 
 /* Original layout was its own grid — now it just sits inside .content */
 .app-layout { display: block; min-height: 0; }

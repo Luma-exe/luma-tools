@@ -33,7 +33,7 @@
     <meta name="twitter:description" content="65+ free tools — AI study notes &amp; flashcards, media downloader, image editing, video &amp; audio conversion, PDF tools and more. Most processing happens right in your browser.">
     <meta name="twitter:image" content="https://tools.lumaplayground.com/icon-512.png">
     <link rel="stylesheet" href="styles.css?v=251">
-    <link rel="stylesheet" href="styles-v2.css?v=318">
+    <link rel="stylesheet" href="styles-v2.css?v=319">
     <script>
       // v2 bootstrap: force the SW to re-check every load so users running
       // a stale cached shell pick up the latest assets within one refresh.
@@ -2893,7 +2893,10 @@
             <div class="tool-panel" id="tool-page-wrap">
               <div class="tpage">
                 <div class="page-head">
-                  <h1 class="page-title" id="tpageTitle">Tool</h1>
+                  <div class="page-head-row">
+                    <h1 class="page-title" id="tpageTitle">Tool</h1>
+                    <span class="tpv-model-badge" id="tpvModelBadge" style="display:none"></span>
+                  </div>
                   <p class="page-sub" id="tpageSub"></p>
                 </div>
                 <div class="tpage-grid">
@@ -3039,10 +3042,10 @@
 
     <!-- v2 shell: catalog + controller (runs after all tool JS so it can
          wrap window.switchTool and hoist active panels into .tpage-main) -->
-    <script src="js/tools-catalog.js?v=318"></script>
-    <script src="js/tool-specs.js?v=318"></script>
-    <script src="js/tool-page.js?v=318"></script>
-    <script src="js/app-shell.js?v=318"></script>
+    <script src="js/tools-catalog.js?v=319"></script>
+    <script src="js/tool-specs.js?v=319"></script>
+    <script src="js/tool-page.js?v=319"></script>
+    <script src="js/app-shell.js?v=319"></script>
     <script>
       // Bridge: clicks on the legacy sidebar nav-items (now hidden but
       // still in DOM) shouldn't bypass the new chrome — already handled

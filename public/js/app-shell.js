@@ -496,6 +496,14 @@
     const t = window.LUMA_TOOL_BY_ID[id];
     if (!t) { showHome(); return; }
 
+    // Show/hide AI model badge based on whether this tool uses the AI chain
+    if (AI_TOOLS.has(id)) {
+      setAIModelBadge(null, 'checking');
+      probeAIStatus();
+    } else {
+      setAIModelBadge(null, 'hidden');
+    }
+
     // Spec-driven path: if a v2 tool spec exists, render the pixel-perfect
     // form directly into #toolHost — bypass the legacy panel entirely.
     if (window.LumaToolPage && window.LumaToolPage.has(id)) {
@@ -780,6 +788,106 @@
     });
   }
 
+  // ── AI model badge ────────────────────────────────────────────────────
+  // List of tools that use the AI chain. Mirrors AI_BADGE_TOOLS in ui.js
+  // but also includes ai-improve-notes and ai-mind-map alias.
+  const AI_TOOLS = new Set([
+    'ai-study-notes','ai-improve-notes','ai-flashcards','ai-quiz','ai-paraphrase',
+    'citation-gen','mind-map','youtube-summary',
+  ]);
+
+  // Current chain — matches the live Groq /v1/models list (Nov 2025+)
+  const AI_CHAIN = [
+    { id: 'llama-3.3-70b-versatile',                    label: 'Llama 3.3 70B',  prov: 'Groq' },
+    { id: 'openai/gpt-oss-120b',                        label: 'GPT-OSS 120B',   prov: 'Groq' },
+    { id: 'meta-llama/llama-4-scout-17b-16e-instruct',  label: 'Llama 4 Scout',  prov: 'Groq' },
+    { id: 'qwen/qwen3-32b',                             label: 'Qwen 3 32B',     prov: 'Groq' },
+    { id: 'openai/gpt-oss-20b',                         label: 'GPT-OSS 20B',    prov: 'Groq' },
+    { id: 'cerebras:gpt-oss-120b',                      label: 'GPT-OSS 120B',   prov: 'Cerebras' },
+    { id: 'gemini:gemini-2.0-flash',                    label: 'Gemini 2.0 Flash', prov: 'Google' },
+    { id: 'llama-3.1-8b-instant',                       label: 'Llama 3.1 8B',   prov: 'Groq' },
+    { id: 'ollama:llama3.1:8b',                         label: 'Llama 3.1 8B',   prov: 'Local Ollama' },
+  ];
+
+  function setAIModelBadge(modelId, state) {
+    const b = $('#tpvModelBadge');
+    if (!b) return;
+    if (state === 'hidden') { b.style.display = 'none'; b.innerHTML = ''; return; }
+    b.style.display = '';
+    if (state === 'checking') {
+      b.className = 'tpv-model-badge is-checking';
+      b.innerHTML = `<span class="tpv-mb-dot"></span><span>Checking AI…</span>`;
+      return;
+    }
+    if (state === 'error') {
+      b.className = 'tpv-model-badge is-error';
+      b.innerHTML = `<span class="tpv-mb-dot"></span><span>AI unavailable</span>` + chainTooltip(null);
+      return;
+    }
+    if (!modelId) {
+      b.className = 'tpv-model-badge';
+      b.innerHTML = `<span class="tpv-mb-dot"></span><span>Auto</span>` + chainTooltip(null);
+      return;
+    }
+    const idx = AI_CHAIN.findIndex(m => m.id === modelId);
+    const m = idx >= 0 ? AI_CHAIN[idx] : { label: shortenModelName(modelId), prov: 'Custom' };
+    // Class hints for visual state
+    let cls = 'tpv-model-badge';
+    if (idx === 0) cls += '';                       // primary (purple)
+    else if (idx > 0 && idx < 5) cls += ' is-fallback';   // amber for any fallback
+    else if (idx >= 5) cls += ' is-fallback';            // amber for cross-provider
+    b.className = cls;
+    b.innerHTML = `<span class="tpv-mb-dot"></span><span>${escape(m.label)}</span>` + chainTooltip(modelId);
+  }
+  function shortenModelName(id) {
+    return String(id).replace(/^.*\//, '').replace(/^cerebras:/, '').replace(/^gemini:/, '').replace(/^ollama:/, 'Local ');
+  }
+  function chainTooltip(activeId) {
+    const rows = AI_CHAIN.map((m, i) => `
+      <div class="tpv-mb-tip-row${m.id === activeId ? ' active' : ''}">
+        <span class="step">${i + 1}.</span>
+        <span class="name">${escape(m.label)}</span>
+        <span class="prov">${escape(m.prov)}</span>
+      </div>
+    `).join('');
+    return `
+      <div class="tpv-mb-tip">
+        <div class="tpv-mb-tip-head">AI fallback chain</div>
+        <div class="tpv-mb-tip-sub">Each request tries these models in order. The highlighted one served your last response.</div>
+        ${rows}
+      </div>
+    `;
+  }
+  async function probeAIStatus() {
+    try {
+      const r = await fetch('/api/ai-status', { cache: 'no-store' });
+      if (!r.ok) { setAIModelBadge(null, 'error'); return; }
+      const j = await r.json();
+      setAIModelBadge(j.model || 'llama-3.3-70b-versatile');
+    } catch { setAIModelBadge(null, 'error'); }
+  }
+  // Sniff any fetch JSON response globally for { model_used } / { model }
+  function installAIResponseSniffer() {
+    const orig = window.fetch;
+    window.fetch = async function (...args) {
+      const res = await orig.apply(this, args);
+      try {
+        const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+        if (/\/api\/(tools\/ai-|mind-map|youtube-summary|ai-status)/.test(url) && (res.headers.get('content-type') || '').includes('json')) {
+          // Clone so the original consumer still gets to read the body
+          res.clone().json().then(j => {
+            if (!j) return;
+            const m = j.model_used || j.model;
+            if (m) setAIModelBadge(m);
+          }).catch(() => {});
+        }
+      } catch {}
+      return res;
+    };
+  }
+  // Expose for legacy code that might want to push a model update
+  window.LumaShellSetAIModel = setAIModelBadge;
+
   // ── Platform-aware ⌘/Ctrl shortcut label ──────────────────────────────
   function isMac() {
     if (navigator.userAgentData && navigator.userAgentData.platform) {
@@ -810,6 +918,7 @@
     wireGlobalClicks();
     wireLogoClick();
     applyShortcutLabels();
+    installAIResponseSniffer();
     loadAccount();
     loadTicker();
     setInterval(loadTicker, 60000);
