@@ -33,7 +33,24 @@
     <meta name="twitter:description" content="40+ free tools — AI study notes &amp; flashcards, media downloader, image editing, video &amp; audio conversion, PDF tools and more. Most processing happens right in your browser.">
     <meta name="twitter:image" content="https://tools.lumaplayground.com/icon-512.png">
     <link rel="stylesheet" href="styles.css?v=251">
-    <link rel="stylesheet" href="styles-v2.css?v=303">
+    <link rel="stylesheet" href="styles-v2.css?v=304">
+    <script>
+      // v2 bootstrap: force the SW to re-check every load so users running
+      // a stale cached shell pick up the latest assets within one refresh.
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => {
+          try { r.update(); } catch {}
+        }));
+        // If a controller swap happens (new SW activated + claimed), reload
+        // once so the page loads against the fresh cache + new assets.
+        let didReload = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (didReload) return;
+          didReload = true;
+          location.reload();
+        });
+      }
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3022,10 +3039,10 @@
 
     <!-- v2 shell: catalog + controller (runs after all tool JS so it can
          wrap window.switchTool and hoist active panels into .tpage-main) -->
-    <script src="js/tools-catalog.js?v=303"></script>
-    <script src="js/tool-specs.js?v=303"></script>
-    <script src="js/tool-page.js?v=303"></script>
-    <script src="js/app-shell.js?v=303"></script>
+    <script src="js/tools-catalog.js?v=304"></script>
+    <script src="js/tool-specs.js?v=304"></script>
+    <script src="js/tool-page.js?v=304"></script>
+    <script src="js/app-shell.js?v=304"></script>
     <script>
       // Bridge: clicks on the legacy sidebar nav-items (now hidden but
       // still in DOM) shouldn't bypass the new chrome — already handled
