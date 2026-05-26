@@ -272,6 +272,33 @@ window.LUMA_TOOL_SPECS = {
   },
 
   // ── AI ─────────────────────────────────────────────────────────────────
+  'ai-study-notes': {
+    intake: { kind: 'fileOrText', accept: '.pdf,.docx,.pptx,.txt,.md,.epub', placeholder: 'Paste lecture text, or upload a file…', minChars: 50, multiple: true },
+    options: [
+      { id: 'depth',     label: 'Depth',          kind: 'segs', values: [['simple','Simple'],['indepth','In-depth'],['eli6','ELI6']], default: 'indepth' },
+      { id: 'format',    label: 'Output format',  kind: 'segs', values: [['markdown','Markdown'],['plain','Plain text']],            default: 'markdown' },
+      { id: 'math_fmt',  label: 'Math notation',  kind: 'segs', values: [['latex','LaTeX'],['dollar','$ syntax'],['none','None']],   default: 'dollar' },
+      { id: 'numbering', label: 'Heading numbers',kind: 'segs', values: [['full','All levels'],['titles','Top only'],['none','None']],default: 'titles' },
+    ],
+    run: { label: 'Generate notes', icon: 'fa-brain', via: 'server', endpoint: '/api/tools/ai-study-notes', method: 'POST', formData: true, outputFile: true, longRunning: true, aiBadge: true },
+  },
+
+  'ai-improve-notes': {
+    intake: { kind: 'textarea', placeholder: 'Paste your existing study notes…', minChars: 200, mono: false },
+    options: [],
+    run: { label: 'Improve notes', icon: 'fa-sync-alt', via: 'server', endpoint: '/api/tools/ai-improve-notes', method: 'POST', formData: true, outputText: true, aiBadge: true,
+           buildFormData: (s) => { const f = new FormData(); f.append('current_notes', s.text || ''); f.append('feedback', '{}'); return f; } },
+  },
+
+  'bulk-install': {
+    intake: { kind: 'textarea', placeholder: 'Paste one URL per line — YouTube, TikTok, Instagram, SoundCloud, X, Reddit, …', minChars: 8 },
+    options: [
+      { id: 'format',  label: 'Format',  kind: 'segs', values: [['auto','Auto'],['mp4','MP4'],['mp3','MP3'],['m4a','M4A']], default: 'auto' },
+      { id: 'quality', label: 'Quality', kind: 'segs', values: [['best','Best'],['1080p','1080p'],['720p','720p'],['480p','480p']], default: 'best' },
+    ],
+    run: { label: 'Queue downloads', icon: 'fa-boxes-stacked', via: 'browser', handler: 'bulkInstall' },
+  },
+
   'ai-paraphrase': {
     intake: { kind: 'text', placeholder: 'Paste the text you want rewritten…', minChars: 20 },
     options: [

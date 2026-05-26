@@ -517,6 +517,22 @@
       }, 'image/' + fmt, 0.9));
     },
     audioConvert: async (s) => ({ kind: 'error', payload: 'Audio convert requires ffmpeg.wasm — falling back to server. Use the existing form or contact support.' }),
+    bulkInstall: async (s) => {
+      const urls = (s.text || '').split(/\r?\n/).map(l => l.trim()).filter(l => /^https?:\/\//i.test(l));
+      if (!urls.length) return { kind: 'error', payload: 'Paste at least one URL (one per line, starting with http).' };
+      const results = [];
+      for (const url of urls) {
+        try {
+          const r = await fetch('/api/download', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, format: s.options.format, quality: s.options.quality }),
+          });
+          if (r.ok) { const j = await r.json(); results.push({ url, ...j }); }
+          else { let msg = r.status; try { msg = (await r.json()).error || msg; } catch {} results.push({ url, error: String(msg) }); }
+        } catch (e) { results.push({ url, error: String(e) }); }
+      }
+      return { kind: 'json', payload: { queued: urls.length, results } };
+    },
     downloader: async (s) => {
       if (!s.url) return { kind: 'error', payload: 'Paste a URL first' };
       // Delegate to existing downloader logic if available

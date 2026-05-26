@@ -1431,11 +1431,13 @@ canvas#particles { display: none !important; }
    otherwise it grabs grid column 2 and starves .main of its width. */
 .sb-backdrop { display: none; }
 
-/* Content fills the main column edge-to-edge — no left dead-band.
-   The previous max-width left ~76px of auto-margin on big monitors;
-   removing the cap (none) makes content stretch to fill main, with
-   the .content padding (32px each side) doing all the breathing-room
-   work. Cards inside use their own grid layouts and stay readable. */
+/* Centre the whole shell (sidebar + content together) on big monitors
+   instead of just the content within main. Cap the whole .luma at
+   1500px and auto-margin it — that way on a 1912px viewport the
+   sidebar + main combo sit in the middle with ~206px of symmetric
+   gutter on each side, and inside main the content fills edge-to-edge
+   (no asymmetric dead-band against the sidebar). */
+.luma { max-width: 1500px; margin: 0 auto; }
 .content {
   max-width: none;
   margin: 0;
