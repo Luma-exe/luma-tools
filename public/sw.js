@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lumatools-v310';
+const CACHE_NAME = 'lumatools-v311';
 const PRECACHE_ASSETS = [
     '/',
     '/styles.css',

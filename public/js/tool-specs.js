@@ -290,14 +290,7 @@ window.LUMA_TOOL_SPECS = {
            buildFormData: (s) => { const f = new FormData(); f.append('current_notes', s.text || ''); f.append('feedback', '{}'); return f; } },
   },
 
-  'bulk-install': {
-    intake: { kind: 'textarea', placeholder: 'Paste one URL per line — YouTube, TikTok, Instagram, SoundCloud, X, Reddit, …', minChars: 8 },
-    options: [
-      { id: 'format',  label: 'Format',  kind: 'segs', values: [['auto','Auto'],['mp4','MP4'],['mp3','MP3'],['m4a','M4A']], default: 'auto' },
-      { id: 'quality', label: 'Quality', kind: 'segs', values: [['best','Best'],['1080p','1080p'],['720p','720p'],['480p','480p']], default: 'best' },
-    ],
-    run: { label: 'Queue downloads', icon: 'fa-boxes-stacked', via: 'browser', handler: 'bulkInstall' },
-  },
+  // bulk-install: kept on its legacy panel (app .bat installer generator).
 
   'ai-paraphrase': {
     intake: { kind: 'text', placeholder: 'Paste the text you want rewritten…', minChars: 20 },
