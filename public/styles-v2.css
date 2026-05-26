@@ -1370,6 +1370,20 @@ canvas#particles { display: none !important; }
    storage container invisible. */
 #toolPanelStorage { display: none !important; }
 
+/* The legacy styles.css clamps .tool-panel { max-width: 700px } and
+   #tool-landing { max-width: 760px } which was meant for the old
+   narrow form layout. In v2 the panels host the design's full-width
+   home and tool-page chrome, so we need to remove those caps. */
+.tool-panel,
+#tool-landing,
+#tool-categories,
+#tool-all,
+#tool-search,
+#tool-page-wrap {
+  max-width: none !important;
+  width: 100% !important;
+}
+
 /* When a tool-panel is rendered inside the new tool host, reset spacing */
 .tpage-main > .tool-panel {
   background: transparent !important;
