@@ -1773,6 +1773,127 @@ canvas#particles { display: none !important; }
 /* Tool-container vertical rhythm */
 .tpage-main .tool-container > * + * { margin-top: 12px; }
 
+/* ── Bulk Program Installer: re-skin to match the v2 design ───────────── */
+.tpage-main #tool-bulk-install .info-box {
+  background: var(--accent-soft) !important;
+  border: 1px solid var(--accent-line) !important;
+  border-radius: var(--r-md) !important;
+  padding: 12px 14px !important;
+  color: var(--text-2) !important;
+  font-size: 13px !important;
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.tpage-main #tool-bulk-install .info-box i { color: var(--accent-light) !important; margin-top: 2px; }
+
+.tpage-main #tool-bulk-install .bulk-install-search .search-input-wrap {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-md) !important;
+  padding: 9px 14px !important;
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+.tpage-main #tool-bulk-install .bulk-install-search .search-input-wrap:focus-within {
+  border-color: var(--accent-line) !important;
+  background: var(--surface-3) !important;
+}
+.tpage-main #tool-bulk-install .bulk-install-search input {
+  font-size: 13.5px !important;
+  color: var(--text) !important;
+}
+
+.tpage-main #tool-bulk-install .bulk-install-categories {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 4px;
+  gap: 2px !important;
+  flex-wrap: wrap;
+}
+.tpage-main #tool-bulk-install .bulk-cat-btn {
+  padding: 6px 12px !important;
+  border-radius: 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--text-2) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.tpage-main #tool-bulk-install .bulk-cat-btn:hover {
+  background: var(--surface-3) !important;
+  color: var(--text) !important;
+}
+.tpage-main #tool-bulk-install .bulk-cat-btn.active {
+  background: var(--accent-soft) !important;
+  color: var(--accent-light) !important;
+}
+
+.tpage-main #tool-bulk-install .bulk-install-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+  gap: 6px !important;
+  max-height: 460px !important;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 10px !important;
+}
+.tpage-main #tool-bulk-install .bulk-prog-card {
+  padding: 10px 12px !important;
+  border-radius: var(--r-sm) !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface-2) !important;
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+.tpage-main #tool-bulk-install .bulk-prog-card:hover {
+  border-color: var(--border-2) !important;
+  background: var(--surface-3) !important;
+}
+.tpage-main #tool-bulk-install .bulk-prog-card.selected {
+  border-color: var(--accent-line) !important;
+  background: var(--accent-soft) !important;
+}
+.tpage-main #tool-bulk-install .bulk-prog-name {
+  font-size: 13px !important;
+  color: var(--text) !important;
+  font-weight: 500;
+}
+.tpage-main #tool-bulk-install .bulk-prog-card.selected .bulk-prog-icon,
+.tpage-main #tool-bulk-install .bulk-prog-card.selected .bulk-prog-check {
+  color: var(--accent-light) !important;
+}
+
+.tpage-main #tool-bulk-install .bulk-install-footer {
+  padding-top: 14px !important;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+.tpage-main #tool-bulk-install .bulk-selected-count {
+  color: var(--accent-light) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+.tpage-main #tool-bulk-install .bulk-install-actions .btn-secondary {
+  padding: 9px 14px !important;
+  border-radius: var(--r-sm) !important;
+  border: 1px solid var(--border-2) !important;
+  background: var(--surface) !important;
+  color: var(--text-2) !important;
+  font-size: 12.5px !important;
+}
+.tpage-main #tool-bulk-install .bulk-install-actions .btn-secondary:hover {
+  border-color: var(--border-3) !important;
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+}
+.tpage-main #tool-bulk-install .bulk-install-actions .process-btn {
+  padding: 10px 18px !important;
+  border-radius: var(--r-md) !important;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light)) !important;
+  box-shadow: 0 4px 14px var(--accent-glow) !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+}
+
 /* ════════════════════════════════════════════════════════════════════════
    v2 ToolPage (spec-driven) — pixel-perfect mockup styles
    ════════════════════════════════════════════════════════════════════════ */
