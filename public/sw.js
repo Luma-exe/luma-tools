@@ -35,16 +35,20 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((names) => {
-            return Promise.all(
-                names
-                    .filter((name) => name !== CACHE_NAME)
-                    .map((name) => caches.delete(name))
-            );
-        })
-    );
-    self.clients.claim();
+    event.waitUntil((async () => {
+        // Wipe every cache that isn't the current one
+        const names = await caches.keys();
+        await Promise.all(names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n)));
+        // Take over any open tab immediately
+        await self.clients.claim();
+        // Force-reload any open tabs so they pick up the new shell/assets
+        // (otherwise the controlling tab keeps showing the old JS/CSS
+        // it loaded before this SW took over).
+        const tabs = await self.clients.matchAll({ type: 'window' });
+        for (const tab of tabs) {
+            try { tab.navigate(tab.url); } catch {}
+        }
+    })());
 });
 
 self.addEventListener('fetch', (event) => {
