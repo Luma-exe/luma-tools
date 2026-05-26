@@ -1431,6 +1431,19 @@ canvas#particles { display: none !important; }
    otherwise it grabs grid column 2 and starves .main of its width. */
 .sb-backdrop { display: none; }
 
+/* Centre the content within the *viewport*, not the main column.
+   Without this, .content is auto-margined inside the 1fr main column,
+   which sits to the right of the 240px sidebar — so the visual centre
+   of the page ends up offset from the screen centre.
+   The phantom 3rd column (same width as the sidebar) restores symmetry. */
+@media (min-width: 980px) {
+  .luma { grid-template-columns: var(--sb-w) 1fr var(--sb-w); }
+}
+
+/* Wider reading width so the cards don't feel cramped on big monitors */
+.luma { --content-max: 1180px; }
+.content { max-width: calc(1180px + 64px); }
+
 /* Mobile sidebar drawer */
 @media (max-width: 980px) {
   .luma { grid-template-columns: 1fr; }
