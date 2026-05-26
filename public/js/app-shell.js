@@ -724,8 +724,10 @@
         openTool(toolEl.dataset.tool);
         return;
       }
-      // Category cards on Home
-      const catEl = e.target.closest('[data-cat]');
+      // Category cards on Home — scope to .cat-card so the attribute
+      // can't collide with tool-internal data-cat usage (Bulk Installer's
+      // filter chips, etc.)
+      const catEl = e.target.closest('.cat-card[data-cat]');
       if (catEl) {
         e.preventDefault();
         showCategory(catEl.dataset.cat);

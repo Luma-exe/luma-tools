@@ -1800,76 +1800,116 @@ canvas#particles { display: none !important; }
 /* Tool-container vertical rhythm */
 .tpage-main .tool-container > * + * { margin-top: 12px; }
 
-/* ── Bulk Program Installer: re-skin to match the v2 design ───────────── */
+/* ── Bulk Program Installer: single-surface look like Media Downloader ─
+   Strip every legacy inner border/card so the whole tool reads as one
+   continuous .tpage-main surface — same chunk style as the
+   spec-driven tools. */
+
+/* The whole tool body is just spacing on the outer surface */
+.tpage-main #tool-bulk-install .tool-body {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* Compact info banner inline at top */
 .tpage-main #tool-bulk-install .info-box {
   background: var(--accent-soft) !important;
   border: 1px solid var(--accent-line) !important;
-  border-radius: var(--r-md) !important;
-  padding: 12px 14px !important;
+  border-radius: var(--r-sm) !important;
+  padding: 10px 12px !important;
   color: var(--text-2) !important;
-  font-size: 13px !important;
+  font-size: 12.5px !important;
   display: flex; align-items: flex-start; gap: 10px;
+  line-height: 1.5;
+  margin: 0 !important;
 }
-.tpage-main #tool-bulk-install .info-box i { color: var(--accent-light) !important; margin-top: 2px; }
+.tpage-main #tool-bulk-install .info-box i {
+  color: var(--accent-light) !important; margin-top: 2px; flex-shrink: 0;
+}
 
+/* Search bar: single thin field, no wrapper border */
+.tpage-main #tool-bulk-install .bulk-install-search {
+  margin: 0 !important;
+}
 .tpage-main #tool-bulk-install .bulk-install-search .search-input-wrap {
   background: var(--surface-2) !important;
   border: 1px solid var(--border) !important;
-  border-radius: var(--r-md) !important;
-  padding: 9px 14px !important;
+  border-radius: var(--r-sm) !important;
+  padding: 8px 12px !important;
+  display: flex; align-items: center; gap: 8px;
   transition: border-color var(--t-fast), background var(--t-fast);
 }
 .tpage-main #tool-bulk-install .bulk-install-search .search-input-wrap:focus-within {
   border-color: var(--accent-line) !important;
   background: var(--surface-3) !important;
 }
+.tpage-main #tool-bulk-install .bulk-install-search .search-input-wrap i {
+  color: var(--text-3) !important; font-size: 12.5px;
+}
 .tpage-main #tool-bulk-install .bulk-install-search input {
   font-size: 13.5px !important;
   color: var(--text) !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: none !important;
+  flex: 1; min-width: 0;
 }
 
+/* Category chips — no wrapper border at all, flat row */
 .tpage-main #tool-bulk-install .bulk-install-categories {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 4px;
-  gap: 2px !important;
-  flex-wrap: wrap;
+  display: flex; flex-wrap: wrap;
+  gap: 6px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 .tpage-main #tool-bulk-install .bulk-cat-btn {
   padding: 6px 12px !important;
-  border-radius: 4px !important;
-  border: 0 !important;
-  background: transparent !important;
+  border-radius: 100px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface-2) !important;
   color: var(--text-2) !important;
-  font-size: 12.5px !important;
+  font-size: 12px !important;
   font-weight: 500 !important;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  cursor: pointer;
 }
 .tpage-main #tool-bulk-install .bulk-cat-btn:hover {
   background: var(--surface-3) !important;
   color: var(--text) !important;
+  border-color: var(--border-2) !important;
 }
 .tpage-main #tool-bulk-install .bulk-cat-btn.active {
   background: var(--accent-soft) !important;
   color: var(--accent-light) !important;
+  border-color: var(--accent-line) !important;
 }
 
+/* Grid: no outer border (the .tpage-main surface is the only outer
+   frame). Cards are surface-2 chips that pop on hover/select. */
 .tpage-main #tool-bulk-install .bulk-install-grid {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
   gap: 6px !important;
   max-height: 460px !important;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  padding: 10px !important;
+  overflow-y: auto !important;
+  padding: 2px !important;
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
 }
 .tpage-main #tool-bulk-install .bulk-prog-card {
   padding: 10px 12px !important;
   border-radius: var(--r-sm) !important;
   border: 1px solid var(--border) !important;
   background: var(--surface-2) !important;
+  display: flex; align-items: center; gap: 10px;
   transition: border-color var(--t-fast), background var(--t-fast);
+  cursor: pointer;
 }
 .tpage-main #tool-bulk-install .bulk-prog-card:hover {
   border-color: var(--border-2) !important;
@@ -1879,26 +1919,34 @@ canvas#particles { display: none !important; }
   border-color: var(--accent-line) !important;
   background: var(--accent-soft) !important;
 }
+.tpage-main #tool-bulk-install .bulk-prog-check { color: var(--text-3) !important; }
+.tpage-main #tool-bulk-install .bulk-prog-icon { color: var(--text-2) !important; }
 .tpage-main #tool-bulk-install .bulk-prog-name {
   font-size: 13px !important;
   color: var(--text) !important;
   font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tpage-main #tool-bulk-install .bulk-prog-card.selected .bulk-prog-icon,
 .tpage-main #tool-bulk-install .bulk-prog-card.selected .bulk-prog-check {
   color: var(--accent-light) !important;
 }
 
+/* Footer: single divider above + flex row */
 .tpage-main #tool-bulk-install .bulk-install-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
   padding-top: 14px !important;
-  border-top: 1px solid var(--border);
-  margin-top: 6px;
+  border-top: 1px solid var(--border) !important;
+  margin: 0 !important;
 }
 .tpage-main #tool-bulk-install .bulk-selected-count {
   color: var(--accent-light) !important;
   font-weight: 600 !important;
   font-size: 13px !important;
+  display: inline-flex; align-items: center; gap: 6px;
 }
+.tpage-main #tool-bulk-install .bulk-install-actions { display: flex; gap: 8px; }
 .tpage-main #tool-bulk-install .bulk-install-actions .btn-secondary {
   padding: 9px 14px !important;
   border-radius: var(--r-sm) !important;
@@ -1916,6 +1964,7 @@ canvas#particles { display: none !important; }
   padding: 10px 18px !important;
   border-radius: var(--r-md) !important;
   background: linear-gradient(135deg, var(--accent), var(--accent-light)) !important;
+  color: #fff !important;
   box-shadow: 0 4px 14px var(--accent-glow) !important;
   font-size: 13.5px !important;
   font-weight: 600 !important;
