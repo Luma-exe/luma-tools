@@ -3866,7 +3866,7 @@ CRITICAL RULES:
         int count = 20;
         if (!max_mode) {
             try { count = std::stoi(count_raw); } catch (...) {}
-            count = std::min(std::max(count, 5), 100);
+            count = std::min(std::max(count, 3), 100);
         }
 
         string text;
