@@ -97,97 +97,135 @@ static bool current_account(const httplib::Request& req, AccountUser& user) {
 // ─── Shared site-aesthetic shell for all account pages ──────────────────────
 
 static const char* ACCOUNT_PAGE_CSS = R"CSS(
-*{box-sizing:border-box;margin:0;padding:0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg-primary:#0a0a0f;--bg-card:rgba(18,18,30,0.65);--bg-card-hover:rgba(25,25,40,0.75);
-  --text-primary:#f0f0f5;--text-secondary:#8888a0;--text-muted:#555570;
-  --accent:#7c5cff;--accent-light:#9b80ff;--accent-glow:rgba(124,92,255,0.3);
+  --bg:#0a0a0f;
+  --surface:rgba(255,255,255,0.025);--surface-2:rgba(255,255,255,0.05);--surface-3:rgba(255,255,255,0.08);
+  --border:rgba(255,255,255,0.07);--border-2:rgba(255,255,255,0.12);--border-3:rgba(255,255,255,0.20);
+  --text:#f0f0f5;--text-2:#a3a8b3;--text-3:#6b7280;--text-4:#4a505b;
+  --accent:#7c5cff;--accent-light:#9b80ff;--accent-hover:#8b6dff;
+  --accent-soft:rgba(124,92,255,0.12);--accent-line:rgba(124,92,255,0.35);--accent-glow:rgba(124,92,255,0.35);
   --accent-2:#00d4ff;--accent-3:#ff6bca;
-  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.16);
+  --ok:#00e68a;
+  --r-lg:10px;--r-md:8px;--r-sm:6px;--r-xs:4px;
+  --font:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --t-fast:120ms ease;--t:180ms ease;
+  /* legacy aliases used by older partials */
+  --bg-primary:var(--bg);--bg-card:var(--surface);
+  --text-primary:var(--text);--text-secondary:var(--text-2);--text-muted:var(--text-3);
+  --border-strong:var(--border-2);
 }
 html,body{height:100%}
 body{
-  margin:0;background:var(--bg-primary);color:var(--text-primary);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;
   min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
-  /* generous top + bottom padding so tall content (account / profile with API
-     keys card) doesn't crop the avatar/header off the top of the viewport.
-     align-items:center was the original culprit — for content taller than
-     100vh it pushed the start off-screen and there's no negative-scroll. */
   padding:48px 24px 80px;position:relative;overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
 }
-@media (max-width: 640px){
-  body{ padding:24px 16px 48px; }
-}
-.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;filter:blur(80px);opacity:.35}
-.orb{position:absolute;border-radius:50%;animation:float 22s ease-in-out infinite}
-.orb-1{width:520px;height:520px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);top:-180px;right:-120px}
-.orb-2{width:440px;height:440px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);bottom:-140px;left:-100px;animation-delay:-7s}
-.orb-3{width:380px;height:380px;background:radial-gradient(circle,var(--accent-3) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-14s}
-@keyframes float{0%,100%{transform:translateY(0) translateX(0) scale(1)}33%{transform:translateY(-40px) translateX(20px) scale(1.06)}66%{transform:translateY(20px) translateX(-30px) scale(.94)}}
+@media (max-width:640px){body{padding:24px 16px 48px}}
+
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;filter:blur(120px);opacity:.4}
+.orb{position:absolute;border-radius:50%;animation:float-orb 20s ease-in-out infinite}
+.orb-1{width:600px;height:600px;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);top:-200px;right:-100px}
+.orb-2{width:500px;height:500px;background:radial-gradient(circle,var(--accent-2) 0%,transparent 70%);bottom:-150px;left:-100px;animation-delay:-7s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,var(--accent-3) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-14s;opacity:.28;animation-name:float-center}
+@keyframes float-orb{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(60px,-40px) scale(1.1)}50%{transform:translate(-30px,60px) scale(.95)}75%{transform:translate(40px,30px) scale(1.05)}}
+@keyframes float-center{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.12)}}
+
 .shell{position:relative;z-index:1;width:100%;max-width:480px}
-.brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:22px;color:var(--text-primary);text-decoration:none;font-weight:800;font-size:1.1rem;letter-spacing:.02em}
-.brand i{color:var(--accent)}
-.brand span{color:var(--text-secondary);font-weight:600}
+
+.brand{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin-bottom:24px;color:var(--text);text-decoration:none;
+  font-weight:800;font-size:15px;letter-spacing:.12em;text-transform:uppercase;
+}
+.brand i{
+  width:32px;height:32px;display:grid;place-items:center;border-radius:9px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-3));color:#fff;
+  font-size:.85rem;
+  box-shadow:0 1px 0 rgba(255,255,255,.15) inset,0 4px 16px var(--accent-glow);
+}
+.brand span{
+  background:linear-gradient(135deg,var(--accent-light),var(--accent-2));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  font-weight:800;
+}
+
 .card{
-  background:var(--bg-card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border:1px solid var(--border);border-radius:18px;padding:32px;
-  box-shadow:0 20px 60px rgba(0,0,0,.55);
+  background:var(--surface);backdrop-filter:blur(10px) saturate(140%);-webkit-backdrop-filter:blur(10px) saturate(140%);
+  border:1px solid var(--border);border-radius:14px;padding:28px;
 }
 .card-wide{max-width:760px}
-h1{font-size:1.55rem;font-weight:700;margin-bottom:6px;letter-spacing:-.01em}
-.intro{color:var(--text-secondary);font-size:.92rem;margin-bottom:22px;line-height:1.5}
+
+h1{font-size:24px;font-weight:600;letter-spacing:-.015em;line-height:1.25;margin-bottom:6px}
+.intro{color:var(--text-2);font-size:14px;margin-bottom:22px;line-height:1.5;max-width:60ch}
+
 .field{margin-bottom:14px}
-label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--text-secondary);margin-bottom:6px;font-weight:600}
+label{display:block;font-size:11.5px;font-weight:600;letter-spacing:.04em;color:var(--text-2);margin-bottom:8px}
+
 input[type=email],input[type=password],input[type=text]{
-  width:100%;padding:12px 14px;background:rgba(255,255,255,.04);
-  border:1px solid var(--border);border-radius:10px;color:var(--text-primary);
-  font-size:.95rem;outline:none;transition:border-color .15s,background .15s;
+  width:100%;padding:10px 12px;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);
+  color:var(--text);font:inherit;font-size:13.5px;
+  outline:none;transition:border-color var(--t-fast),background var(--t-fast);
 }
-input:focus{border-color:var(--accent);background:rgba(124,92,255,.06)}
+input:focus{border-color:var(--accent-line);background:var(--surface-3)}
+
 button.primary,a.primary{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
-  padding:13px 16px;background:linear-gradient(135deg,var(--accent),var(--accent-light));
-  border:0;border-radius:10px;color:#fff;font-weight:700;font-size:.96rem;cursor:pointer;
-  text-decoration:none;transition:transform .12s,box-shadow .12s;
-  box-shadow:0 8px 20px rgba(124,92,255,.28);
+  padding:11px 16px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  border:0;border-radius:var(--r-md);color:#fff;
+  font-family:var(--font);font-size:13.5px;font-weight:600;cursor:pointer;
+  text-decoration:none;transition:filter var(--t-fast),box-shadow var(--t-fast);
+  box-shadow:0 4px 14px var(--accent-glow);
 }
-button.primary:hover,a.primary:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(124,92,255,.36)}
+button.primary:hover,a.primary:hover{filter:brightness(1.08);box-shadow:0 6px 18px var(--accent-glow)}
+
 button.ghost,a.ghost{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  padding:11px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);
-  border-radius:10px;color:var(--text-primary);text-decoration:none;font-weight:600;
-  font-size:.92rem;cursor:pointer;transition:background .15s,border-color .15s;
+  padding:9px 14px;
+  background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r-sm);
+  color:var(--text-2);font:inherit;font-size:12.5px;font-weight:500;
+  text-decoration:none;cursor:pointer;
+  transition:background var(--t-fast),color var(--t-fast),border-color var(--t-fast);
 }
-button.ghost:hover,a.ghost:hover{background:rgba(255,255,255,.07);border-color:var(--border-strong)}
-.divider{display:flex;align-items:center;gap:12px;margin:22px 0 18px;color:var(--text-muted);font-size:.78rem}
+button.ghost:hover,a.ghost:hover{background:var(--surface-2);color:var(--text);border-color:var(--border-3)}
+
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0 16px;color:var(--text-3);font-size:11.5px;text-transform:uppercase;letter-spacing:.08em}
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
-.alt-link{text-align:center;font-size:.88rem;color:var(--text-secondary);margin-top:6px}
+
+.alt-link{text-align:center;font-size:13px;color:var(--text-2);margin-top:6px}
 .alt-link a{color:var(--accent-light);text-decoration:none;font-weight:600}
 .alt-link a:hover{text-decoration:underline}
-.msg{padding:10px 12px;border-radius:8px;font-size:.86rem;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start}
-.msg-ok{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#86efac}
-.msg-err{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#fca5a5}
-.back-home{display:inline-flex;align-items:center;gap:6px;margin-top:16px;color:var(--text-secondary);text-decoration:none;font-size:.86rem}
-.back-home:hover{color:var(--text-primary)}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(124,92,255,.14);border:1px solid rgba(124,92,255,.3);color:#d8d2ff;font-size:.74rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.chip-free{background:rgba(255,255,255,.05);border-color:var(--border);color:var(--text-secondary)}
-.chip-pro{background:rgba(124,92,255,.18);border-color:rgba(124,92,255,.45);color:#cabaff}
+
+.msg{padding:10px 12px;border-radius:var(--r-sm);font-size:13px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start;line-height:1.5}
+.msg-ok{background:rgba(0,230,138,.08);border:1px solid rgba(0,230,138,.25);color:#86efac}
+.msg-err{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.28);color:#fca5a5}
+
+.back-home{display:inline-flex;align-items:center;gap:6px;margin-top:16px;color:var(--text-3);text-decoration:none;font-size:12.5px;transition:color var(--t-fast)}
+.back-home:hover{color:var(--text)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:100px;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.chip-free{background:var(--surface-2);border:1px solid var(--border);color:var(--text-2)}
+.chip-pro{background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--accent-light)}
+
 .profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}
 @media(max-width:560px){.profile-grid{grid-template-columns:1fr}}
 .profile-row{padding:14px 0;border-bottom:1px solid var(--border)}
 .profile-row:last-child{border-bottom:0}
-.profile-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-bottom:4px;font-weight:600}
-.profile-value{color:var(--text-primary);font-size:.95rem;word-break:break-word}
+.profile-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:4px;font-weight:600}
+.profile-value{color:var(--text);font-size:13.5px;word-break:break-word}
 .actions-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
-.actions-row > *{flex:1;min-width:160px}
+.actions-row>*{flex:1;min-width:160px}
+
 /* Password field with show/hide eye toggle */
 .pw-wrap{position:relative}
 .pw-wrap input{padding-right:42px}
-.pw-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent;border:0;color:var(--text-secondary);cursor:pointer;padding:6px 8px;border-radius:6px;font-size:.95rem;line-height:1}
-.pw-eye:hover{color:var(--text-primary);background:rgba(255,255,255,.05)}
+.pw-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:0;color:var(--text-3);cursor:pointer;padding:6px 8px;border-radius:var(--r-xs);font-size:.9rem;line-height:1}
+.pw-eye:hover{color:var(--text);background:var(--surface-2)}
 .pw-eye:focus{outline:none;color:var(--accent-light)}
-.pw-mismatch{color:#fca5a5;font-size:.8rem;margin-top:-4px;margin-bottom:10px;display:none}
+.pw-mismatch{color:#fca5a5;font-size:12px;margin-top:-4px;margin-bottom:10px;display:none}
 .pw-mismatch.show{display:block}
 )CSS";
 
