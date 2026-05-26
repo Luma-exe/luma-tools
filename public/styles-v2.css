@@ -1431,18 +1431,9 @@ canvas#particles { display: none !important; }
    otherwise it grabs grid column 2 and starves .main of its width. */
 .sb-backdrop { display: none; }
 
-/* Centre the whole shell (sidebar + content together) on big monitors
-   instead of just the content within main. Cap the whole .luma at
-   1500px and auto-margin it — that way on a 1912px viewport the
-   sidebar + main combo sit in the middle with ~206px of symmetric
-   gutter on each side, and inside main the content fills edge-to-edge
-   (no asymmetric dead-band against the sidebar). */
-.luma { max-width: 1500px; margin: 0 auto; }
-.content {
-  max-width: none;
-  margin: 0;
-  width: 100%;
-}
+/* Just centre the content inside the main column (the design's
+   original behaviour) — same max-width as the base rule, no other
+   shell gymnastics. */
 
 /* Mobile sidebar drawer */
 @media (max-width: 980px) {
