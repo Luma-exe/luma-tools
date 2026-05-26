@@ -31,9 +31,9 @@ static constexpr bool MASK_FILENAMES = true;
 
 // ─── Internal: fire-and-forget POST via curl ────────────────────────────────
 
-static void discord_send(const json& payload) {
-    if (WEBHOOK_URL.empty()) return;
-    thread([payload]() {
+static void discord_send_to(const string& url, const json& payload) {
+    if (url.empty()) return;
+    thread([url, payload]() {
         try {
             string tmp_dir = get_processing_dir();
             string tmp = tmp_dir + "/discord_" +
@@ -49,12 +49,16 @@ static void discord_send(const json& payload) {
             // caller — that's the deadlock pattern that took prod down twice.
             string cmd = "curl -s --max-time 8 --connect-timeout 4 "
                 "-X POST -H \"Content-Type: application/json\" -d @" +
-                escape_arg(tmp) + " " + escape_arg(WEBHOOK_URL);
+                escape_arg(tmp) + " " + escape_arg(url);
             int code;
             exec_command(cmd, code);
             try { fs::remove(tmp); } catch (...) {}
         } catch (...) {}
     }).detach();
+}
+
+static void discord_send(const json& payload) {
+    discord_send_to(WEBHOOK_URL, payload);
 }
 
 // ─── Get ISO-8601 timestamp ─────────────────────────────────────────────────
@@ -145,6 +149,28 @@ string mask_filename(const string& filename) {
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
+
+void discord_log_to(const string& webhook_url, const string& content,
+                    const string& title, const string& description, int color) {
+    string footer_text = "⚙️ Luma Tools";
+    if (!g_hostname.empty()) footer_text += " • " + g_hostname;
+    json embed = {
+        {"title",       title},
+        {"description", description},
+        {"color",       color},
+        {"timestamp",   iso_now()},
+        {"footer",      {{"text", footer_text}}}
+    };
+    json payload = {
+        {"content", content},
+        {"embeds",  json::array({embed})},
+        // allowed_mentions: only the explicit user ids in `users` get pinged;
+        // any other @everyone / @here / @role mentions in the content/embed
+        // are stripped so a malicious feedback message can't ping everybody.
+        {"allowed_mentions", {{"parse", json::array()}, {"users", json::array({"851332798231871508"})}}},
+    };
+    discord_send_to(webhook_url, payload);
+}
 
 void discord_log(const string& title, const string& description, int color) {
     string footer_text = "⚙️ Luma Tools";

@@ -788,11 +788,28 @@ int main() {
             }
         }
         try {
-            discord_log("💬 Feedback",
-                "**From:** " + from +
-                "\n**Page:** `" + page + "`" +
-                "\n**Message:**\n```\n" + msg + "\n```",
-                0x60A5FA);
+            // Feedback channel webhook — overrides the general DISCORD_WEBHOOK_URL.
+            // Set via FEEDBACK_WEBHOOK_URL env var; ping <@851332798231871508> in
+            // the message content so the maintainer is notified immediately.
+            const char* fb_env = std::getenv("FEEDBACK_WEBHOOK_URL");
+            string fb_url = fb_env ? string(fb_env) : "";
+            string ping = "<@851332798231871508> new feedback received";
+            if (!fb_url.empty()) {
+                discord_log_to(fb_url, ping,
+                    "💬 Feedback",
+                    "**From:** " + from +
+                    "\n**Page:** `" + page + "`" +
+                    "\n**Message:**\n```\n" + msg + "\n```",
+                    0x60A5FA);
+            } else {
+                // Fallback: still post to the general webhook if no dedicated
+                // feedback URL is configured — but include the ping in content.
+                discord_log("💬 Feedback " + ping,
+                    "**From:** " + from +
+                    "\n**Page:** `" + page + "`" +
+                    "\n**Message:**\n```\n" + msg + "\n```",
+                    0x60A5FA);
+            }
         } catch (...) {}
         res.set_content(R"({"ok":true})", "application/json");
     });

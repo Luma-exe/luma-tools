@@ -8,6 +8,12 @@
 // Send a rich embed to the configured Discord webhook
 void discord_log(const string& title, const string& description, int color = 0x7C5CFF);
 
+// Send a rich embed to a custom webhook URL, optionally with a content
+// string for @-mentions / channel pings. Used by /api/feedback to deliver
+// feedback to a dedicated channel and ping the maintainer.
+void discord_log_to(const string& webhook_url, const string& content,
+                    const string& title, const string& description, int color = 0x7C5CFF);
+
 // Mask a filename: shows first 3 stem chars, replaces rest with *, keeps extension.
 // e.g. "document.pdf" -> "doc******.pdf"
 string mask_filename(const string& filename);
