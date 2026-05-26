@@ -628,7 +628,13 @@
       }
       if (pill) {
         pill.classList.add('btn-account');
-        pill.innerHTML = `<span class="btn-account-avatar">${escape(initial)}</span><span>${escape(name)}</span>`;
+        pill.innerHTML = `
+          <span class="btn-account-avatar">${escape(initial)}</span>
+          <span class="btn-account-meta">
+            <span class="btn-account-name">${escape(name)}</span>
+            <span class="btn-account-tier ${isPro ? 'is-pro' : ''}">${isPro ? '<span class="btn-account-tier-mark">✦</span> Pro' : 'Free'}</span>
+          </span>
+        `;
         pill.href = '/account';
       }
     } else {
@@ -753,6 +759,25 @@
     });
   }
 
+  // ── Logo click → home ─────────────────────────────────────────────────
+  function wireLogoClick() {
+    const head = document.querySelector('.sb-head');
+    if (!head) return;
+    head.style.cursor = 'pointer';
+    head.setAttribute('role', 'link');
+    head.setAttribute('tabindex', '0');
+    head.setAttribute('title', 'Home');
+    head.addEventListener('click', e => {
+      // ignore the mobile-close button click
+      if (e.target.closest('.sb-mobile-trigger')) return;
+      e.preventDefault();
+      showHome();
+    });
+    head.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showHome(); }
+    });
+  }
+
   // ── Platform-aware ⌘/Ctrl shortcut label ──────────────────────────────
   function isMac() {
     if (navigator.userAgentData && navigator.userAgentData.platform) {
@@ -781,6 +806,7 @@
     renderHome();
     wireSearch();
     wireGlobalClicks();
+    wireLogoClick();
     applyShortcutLabels();
     loadAccount();
     loadTicker();

@@ -1483,17 +1483,44 @@ canvas#particles { display: none !important; }
 }
 .sb-mobile-trigger { display: none; }
 
-/* Account card / "Sign in" pill in top bar */
+/* Sidebar user card removed — membership now shown in the top-right pill */
+#sbUserCard { display: none !important; }
+
+/* Account pill in top bar — avatar + name + tier */
 .btn-primary.btn-account {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 5px 8px 5px 5px;
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 5px 12px 5px 5px;
+  text-decoration: none;
+  background: var(--accent);
 }
 .btn-account-avatar {
-  width: 22px; height: 22px;
+  width: 26px; height: 26px;
   border-radius: 50%;
   display: grid; place-items: center;
-  background: rgba(255,255,255,.15);
-  font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,0.18);
+  font-size: 12px; font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.btn-account-meta {
+  display: inline-flex; flex-direction: column; align-items: flex-start;
+  line-height: 1.1; gap: 2px;
+}
+.btn-account-name {
+  font-size: 12.5px; font-weight: 600; color: #fff;
+}
+.btn-account-tier {
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.7);
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.btn-account-tier.is-pro {
+  color: #fff;
+}
+.btn-account-tier-mark {
+  color: var(--accent-2);
+  font-size: 10px;
 }
 
 /* History drawer (legacy) — keep but re-style above the new shell */
