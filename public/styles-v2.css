@@ -1945,6 +1945,312 @@ html, body { overflow-x: hidden; }
 /* Tool-container vertical rhythm */
 .tpage-main .tool-container > * + * { margin-top: 12px; }
 
+/* ════════════════════════════════════════════════════════════════════════
+   Media Downloader — full v2 restyle
+   All selectors scoped to .tpage-main #tool-downloader so nothing bleeds.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Strip legacy wrapper chrome */
+.tpage-main #tool-downloader .tool-body {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 0 !important; background: transparent !important; border: 0 !important;
+}
+
+/* ── URL input bar ──────────────────────────────────────────────────── */
+.tpage-main #tool-downloader .input-section { display: flex; flex-direction: column; gap: 10px; }
+.tpage-main #tool-downloader .input-wrapper {
+  display: flex; align-items: center; gap: 0;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-md) !important;
+  overflow: hidden;
+  transition: border-color var(--t-fast), background var(--t-fast);
+  box-shadow: none !important;
+}
+.tpage-main #tool-downloader .input-wrapper:focus-within {
+  border-color: var(--accent-line) !important;
+  background: var(--surface-3) !important;
+}
+.tpage-main #tool-downloader .platform-badge {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--text-3) !important;
+  font-size: 14px;
+}
+.tpage-main #tool-downloader #urlInput {
+  flex: 1; min-width: 0;
+  background: transparent !important;
+  border: 0 !important;
+  outline: none !important;
+  color: var(--text) !important;
+  font: inherit; font-size: 13.5px;
+  padding: 10px 4px !important;
+}
+.tpage-main #tool-downloader #urlInput::placeholder { color: var(--text-3); }
+.tpage-main #tool-downloader .analyze-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px !important;
+  margin: 4px !important;
+  border-radius: var(--r-sm) !important;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light)) !important;
+  color: #fff !important;
+  border: 0 !important;
+  font-size: 12.5px !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px var(--accent-glow) !important;
+  transition: filter var(--t-fast) !important;
+  cursor: pointer;
+}
+.tpage-main #tool-downloader .analyze-btn:hover { filter: brightness(1.1); }
+
+/* Supported platforms strip */
+.tpage-main #tool-downloader .supported-platforms {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11.5px; color: var(--text-3);
+}
+.tpage-main #tool-downloader .supported-platforms .label { flex-shrink: 0; }
+.tpage-main #tool-downloader .platform-icons {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+}
+.tpage-main #tool-downloader .platform-icons i { font-size: 14px; color: var(--text-3); }
+
+/* ── Section panels (loading / error / media / progress / complete) ── */
+.tpage-main #tool-downloader .dl-section {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-md) !important;
+  padding: 20px !important;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  text-align: center;
+}
+.tpage-main #tool-downloader .dl-section.hidden { display: none !important; }
+
+/* Loading spinner */
+.tpage-main #tool-downloader .loader { position: relative; width: 40px; height: 40px; }
+.tpage-main #tool-downloader .loader-ring {
+  position: absolute; inset: 0;
+  border: 2.5px solid transparent !important;
+  border-radius: 50% !important;
+}
+.tpage-main #tool-downloader .loader-ring:nth-child(1) { border-top-color: var(--accent) !important; animation: spin .9s linear infinite; }
+.tpage-main #tool-downloader .loader-ring:nth-child(2) { border-top-color: var(--accent-light) !important; opacity:.5; animation: spin 1.3s linear infinite reverse; }
+.tpage-main #tool-downloader .loader-ring:nth-child(3) { border-top-color: var(--accent-2) !important; opacity:.25; animation: spin 1.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.tpage-main #tool-downloader .loading-text { color: var(--text-2); font-size: 13px; }
+
+/* Error */
+.tpage-main #tool-downloader .error-icon { color: #f87171; font-size: 2rem; }
+.tpage-main #tool-downloader .error-text { color: var(--text-2); font-size: 13.5px; }
+.tpage-main #tool-downloader .retry-btn {
+  padding: 8px 16px !important;
+  border-radius: var(--r-sm) !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-2) !important;
+  color: var(--text-2) !important;
+  font-size: 12.5px !important;
+  cursor: pointer;
+}
+.tpage-main #tool-downloader .retry-btn:hover { background: var(--surface-3) !important; color: var(--text) !important; }
+
+/* Playlist section */
+.tpage-main #tool-downloader .dl-section#playlistSection { align-items: stretch; text-align: left; }
+.tpage-main #tool-downloader .playlist-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tpage-main #tool-downloader .playlist-info { display: flex; align-items: center; gap: 12px; }
+.tpage-main #tool-downloader .playlist-icon {
+  width: 36px; height: 36px; border-radius: var(--r-sm);
+  display: grid; place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-light);
+  flex-shrink: 0;
+}
+.tpage-main #tool-downloader .playlist-info h2 { font-size: 15px; font-weight: 600; }
+.tpage-main #tool-downloader .playlist-meta { font-size: 12px; color: var(--text-3); }
+.tpage-main #tool-downloader .dot-sep { margin: 0 6px; }
+.tpage-main #tool-downloader .playlist-select-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px !important;
+  border-radius: var(--r-sm) !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-2) !important;
+  font-size: 12px !important;
+}
+.tpage-main #tool-downloader .playlist-select-btn:hover { background: var(--surface-3) !important; color: var(--text) !important; }
+.tpage-main #tool-downloader .playlist-items { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }
+
+/* Media preview */
+.tpage-main #tool-downloader .dl-section#mediaSection { align-items: stretch; text-align: left; }
+.tpage-main #tool-downloader .media-preview {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.tpage-main #tool-downloader .thumbnail-container {
+  position: relative; flex-shrink: 0; width: 140px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.tpage-main #tool-downloader .thumbnail-container img { width: 100%; display: block; }
+.tpage-main #tool-downloader .duration-badge {
+  position: absolute; bottom: 4px; right: 4px;
+  background: rgba(0,0,0,.75);
+  color: #fff;
+  font-size: 10.5px; font-weight: 600; padding: 2px 5px;
+  border-radius: 3px;
+}
+.tpage-main #tool-downloader .platform-overlay {
+  position: absolute; top: 4px; left: 4px;
+  background: rgba(0,0,0,.6);
+  color: #fff; font-size: 12px;
+  width: 22px; height: 22px; border-radius: 4px;
+  display: grid; place-items: center;
+}
+.tpage-main #tool-downloader .media-info { min-width: 0; }
+.tpage-main #tool-downloader .media-info h2 { font-size: 15px; font-weight: 600; line-height: 1.35; margin-bottom: 6px; }
+.tpage-main #tool-downloader .media-uploader { font-size: 12.5px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+
+/* Format section */
+.tpage-main #tool-downloader .format-section { display: flex; flex-direction: column; gap: 10px; margin-top: 2px; }
+.tpage-main #tool-downloader .format-section h3 { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+
+/* Format tabs → v2 opt-segs */
+.tpage-main #tool-downloader .format-tabs {
+  display: inline-flex;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-sm) !important;
+  padding: 2px !important;
+  gap: 2px !important;
+}
+.tpage-main #tool-downloader .format-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px !important;
+  border-radius: 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--text-2) !important;
+  font-size: 12.5px !important;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.tpage-main #tool-downloader .format-tab:hover { color: var(--text) !important; }
+.tpage-main #tool-downloader .format-tab.active { background: var(--surface-3) !important; color: var(--text) !important; }
+.tpage-main #tool-downloader .format-tab small { font-size: 10.5px; color: var(--text-3); margin-top: 1px; display: block; }
+
+/* Quality grid */
+.tpage-main #tool-downloader .quality-section h4 { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; }
+.tpage-main #tool-downloader .quality-grid { display: flex; flex-wrap: wrap; gap: 6px !important; }
+.tpage-main #tool-downloader .quality-btn, .tpage-main #tool-downloader .quality-option {
+  padding: 6px 14px !important;
+  border-radius: var(--r-sm) !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface-2) !important;
+  color: var(--text-2) !important;
+  font-size: 12.5px !important;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast), color var(--t-fast);
+}
+.tpage-main #tool-downloader .quality-btn:hover, .tpage-main #tool-downloader .quality-option:hover { border-color: var(--border-2) !important; color: var(--text) !important; }
+.tpage-main #tool-downloader .quality-btn.active, .tpage-main #tool-downloader .quality-btn.selected,
+.tpage-main #tool-downloader .quality-option.active, .tpage-main #tool-downloader .quality-option.selected {
+  border-color: var(--accent-line) !important;
+  background: var(--accent-soft) !important;
+  color: var(--accent-light) !important;
+}
+
+/* Download button */
+.tpage-main #tool-downloader .download-btn, .tpage-main #tool-downloader #downloadBtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 20px !important;
+  border-radius: var(--r-md) !important;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light)) !important;
+  color: #fff !important;
+  border: 0 !important;
+  font-size: 13.5px !important;
+  font-weight: 600;
+  box-shadow: 0 4px 14px var(--accent-glow) !important;
+  cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: filter var(--t-fast);
+  align-self: flex-start;
+}
+.tpage-main #tool-downloader .download-btn:hover { filter: brightness(1.08); }
+.tpage-main #tool-downloader .btn-content { display: flex; align-items: center; gap: 8px; }
+.tpage-main #tool-downloader .btn-progress { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,.15); width: 0; transition: width .2s; }
+
+/* Download progress */
+.tpage-main #tool-downloader .dl-section#progressSection { align-items: stretch; text-align: left; }
+.tpage-main #tool-downloader .progress-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.tpage-main #tool-downloader .progress-icon { width: 36px; height: 36px; display: grid; place-items: center; color: var(--accent); font-size: 1.1rem; flex-shrink: 0; }
+.tpage-main #tool-downloader .spinning { animation: spin .9s linear infinite; }
+.tpage-main #tool-downloader .progress-info h3 { font-size: 14px; font-weight: 600; }
+.tpage-main #tool-downloader .progress-info p { font-size: 12.5px; color: var(--text-3); }
+.tpage-main #tool-downloader .progress-bar-container {
+  height: 6px !important;
+  background: var(--surface-3) !important;
+  border-radius: 100px !important;
+  overflow: hidden; width: 100%;
+}
+.tpage-main #tool-downloader .progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light)) !important;
+  border-radius: 100px;
+  transition: width .3s ease;
+}
+.tpage-main #tool-downloader .progress-details {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: 11.5px; color: var(--text-3); font-family: var(--font-mono);
+}
+
+/* Complete state */
+.tpage-main #tool-downloader .complete-icon { font-size: 2.5rem; color: var(--ok) !important; }
+.tpage-main #tool-downloader .dl-section#completeSection h3,
+.tpage-main #tool-downloader .dl-section#batchCompleteSection h3 { font-size: 16px; font-weight: 600; }
+.tpage-main #tool-downloader .save-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px !important;
+  border-radius: var(--r-md) !important;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light)) !important;
+  color: #fff !important;
+  text-decoration: none;
+  font-size: 13.5px !important;
+  font-weight: 600;
+  box-shadow: 0 4px 14px var(--accent-glow) !important;
+}
+.tpage-main #tool-downloader .new-download-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px !important;
+  border-radius: var(--r-sm) !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-2) !important;
+  color: var(--text-2) !important;
+  font-size: 12.5px !important;
+  cursor: pointer;
+}
+.tpage-main #tool-downloader .new-download-btn:hover { background: var(--surface-3) !important; color: var(--text) !important; }
+
+/* Batch files list */
+.tpage-main #tool-downloader .batch-files { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+
+/* Batch progress */
+.tpage-main #tool-downloader .dl-section#batchProgressSection { align-items: stretch; text-align: left; }
+.tpage-main #tool-downloader .batch-header { display: flex; align-items: center; gap: 12px; }
+.tpage-main #tool-downloader .batch-overall { display: flex; flex-direction: column; gap: 4px; }
+.tpage-main #tool-downloader .batch-overall-label { font-size: 11.5px; color: var(--text-3); font-family: var(--font-mono); }
+.tpage-main #tool-downloader .batch-item-name { font-size: 12.5px; color: var(--text-2); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tpage-main #tool-downloader .progress-bar-container.small { height: 3px !important; }
+.tpage-main #tool-downloader .resolving-content { display: flex; align-items: center; gap: 8px; color: var(--text-3); font-size: 12.5px; }
+
 /* ── Bulk Program Installer: single-surface look like Media Downloader ─
    Strip every legacy inner border/card so the whole tool reads as one
    continuous .tpage-main surface — same chunk style as the
