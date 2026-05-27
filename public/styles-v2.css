@@ -2662,7 +2662,7 @@ html, body { overflow-x: hidden; }
 .tpv .drop-sub { font-size: 12.5px; color: var(--text-3); }
 
 /* Coverage Check result card */
-.cov-result { display: flex; flex-direction: column; gap: 14px; }
+.cov-result { display: flex; flex-direction: column; gap: 14px; overflow-wrap: break-word; word-break: break-word; }
 .cov-header { display: flex; align-items: flex-start; gap: 16px; }
 .cov-score {
   width: 72px; height: 72px; border-radius: 50%; border: 3px solid;

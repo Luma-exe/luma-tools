@@ -393,7 +393,9 @@
   function showCoverageResult(j) {
     const out = $('#tpvOutput');
     if (!out) return;
-    const scoreColor = j.overall_score >= 80 ? 'var(--ok)' : j.overall_score >= 60 ? 'var(--amber, #fbbf24)' : '#f87171';
+    // Use local HTML escape — NOT the browser's global escape() which URL-encodes
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const scoreColor = j.overall_score >= 80 ? 'var(--ok)' : j.overall_score >= 60 ? '#fbbf24' : '#f87171';
     const concepts = (j.key_concepts || []);
     const covered = concepts.filter(c => c.covered).length;
     const html = `
@@ -401,18 +403,18 @@
         <div class="cov-header">
           <div class="cov-score" style="border-color:${scoreColor};color:${scoreColor}">${j.overall_score}<span>/100</span></div>
           <div class="cov-verdict-block">
-            <div class="cov-verdict">${escape(j.verdict||'')}</div>
-            <div class="cov-summary">${escape(j.summary||'')}</div>
+            <div class="cov-verdict">${esc(j.verdict||'')}</div>
+            <div class="cov-summary">${esc(j.summary||'')}</div>
           </div>
         </div>
         <div class="cov-progress-row">
           <span class="cov-prog-label">Concepts covered: ${covered} / ${concepts.length}</span>
           <div class="cov-prog-bar"><div class="cov-prog-fill" style="width:${concepts.length?Math.round(covered/concepts.length*100):0}%;background:${scoreColor}"></div></div>
         </div>
-        ${j.gaps && j.gaps.length ? `<div class="cov-section"><div class="cov-section-head">🔴 Gaps to address</div><ul class="cov-list">${j.gaps.map(g=>`<li>${escape(g)}</li>`).join('')}</ul></div>` : ''}
-        ${j.strengths && j.strengths.length ? `<div class="cov-section"><div class="cov-section-head">🟢 Strengths</div><ul class="cov-list">${j.strengths.map(s=>`<li>${escape(s)}</li>`).join('')}</ul></div>` : ''}
-        ${j.study_tips && j.study_tips.length ? `<div class="cov-section"><div class="cov-section-head">💡 Study tips</div><ul class="cov-list">${j.study_tips.map(t=>`<li>${escape(t)}</li>`).join('')}</ul></div>` : ''}
-        ${concepts.length ? `<details class="cov-concepts"><summary>All concepts (${concepts.length})</summary><div class="cov-concepts-grid">${concepts.map(c=>`<div class="cov-concept ${c.covered?'ok':'gap'}">${c.covered?'✓':'✗'} <span>${escape(c.topic)}</span><small>${c.importance}</small></div>`).join('')}</div></details>` : ''}
+        ${j.gaps && j.gaps.length ? `<div class="cov-section"><div class="cov-section-head">🔴 Gaps to address</div><ul class="cov-list">${j.gaps.map(g=>`<li>${esc(g)}</li>`).join('')}</ul></div>` : ''}
+        ${j.strengths && j.strengths.length ? `<div class="cov-section"><div class="cov-section-head">🟢 Strengths</div><ul class="cov-list">${j.strengths.map(s=>`<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+        ${j.study_tips && j.study_tips.length ? `<div class="cov-section"><div class="cov-section-head">💡 Study tips</div><ul class="cov-list">${j.study_tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
+        ${concepts.length ? `<details class="cov-concepts"><summary>All concepts (${concepts.length})</summary><div class="cov-concepts-grid">${concepts.map(c=>`<div class="cov-concept ${c.covered?'ok':'gap'}">${c.covered?'✓':'✗'} <span>${esc(c.topic)}</span><small>${esc(c.importance)}</small></div>`).join('')}</div></details>` : ''}
       </div>`;
     out.innerHTML = html;
     out.style.display = '';
