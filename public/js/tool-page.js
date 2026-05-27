@@ -455,7 +455,32 @@
       if (!fn) return showOutput('error', 'Browser handler missing: ' + handlerKey);
       const out = await fn(state);
       if (!out) showOutput('text', 'Done.');
-      else if (out.kind) showOutput(out.kind, out.payload);
+      else if (out.kind) {
+        showOutput(out.kind, out.payload);
+        // Before/After diff bar for file results
+        if (out.kind === 'file') {
+          const origSize = state.files && state.files[0] ? state.files[0].size : 0;
+          const outSize  = out.payload && out.payload.size ? out.payload.size : 0;
+          if (origSize > 0 && outSize > 0) {
+            const pct = Math.round((1 - outSize / origSize) * 100);
+            const smaller = outSize < origSize;
+            const outel = $('#tpvOutput');
+            if (outel) {
+              const bar = document.createElement('div');
+              bar.className = 'luma-diff';
+              bar.innerHTML = `
+                <span class="luma-diff-label">Before</span>
+                <span class="luma-diff-size">${fmtBytes(origSize)}</span>
+                <span class="luma-diff-arrow">→</span>
+                <span class="luma-diff-size">${fmtBytes(outSize)}</span>
+                <span class="luma-diff-pct ${smaller?'is-smaller':'is-larger'}">${smaller?'−':'+'}${Math.abs(pct)}%</span>
+                <div class="luma-diff-bar"><div class="luma-diff-fill" style="width:${Math.min(100,outSize/origSize*100).toFixed(1)}%;background:${smaller?'var(--ok)':'#f87171'}"></div></div>
+              `;
+              outel.appendChild(bar);
+            }
+          }
+        }
+      }
       else showOutput('text', out);
     } catch (e) {
       showOutput('error', String(e));
@@ -590,7 +615,7 @@
       return new Promise(res => {
         canvas.toBlob(b => {
           const url = URL.createObjectURL(b);
-          res({ kind: 'file', payload: { url, filename: stripExt(file.name) + '.' + (fmt === 'auto' ? file.name.split('.').pop() : fmt) } });
+          res({ kind: 'file', payload: { url, size: b.size, filename: stripExt(file.name) + '_LumaTools.' + (fmt === 'auto' ? file.name.split('.').pop() : fmt) } });
         }, type, q);
       });
     },
@@ -607,7 +632,7 @@
       const c = document.createElement('canvas'); c.width = nw; c.height = nh;
       c.getContext('2d').drawImage(img, 0, 0, nw, nh);
       return new Promise(res => c.toBlob(b => {
-        res({ kind: 'file', payload: { url: URL.createObjectURL(b), filename: stripExt(file.name) + '-' + nw + 'x' + nh + '.' + (file.name.split('.').pop()||'png') } });
+        res({ kind: 'file', payload: { url: URL.createObjectURL(b), size: b.size, filename: stripExt(file.name) + '_LumaTools-' + nw + 'x' + nh + '.' + (file.name.split('.').pop()||'png') } });
       }, file.type, 0.92));
     },
     imageConvert: async (s) => {
@@ -618,7 +643,7 @@
       const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
       c.getContext('2d').drawImage(img, 0, 0);
       return new Promise(res => c.toBlob(b => {
-        res({ kind: 'file', payload: { url: URL.createObjectURL(b), filename: stripExt(file.name) + '.' + fmt } });
+        res({ kind: 'file', payload: { url: URL.createObjectURL(b), size: b.size, filename: stripExt(file.name) + '_LumaTools.' + fmt } });
       }, 'image/' + fmt, 0.9));
     },
     audioConvert: async (s) => ({ kind: 'error', payload: 'Audio convert requires ffmpeg.wasm — falling back to server. Use the existing form or contact support.' }),

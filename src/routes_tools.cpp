@@ -1248,18 +1248,35 @@ Return 10-20 key concepts. A concept is covered if its key info appears in the n
                 // Extract the JSON object
                 size_t f = content.find('{'), l = content.rfind('}');
                 if (f != string::npos && l != string::npos && l > f) content = content.substr(f, l-f+1);
-                // Fix common AI JSON escaping issues (\' is not valid JSON)
+                // Robust sanitisation of AI-generated JSON:
+                // 1. Strip BOM / zero-width chars
+                // 2. Fix \' (invalid JSON escape) → '
+                // 3. Replace unrecognised escapes with a space
+                // 4. Collapse raw control characters inside strings to spaces
                 {
                     string fixed; fixed.reserve(content.size());
+                    bool in_str = false; bool escape_next = false;
                     for (size_t i = 0; i < content.size(); ++i) {
-                        if (content[i] == '\\' && i + 1 < content.size()) {
-                            char next = content[i+1];
-                            if (next == '\'') { fixed += '\''; ++i; continue; } // \' → '
-                            if (next != '"' && next != '\\' && next != '/' && next != 'b' &&
-                                next != 'f' && next != 'n' && next != 'r' && next != 't' &&
-                                next != 'u') { fixed += ' '; ++i; continue; } // bad escape → space
+                        unsigned char c = (unsigned char)content[i];
+                        if (escape_next) {
+                            escape_next = false;
+                            char nc = content[i];
+                            if (nc == '\'' ) { fixed += '\''; continue; }  // \' → '
+                            if (nc != '"' && nc != '\\' && nc != '/' && nc != 'b' &&
+                                nc != 'f' && nc != 'n' && nc != 'r' && nc != 't' && nc != 'u') {
+                                fixed += ' '; continue; }   // unknown escape → space
+                            fixed += '\\'; fixed += nc; continue;
                         }
-                        fixed += content[i];
+                        if (in_str) {
+                            if (c == '\\') { escape_next = true; fixed += c; continue; }
+                            if (c == '"')  { in_str = false; fixed += c; continue; }
+                            // Raw control chars inside strings → space
+                            if (c < 0x20 && c != '\t') { fixed += ' '; continue; }
+                            fixed += c;
+                        } else {
+                            if (c == '"') in_str = true;
+                            fixed += c;
+                        }
                     }
                     content = std::move(fixed);
                 }
