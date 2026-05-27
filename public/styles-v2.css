@@ -1700,25 +1700,25 @@ html, body { overflow-x: hidden; }
 .content { min-width: 0; }
 .main { min-width: 0; }
 
-/* Subtle theme toggle in top-right (next to account pill) */
+/* Subtle theme toggle in top-right — square, same height as profile pill */
 .btn-theme-toggle {
-  width: 28px; height: 28px;
-  border-radius: 50%;
+  width: 37px; height: 37px;
+  border-radius: var(--r-sm);
   display: grid; place-items: center;
-  background: transparent;
+  background: var(--surface);
   border: 1px solid var(--border-2);
   color: var(--text-3);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
   flex-shrink: 0;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
 .btn-theme-toggle:hover {
   background: var(--surface-2);
   color: var(--text-2);
   border-color: var(--border-3);
 }
-[data-theme="light"] .btn-theme-toggle { color: var(--text-3); }
+[data-theme="light"] .btn-theme-toggle { background: var(--surface); }
 
 /* Account pill in top bar — avatar + name + tier */
 .btn-primary.btn-account {

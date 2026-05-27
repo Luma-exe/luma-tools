@@ -1245,8 +1245,24 @@ Return 10-20 key concepts. A concept is covered if its key info appears in the n
         if (gr.ok && gr.response.contains("choices") && !gr.response["choices"].empty()) {
             try {
                 string content = gr.response["choices"][0]["message"]["content"].get<string>();
+                // Extract the JSON object
                 size_t f = content.find('{'), l = content.rfind('}');
                 if (f != string::npos && l != string::npos && l > f) content = content.substr(f, l-f+1);
+                // Fix common AI JSON escaping issues (\' is not valid JSON)
+                {
+                    string fixed; fixed.reserve(content.size());
+                    for (size_t i = 0; i < content.size(); ++i) {
+                        if (content[i] == '\\' && i + 1 < content.size()) {
+                            char next = content[i+1];
+                            if (next == '\'') { fixed += '\''; ++i; continue; } // \' → '
+                            if (next != '"' && next != '\\' && next != '/' && next != 'b' &&
+                                next != 'f' && next != 'n' && next != 'r' && next != 't' &&
+                                next != 'u') { fixed += ' '; ++i; continue; } // bad escape → space
+                        }
+                        fixed += content[i];
+                    }
+                    content = std::move(fixed);
+                }
                 result = json::parse(content); result["model_used"] = gr.model_used; ok = true;
             } catch (...) { result = {{"error","Failed to parse AI response"}}; }
         } else { result = {{"error","AI API call failed"}}; }

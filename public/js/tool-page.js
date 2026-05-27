@@ -344,7 +344,28 @@
         } else {
           const blob = await res.blob();
           const url = URL.createObjectURL(blob);
-          showOutput('file', { url, filename: guessFilename(res, tool) });
+          const filename = guessFilename(res, tool);
+          showOutput('file', { url, filename });
+          // Before/After size diff bar for compress/convert tools
+          const origSize = (state.files && state.files[0]) ? state.files[0].size : 0;
+          if (origSize > 0 && blob.size > 0) {
+            const pct = Math.round((1 - blob.size / origSize) * 100);
+            const smaller = blob.size < origSize;
+            const out = $('#tpvOutput');
+            if (out) {
+              const bar = document.createElement('div');
+              bar.className = 'luma-diff';
+              bar.innerHTML = `
+                <span class="luma-diff-label">Before</span>
+                <span class="luma-diff-size">${fmtBytes(origSize)}</span>
+                <span class="luma-diff-arrow">→</span>
+                <span class="luma-diff-size">${fmtBytes(blob.size)}</span>
+                <span class="luma-diff-pct ${smaller ? 'is-smaller' : 'is-larger'}">${smaller ? '−' : '+'}${Math.abs(pct)}%</span>
+                <div class="luma-diff-bar"><div class="luma-diff-fill" style="width:${Math.min(100,blob.size/origSize*100).toFixed(1)}%;background:${smaller?'var(--ok)':'#f87171'}"></div></div>
+              `;
+              out.appendChild(bar);
+            }
+          }
         }
       } else if (r.outputText) {
         if (ct.includes('application/json')) {
