@@ -450,13 +450,7 @@ window.LUMA_TOOL_SPECS = {
            buildFormData: (state) => { const f = new FormData(); f.append('source_type','url'); f.append('url', state.url||''); f.append('style', state.options.style||'apa'); return f; } },
   },
 
-  // ── Downloader: keep a URL-driven simple form, real logic delegated ───
-  'downloader': {
-    intake: { kind: 'url', placeholder: 'Paste any media URL…' },
-    options: [
-      { id: 'format', label: 'Format', kind: 'segs', values: [['auto','Auto'],['mp4','MP4'],['mp3','MP3'],['m4a','M4A'],['subs','Subs only']], default: 'auto' },
-      { id: 'quality', label: 'Quality', kind: 'segs', values: [['best','Best'],['1080p','1080p'],['720p','720p'],['480p','480p']], default: 'best' },
-    ],
-    run: { label: 'Download', icon: 'fa-download', via: 'browser', handler: 'downloader' },
-  },
+  // downloader: kept on its legacy panel — it has rich analyze/format/
+  // quality detection that the simple spec form can't replicate. The
+  // legacy #urlInput is what QuickBar's carry-over targets.
 };

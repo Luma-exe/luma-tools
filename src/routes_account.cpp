@@ -134,16 +134,23 @@ body{
 
 .shell{position:relative;z-index:1;width:100%;max-width:480px}
 
+/* Brand: mirrors the sidebar logo+wordmark on the main site exactly */
 .brand{
   display:flex;align-items:center;justify-content:center;gap:10px;
   margin-bottom:24px;color:var(--text);text-decoration:none;
   font-weight:800;font-size:15px;letter-spacing:.12em;text-transform:uppercase;
+  animation:none;
 }
 .brand i{
   width:32px;height:32px;display:grid;place-items:center;border-radius:9px;
   background:linear-gradient(135deg,var(--accent),var(--accent-3));color:#fff;
-  font-size:.85rem;
+  font-size:.95rem;
   box-shadow:0 1px 0 rgba(255,255,255,.15) inset,0 4px 16px var(--accent-glow);
+  animation:pulse-glow 3s ease-in-out infinite;
+}
+@keyframes pulse-glow{
+  0%,100%{box-shadow:0 1px 0 rgba(255,255,255,.15) inset,0 4px 16px var(--accent-glow)}
+  50%{box-shadow:0 1px 0 rgba(255,255,255,.15) inset,0 4px 32px var(--accent-glow),0 0 48px rgba(124,92,255,.18)}
 }
 .brand span{
   background:linear-gradient(135deg,var(--accent-light),var(--accent-2));
@@ -151,11 +158,14 @@ body{
   font-weight:800;
 }
 
+/* Card: same surface as the main site (.tpage-main, .behind-card, etc.) */
 .card{
-  background:var(--surface);backdrop-filter:blur(10px) saturate(140%);-webkit-backdrop-filter:blur(10px) saturate(140%);
-  border:1px solid var(--border);border-radius:14px;padding:28px;
+  background:var(--surface);
+  backdrop-filter:blur(10px) saturate(140%);-webkit-backdrop-filter:blur(10px) saturate(140%);
+  border:1px solid var(--border);border-radius:14px;padding:26px;
 }
 .card-wide{max-width:760px}
+.card+.card{margin-top:12px}
 
 h1{font-size:24px;font-weight:600;letter-spacing:-.015em;line-height:1.25;margin-bottom:6px}
 .intro{color:var(--text-2);font-size:14px;margin-bottom:22px;line-height:1.5;max-width:60ch}
