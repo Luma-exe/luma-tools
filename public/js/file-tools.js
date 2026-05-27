@@ -493,6 +493,10 @@ function pollJobStatus(toolId, jobId) {
             LiveLogs.add(toolId, 'Processing completed', 'success');
             if (progressBar) progressBar.style.width = '100%';
             if (progressPct) progressPct.textContent = '100%';
+            // Notify if tab hidden
+            const toolMeta = window.LUMA_TOOL_BY_ID && window.LUMA_TOOL_BY_ID[toolId];
+            const toolLabel = toolMeta ? toolMeta.name : toolId;
+            if (window.lumaNotifyJobDone) window.lumaNotifyJobDone(toolLabel + ' complete', toolId);
             try {
                 const fileRes = await fetch(`/api/tools/result/${jobId}`);
                 if (!fileRes.ok) throw new Error('Failed to download result');
@@ -630,6 +634,15 @@ function showResult(toolId, blob, filename, jobId = null) {
     result.querySelector('.result-size').textContent = formatBytes(blob.size);
     // Add to result history
     addToHistory(toolId, tagged, blob);
+    // Show thumbs rating if not already there
+    if (!result.querySelector('.luma-rating')) {
+        const ratingEl = document.createElement('div');
+        ratingEl.className = 'luma-rating';
+        ratingEl.innerHTML = `<span class="luma-rating-label">Was this useful?</span>
+          <button class="luma-rating-btn" data-r="up" onclick="lumaRate('${toolId}','up',this)">👍</button>
+          <button class="luma-rating-btn" data-r="down" onclick="lumaRate('${toolId}','down',this)">👎</button>`;
+        result.appendChild(ratingEl);
+    }
     const downloadLink = result.querySelector('.result-download');
 
     if (downloadLink._objectUrl) URL.revokeObjectURL(downloadLink._objectUrl);

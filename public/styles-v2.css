@@ -47,6 +47,26 @@
   --t: 180ms ease;
 }
 
+/* ── Light theme overrides ──────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:        #f4f4f8;
+  --bg-side:   rgba(245, 245, 252, 0.95);
+  --surface:   rgba(255, 255, 255, 0.85);
+  --surface-2: rgba(255, 255, 255, 0.65);
+  --surface-3: rgba(255, 255, 255, 0.50);
+  --border:    rgba(0, 0, 0, 0.08);
+  --border-2:  rgba(0, 0, 0, 0.14);
+  --border-3:  rgba(0, 0, 0, 0.22);
+  --text:      #111118;
+  --text-2:    #44445a;
+  --text-3:    #7777a0;
+  --text-4:    #a3a3c0;
+}
+[data-theme="light"] .bg-orb { opacity: 0.18; }
+[data-theme="light"] .bg-grid { opacity: 0.5; }
+[data-theme="light"] .sb { border-right-color: rgba(0,0,0,0.10); }
+[data-theme="light"] .main-top { background: rgba(244,244,248,0.92); border-bottom-color: rgba(0,0,0,0.08); }
+
 html, body {
   height: 100%;
   background: var(--bg);
@@ -1568,6 +1588,23 @@ canvas#particles { display: none !important; }
 
 /* Sidebar user card removed — membership now shown in the top-right pill */
 #sbUserCard { display: none !important; }
+
+/* Tool rating thumbs */
+.luma-rating {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0 2px;
+  font-size: 12.5px; color: var(--text-3);
+  border-top: 1px solid var(--border); margin-top: 10px;
+}
+.luma-rating-label { flex: 1; }
+.luma-rating-btn {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 4px 10px;
+  font-size: 14px; cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.luma-rating-btn:hover { background: var(--surface-3); border-color: var(--border-2); }
+.luma-rating-done { color: var(--text-2); font-size: 12.5px; }
 
 /* ── Mobile/tablet polish ─────────────────────────────────────────────── */
 

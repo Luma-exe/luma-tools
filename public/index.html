@@ -33,7 +33,7 @@
     <meta name="twitter:description" content="65+ free tools — AI study notes &amp; flashcards, media downloader, image editing, video &amp; audio conversion, PDF tools and more. Most processing happens right in your browser.">
     <meta name="twitter:image" content="https://tools.lumaplayground.com/icon-512.png">
     <link rel="stylesheet" href="styles.css?v=251">
-    <link rel="stylesheet" href="styles-v2.css?v=322">
+    <link rel="stylesheet" href="styles-v2.css?v=323">
     <script>
       // v2 bootstrap: force the SW to re-check every load so users running
       // a stale cached shell pick up the latest assets within one refresh.
@@ -141,6 +141,9 @@
             <button class="sb-action" id="sbHistory">
               <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/></svg>
               History
+            </button>
+            <button class="sb-action" id="themeToggleBtn" title="Toggle light/dark mode">
+              <i class="fas fa-sun"></i>
             </button>
           </div>
 
@@ -3042,10 +3045,11 @@
 
     <!-- v2 shell: catalog + controller (runs after all tool JS so it can
          wrap window.switchTool and hoist active panels into .tpage-main) -->
-    <script src="js/tools-catalog.js?v=322"></script>
-    <script src="js/tool-specs.js?v=322"></script>
-    <script src="js/tool-page.js?v=322"></script>
-    <script src="js/app-shell.js?v=322"></script>
+    <script src="js/notify.js?v=323"></script>
+    <script src="js/tools-catalog.js?v=323"></script>
+    <script src="js/tool-specs.js?v=323"></script>
+    <script src="js/tool-page.js?v=323"></script>
+    <script src="js/app-shell.js?v=323"></script>
     <script>
       // Bridge: clicks on the legacy sidebar nav-items (now hidden but
       // still in DOM) shouldn't bypass the new chrome — already handled

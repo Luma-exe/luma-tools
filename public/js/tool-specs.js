@@ -272,6 +272,21 @@ window.LUMA_TOOL_SPECS = {
   },
 
   // ── AI ─────────────────────────────────────────────────────────────────
+  'ai-coverage': {
+    intake: { kind: 'dualTextarea',
+      placeholderA: 'Paste source material (lecture notes, textbook, slides…)',
+      placeholderB: 'Paste your own notes to check' },
+    options: [],
+    run: { label: 'Check coverage', icon: 'fa-chart-bar', via: 'server',
+           endpoint: '/api/tools/ai-coverage-analysis', method: 'POST', formData: true, outputJson: true, aiBadge: true,
+           buildFormData: (s) => {
+             const f = new FormData();
+             f.append('source_text', s.textA || '');
+             f.append('notes_text',  s.textB || '');
+             return f;
+           }},
+  },
+
   'ai-study-notes': {
     intake: { kind: 'fileOrText', accept: '.pdf,.docx,.pptx,.txt,.md,.epub', placeholder: 'Paste lecture text, or upload a file…', minChars: 50, multiple: true },
     options: [

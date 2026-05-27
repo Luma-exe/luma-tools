@@ -280,7 +280,7 @@ function pollDownloadStatus() {
                     selected_quality: state.selectedQuality,
                 }, { dedupeKey: `downloader_download_success:${state.downloadId || 'na'}`, debounceMs: 600 });
                 LiveLogs.add('downloader', 'Download completed', 'success');
-                setTimeout(() => { $('saveBtn').href = data.download_url; $('saveBtn').download = lumaTag(data.filename || 'download'); showDlSection('complete'); }, 600);
+                setTimeout(() => { $('saveBtn').href = data.download_url; $('saveBtn').download = lumaTag(data.filename || 'download'); showDlSection('complete'); if (window.lumaNotifyJobDone) window.lumaNotifyJobDone('Download complete', 'downloader'); }, 600);
             } else if (data.status === 'error') {
                 clearInterval(state.pollInterval); state.pollInterval = null;
                 $('progressBar').classList.remove('processing');

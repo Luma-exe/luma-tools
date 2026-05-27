@@ -14,6 +14,7 @@ window.LUMA_CATEGORIES = [
     blurb: 'For class, not for cheating.',
     tools: [
       { id: 'ai-study-notes',  name: 'Study Notes',     where: 'server', desc: '3-pass pipeline, full coverage.', fa: 'fa-brain' },
+      { id: 'ai-coverage',     name: 'Coverage Check',  where: 'server', desc: 'Score notes against source. Find gaps.', fa: 'fa-chart-bar' },
       { id: 'ai-flashcards',   name: 'Flashcards',      where: 'server', desc: 'Q&A pairs from any text.',         fa: 'fa-clone' },
       { id: 'ai-quiz',         name: 'Practice Quiz',   where: 'server', desc: 'Multiple choice generator.',       fa: 'fa-question-circle' },
       { id: 'ai-paraphrase',   name: 'Paraphraser',     where: 'server', desc: 'Rewrite in different tones.',      fa: 'fa-sync-alt' },

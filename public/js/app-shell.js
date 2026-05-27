@@ -408,7 +408,26 @@
       }
     });
     ['dragover','dragenter'].forEach(ev => bar.addEventListener(ev, e => { e.preventDefault(); bar.classList.add('quick-drag'); meta.textContent = 'Release to upload'; }));
-    ['dragleave','drop'].forEach(ev => bar.addEventListener(ev, e => { e.preventDefault(); bar.classList.remove('quick-drag'); meta.textContent = 'Auto-routes to the right tool'; }));
+    ['dragleave'].forEach(ev => bar.addEventListener(ev, e => { e.preventDefault(); bar.classList.remove('quick-drag'); meta.textContent = 'Auto-routes to the right tool'; }));
+    bar.addEventListener('drop', e => {
+      e.preventDefault(); bar.classList.remove('quick-drag'); meta.textContent = 'Auto-routes to the right tool';
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      const tool = detectToolForFile(file);
+      if (tool) {
+        openTool(tool, () => {
+          // Pre-fill the drop zone in the tool
+          const panel = document.getElementById('tool-' + tool);
+          if (!panel) return;
+          const zone = panel.querySelector('.upload-zone input[type=file], .drop input[type=file], .tpv .drop input');
+          if (zone) {
+            const dt = new DataTransfer(); dt.items.add(file);
+            zone.files = dt.files;
+            zone.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+      }
+    });
   }
 
   // ── Category / All / Search views ─────────────────────────────────────
@@ -787,6 +806,44 @@
     });
   }
 
+  // ── File-type detector for QuickBar drop ──────────────────────────────
+  function detectToolForFile(file) {
+    const t = file.type || '';
+    const n = file.name.toLowerCase();
+    const ext = n.includes('.') ? n.split('.').pop() : '';
+    if (t.startsWith('image/')) {
+      if (['heic','heif'].includes(ext)) return 'image-convert';
+      return 'image-compress';
+    }
+    if (t.startsWith('video/') || ['mp4','mkv','mov','avi','webm','flv','wmv','m4v'].includes(ext)) return 'video-compress';
+    if (t.startsWith('audio/') || ['mp3','flac','wav','aac','ogg','opus','m4a'].includes(ext)) return 'audio-convert';
+    if (t === 'application/pdf' || ext === 'pdf') return 'pdf-compress';
+    if (['doc','docx'].includes(ext)) return 'word-to-pdf';
+    if (['zip','7z','rar','tar','gz','iso','dmg'].includes(ext)) return 'archive-extract';
+    return null;
+  }
+
+  // ── Dark / light mode toggle ──────────────────────────────────────────
+  function applyTheme(mode) {
+    document.documentElement.setAttribute('data-theme', mode);
+    try { localStorage.setItem('lt_theme', mode); } catch {}
+    const btn = $('#themeToggleBtn');
+    if (btn) btn.innerHTML = mode === 'light'
+      ? '<i class="fas fa-moon"></i>'
+      : '<i class="fas fa-sun"></i>';
+  }
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+  }
+  function initTheme() {
+    let saved = 'dark';
+    try { saved = localStorage.getItem('lt_theme') || 'dark'; } catch {}
+    applyTheme(saved);
+    const btn = $('#themeToggleBtn');
+    if (btn) btn.addEventListener('click', toggleTheme);
+  }
+
   // ── Logo click → home ─────────────────────────────────────────────────
   function wireLogoClick() {
     const head = document.querySelector('.sb-head');
@@ -937,6 +994,8 @@
     wireLogoClick();
     applyShortcutLabels();
     installAIResponseSniffer();
+    initTheme();
+    if (window.lumaNotifyRequestPermission) window.lumaNotifyRequestPermission();
     loadAccount();
     loadTicker();
     setInterval(loadTicker, 60000);
@@ -957,6 +1016,20 @@
       };
     }
   }
+
+  // ── Tool rating ─────────────────────────────────────────────────────────
+  window.lumaRate = async function(toolId, rating, btn) {
+    try {
+      await fetch('/api/feedback-rate', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ tool: toolId, rating }),
+      });
+    } catch {}
+    const container = btn.closest('.luma-rating');
+    if (container) {
+      container.innerHTML = `<span class="luma-rating-done">${rating === 'up' ? '👍 Thanks!' : '👎 Noted — we\'ll improve it.'}</span>`;
+    }
+  };
 
   // Expose for debugging / external scripts
   window.LumaShell = {

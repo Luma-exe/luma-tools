@@ -710,6 +710,84 @@ int main() {
         res.set_content("ok", "text/plain");
     });
 
+    // ── /sitemap.xml ─────────────────────────────────────────────────────
+    svr.Get("/sitemap.xml", [](const httplib::Request&, httplib::Response& res) {
+        const vector<string> TOOL_IDS = {
+            "ai-study-notes","ai-coverage","ai-flashcards","ai-quiz","ai-paraphrase",
+            "citation-gen","mind-map","youtube-summary",
+            "downloader","bulk-install",
+            "image-compress","image-resize","image-convert","image-crop","image-watermark",
+            "image-bg-remove","image-upscale","ocr","metadata-strip","favicon-generate",
+            "redact","screenshot-annotate","color-palette",
+            "video-compress","video-trim","video-convert","video-extract-audio",
+            "video-to-gif","gif-to-video","gif-frame-remove","video-remove-audio",
+            "video-speed","video-frame","video-stabilize","subtitle-extract",
+            "audio-convert","audio-normalize","audio-trim","audio-separate",
+            "pdf-compress","pdf-merge","pdf-split","pdf-to-images","pdf-to-word",
+            "word-to-pdf","images-to-pdf","markdown-to-pdf",
+            "resume-builder","invoice-gen",
+            "qr-generate","hash-generate","archive-extract","base64","json-format",
+            "color-convert","markdown-preview","diff-checker","word-counter","csv-json",
+            "unix-date","regex-tester","code-beautify","uuid-gen","url-encode",
+            "password-gen","jwt-decode",
+        };
+        std::ostringstream xml;
+        xml << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            << "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+            << "  <url><loc>https://tools.lumaplayground.com/</loc><priority>1.0</priority></url>\n";
+        for (const auto& id : TOOL_IDS) {
+            xml << "  <url><loc>https://tools.lumaplayground.com/tools/" << id
+                << "</loc><priority>0.8</priority></url>\n";
+        }
+        xml << "</urlset>";
+        res.set_header("Content-Type", "application/xml");
+        res.set_content(xml.str(), "application/xml");
+    });
+
+    // ── /tools/:id — SEO landing page for each tool ──────────────────────
+    // Returns a fully-indexed HTML page (proper title, OG tags) then
+    // JS-redirects into the SPA so users land in the app automatically.
+    svr.Get(R"(/tools/([a-z0-9-]+))", [](const httplib::Request& req, httplib::Response& res) {
+        const string tool_id = req.matches[1];
+        // Simple display name: replace hyphens with spaces, capitalise words
+        string display = tool_id;
+        bool cap = true;
+        for (char& c : display) {
+            if (c == '-') { c = ' '; cap = true; }
+            else if (cap) { c = toupper(c); cap = false; }
+        }
+        const string desc = "Free online " + display + " tool — no upload, no account needed. "
+                            "Part of Luma Tools, 65+ free browser tools for students, creators and developers.";
+        const string canonical = "https://tools.lumaplayground.com/tools/" + tool_id;
+        const string spaUrl    = "https://tools.lumaplayground.com/#" + tool_id;
+        std::ostringstream html;
+        html << "<!DOCTYPE html><html lang=\"en\"><head>"
+             << "<meta charset=\"UTF-8\">"
+             << "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+             << "<title>" << display << " — Luma Tools</title>"
+             << "<meta name=\"description\" content=\"" << desc << "\">"
+             << "<link rel=\"canonical\" href=\"" << canonical << "\">"
+             << "<meta property=\"og:type\" content=\"website\">"
+             << "<meta property=\"og:url\" content=\"" << canonical << "\">"
+             << "<meta property=\"og:title\" content=\"" << display << " — Luma Tools\">"
+             << "<meta property=\"og:description\" content=\"" << desc << "\">"
+             << "<meta property=\"og:image\" content=\"https://tools.lumaplayground.com/icon-512.png\">"
+             << "<meta name=\"twitter:card\" content=\"summary\">"
+             << "<meta name=\"twitter:title\" content=\"" << display << " — Luma Tools\">"
+             << "<meta name=\"twitter:description\" content=\"" << desc << "\">"
+             << "<meta name=\"theme-color\" content=\"#7c5cff\">"
+             << "<script>window.location.replace('" << spaUrl << "');</script>"
+             << "<noscript><meta http-equiv=\"refresh\" content=\"0;url=" << spaUrl << "\"></noscript>"
+             << "</head><body style=\"background:#0a0a0f;color:#f0f0f5;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0\">"
+             << "<div style=\"text-align:center\">"
+             << "<p style=\"font-size:1.1rem;font-weight:600\">" << display << "</p>"
+             << "<p style=\"color:#8888a0;font-size:.9rem;margin-top:6px\">Loading Luma Tools…</p>"
+             << "</div>"
+             << "</body></html>";
+        res.set_header("Cache-Control", "public, max-age=3600");
+        res.set_content(html.str(), "text/html");
+    });
+
     // /status + /api/status routes are no longer here — that whole feature
     // lives in the separate Luma Status repo + container at
     // status.lumaplayground.com (see github.com/Luma-exe/luma-status).
@@ -810,6 +888,37 @@ int main() {
                     "\n**Message:**\n```\n" + msg + "\n```",
                     0x60A5FA);
             }
+        } catch (...) {}
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // ── /api/feedback-rate — thumbs up/down after tool completes ─────────
+    svr.Post("/api/feedback-rate", [](const httplib::Request& req, httplib::Response& res) {
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400; res.set_content(R"({"error":"bad json"})", "application/json"); return;
+        }
+        string tool   = body.value("tool", "unknown");
+        string rating = body.value("rating", ""); // "up" or "down"
+        if (tool.empty() || (rating != "up" && rating != "down")) {
+            res.status = 400; res.set_content(R"({"error":"bad params"})", "application/json"); return;
+        }
+        string emoji = (rating == "up") ? "👍" : "👎";
+        int color    = (rating == "up") ? 0x34D399 : 0xF87171;
+        int uid = account_user_id_for_request(req);
+        string from = "anonymous";
+        if (uid > 0) {
+            AccountUser user;
+            if (account_get_user_by_id(uid, user)) from = user.email + " (id=" + to_string(user.id) + ")";
+        }
+        try {
+            const char* fb_env = std::getenv("FEEDBACK_WEBHOOK_URL");
+            string fb_url = fb_env ? string(fb_env) : "";
+            string desc = emoji + " **" + html_escape(tool) + "**\n**From:** " + from;
+            if (!fb_url.empty())
+                discord_log_to(fb_url, "", emoji + " Tool rated", desc, color);
+            else
+                discord_log(emoji + " Tool rated", desc, color);
         } catch (...) {}
         res.set_content(R"({"ok":true})", "application/json");
     });
