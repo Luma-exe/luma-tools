@@ -2661,6 +2661,39 @@ html, body { overflow-x: hidden; }
 .tpv .drop-title { font-size: 14px; color: var(--text); font-weight: 500; }
 .tpv .drop-sub { font-size: 12.5px; color: var(--text-3); }
 
+/* Coverage Check result card */
+.cov-result { display: flex; flex-direction: column; gap: 14px; }
+.cov-header { display: flex; align-items: flex-start; gap: 16px; }
+.cov-score {
+  width: 72px; height: 72px; border-radius: 50%; border: 3px solid;
+  display: grid; place-items: center; flex-shrink: 0;
+  font-size: 22px; font-weight: 800; font-family: var(--font-mono);
+  line-height: 1;
+}
+.cov-score span { font-size: 11px; font-weight: 500; opacity: .7; }
+.cov-verdict-block { min-width: 0; }
+.cov-verdict { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.cov-summary { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.cov-progress-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-3); }
+.cov-prog-label { white-space: nowrap; flex-shrink: 0; }
+.cov-prog-bar { flex: 1; height: 6px; background: var(--surface-3); border-radius: 100px; overflow: hidden; }
+.cov-prog-fill { height: 100%; border-radius: 100px; transition: width .6s ease; }
+.cov-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 12px 14px; }
+.cov-section-head { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.cov-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.cov-list li { font-size: 13px; color: var(--text-2); line-height: 1.4; padding-left: 4px; }
+.cov-concepts { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); }
+.cov-concepts summary { padding: 10px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--text-2); }
+.cov-concepts-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 14px; }
+.cov-concept {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 100px; font-size: 12px;
+  border: 1px solid var(--border);
+}
+.cov-concept.ok { background: rgba(0,230,138,.08); border-color: rgba(0,230,138,.25); color: var(--ok); }
+.cov-concept.gap { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.25); color: #f87171; }
+.cov-concept small { opacity: .6; font-size: 10px; }
+
 /* Dual file-or-text intake (Coverage Check, etc.) */
 .tpv-dual-upload { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 640px) { .tpv-dual-upload { grid-template-columns: 1fr; } }

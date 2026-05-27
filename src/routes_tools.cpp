@@ -1193,6 +1193,68 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         res.set_content(result.dump(), "application/json");
     });
 
+    // ── POST /api/tools/ai-coverage-standalone ────────────────────────────────
+    // Accepts raw source text / notes text or uploaded files directly —
+    // no prior Study Notes job needed (standalone Coverage Check tool).
+    svr.Post("/api/tools/ai-coverage-standalone", [](const httplib::Request& req, httplib::Response& res) {
+        if (g_groq_key.empty()) {
+            res.status = 503;
+            res.set_content(json({{"error","AI features not configured"}}).dump(),"application/json");
+            return;
+        }
+        string proc = get_processing_dir();
+        string rid  = generate_job_id();
+
+        string source_text, notes_text;
+        if (req.has_file("source_text") && !req.get_file_value("source_text").content.empty())
+            source_text = req.get_file_value("source_text").content;
+        else if (req.has_file("source_file") && !req.get_file_value("source_file").content.empty())
+            source_text = extract_text_from_upload(req.get_file_value("source_file"), proc, rid + "_src");
+
+        if (req.has_file("notes_text") && !req.get_file_value("notes_text").content.empty())
+            notes_text = req.get_file_value("notes_text").content;
+        else if (req.has_file("notes_file") && !req.get_file_value("notes_file").content.empty())
+            notes_text = extract_text_from_upload(req.get_file_value("notes_file"), proc, rid + "_notes");
+
+        source_text = sanitize_utf8(source_text);
+        notes_text  = sanitize_utf8(notes_text);
+
+        if (source_text.size() < 50 || notes_text.size() < 20) {
+            res.status = 400;
+            res.set_content(json({{"error","Provide both source material and notes (min 50 / 20 chars)"}}).dump(),"application/json");
+            return;
+        }
+        if (source_text.size() > 14000) source_text = source_text.substr(0, 14000);
+        if (notes_text.size()   > 14000) notes_text  = notes_text.substr(0, 14000);
+
+        string system_prompt = R"(You are an expert study advisor. Analyze coverage between source material and student notes.
+Respond ONLY with valid JSON (no markdown, no code blocks):
+{"overall_score":<0-100>,"verdict":"<Excellent|Good|Adequate|Needs Improvement>","summary":"<1-2 sentences>","key_concepts":[{"topic":"<name>","covered":<true/false>,"importance":"<high|medium|low>","notes_excerpt":"<quote if covered>"}],"strengths":["..."],"gaps":["..."],"study_tips":["..."]}
+Return 10-20 key concepts. A concept is covered if its key info appears in the notes even if worded differently.)";
+
+        string user_prompt = "SOURCE MATERIAL:\n" + source_text + "\n\n---\n\nSTUDENT NOTES:\n" + notes_text;
+
+        json payload = {
+            {"model","llama-3.3-70b-versatile"},
+            {"messages",json::array({{{"role","system"},{"content",system_prompt}},{{"role","user"},{"content",user_prompt}}})},
+            {"max_tokens",2000},{"temperature",0.3}
+        };
+
+        auto gr = call_groq(payload, proc, rid + "_cov");
+        json result; bool ok = false;
+        if (gr.ok && gr.response.contains("choices") && !gr.response["choices"].empty()) {
+            try {
+                string content = gr.response["choices"][0]["message"]["content"].get<string>();
+                size_t f = content.find('{'), l = content.rfind('}');
+                if (f != string::npos && l != string::npos && l > f) content = content.substr(f, l-f+1);
+                result = json::parse(content); result["model_used"] = gr.model_used; ok = true;
+            } catch (...) { result = {{"error","Failed to parse AI response"}}; }
+        } else { result = {{"error","AI API call failed"}}; }
+        if (!ok && !result.contains("error")) result = {{"error","Unknown error"}};
+        stat_record_ai_call("Coverage Check", gr.model_used, gr.tokens_used, req.remote_addr);
+        res.set_content(result.dump(),"application/json");
+    });
+
     // ── POST /api/tools/pdf-to-word ─────────────────────────────────────────
     //    PDF → .docx via LibreOffice headless. soffice is the only reliable
     //    way to convert (Pandoc and Pandoc+LaTeX cannot; pdftotext loses
@@ -1856,6 +1918,67 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
             send_file_response(res, output_path, fs::path(file.filename).stem().string() + "." + format);
         } else { res.status = 500; res.set_content(json({{"error","No subtitle track found in this video"}}).dump(), "application/json"); }
         try { fs::remove(input_path); fs::remove(output_path); } catch (...) {}
+    });
+
+    // ── POST /api/tools/gif-optimise ─────────────────────────────────────────
+    // Lossy GIF optimisation via ffmpeg palette + dithering (no gifsicle needed).
+    svr.Post("/api/tools/gif-optimise", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file")) { res.status=400; res.set_content(json({{"error","No file"}}).dump(),"application/json"); return; }
+        auto file = req.get_file_value("file");
+        discord_log_tool("GIF Optimise", file.filename, req.remote_addr);
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+        string in  = save_upload(file, jid);
+        // Two-pass: build palette then apply
+        string palette = proc + "/" + jid + "_palette.png";
+        string out     = proc + "/" + jid + "_opt.gif";
+        string quality = req.has_file("quality") ? req.get_file_value("quality").content : "80";
+        int q = std::max(1, std::min(100, std::stoi(quality)));
+        // bayer_scale controls dithering 0-5; lower q → more aggressive (higher bayer_scale)
+        int bs = std::max(0, std::min(5, 5 - q/20));
+        int code;
+        string pass1 = ffmpeg_cmd() + " -y -i " + escape_arg(in) +
+            " -vf \"fps=source_fps,scale=flags=lanczos,palettegen=stats_mode=diff\" " + escape_arg(palette);
+        exec_command(pass1, code);
+        string pass2 = ffmpeg_cmd() + " -y -i " + escape_arg(in) + " -i " + escape_arg(palette) +
+            " -filter_complex \"fps=source_fps,scale=flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=" + to_string(bs) + "\" " + escape_arg(out);
+        exec_command(pass2, code);
+        if (fs::exists(out) && fs::file_size(out) > 0) {
+            send_file_response(res, out, fs::path(file.filename).stem().string() + "_opt.gif");
+        } else {
+            res.status=500; res.set_content(json({{"error","GIF optimisation failed"}}).dump(),"application/json");
+        }
+        try { fs::remove(in); fs::remove(palette); fs::remove(out); } catch (...) {}
+    });
+
+    // ── POST /api/tools/subtitle-burn ────────────────────────────────────────
+    // Hard-code (burn) an SRT / VTT subtitle file onto a video.
+    svr.Post("/api/tools/subtitle-burn", [](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_file("file") || !req.has_file("subs")) {
+            res.status=400; res.set_content(json({{"error","Upload both a video (file) and subtitle (subs)"}}).dump(),"application/json"); return;
+        }
+        auto vfile = req.get_file_value("file");
+        auto sfile = req.get_file_value("subs");
+        discord_log_tool("Subtitle Burn", vfile.filename, req.remote_addr);
+        string jid = generate_job_id();
+        string proc = get_processing_dir();
+        string in   = save_upload(vfile, jid + "_v");
+        string sub  = save_upload(sfile, jid + "_s");
+        string ext  = ".mp4";
+        string out  = proc + "/" + jid + "_burned" + ext;
+        // Force .srt conversion if .vtt was uploaded (ffmpeg subtitles filter needs SRT on most systems)
+        string subpath = sub;
+        int code;
+        string cmd = ffmpeg_cmd() + " -y -i " + escape_arg(in) +
+            " -vf \"subtitles=" + escape_arg(subpath) + "\" " +
+            " -c:a copy " + escape_arg(out);
+        exec_command(cmd, code);
+        if (fs::exists(out) && fs::file_size(out) > 0) {
+            send_file_response(res, out, fs::path(vfile.filename).stem().string() + "_subtitled.mp4");
+        } else {
+            res.status=500; res.set_content(json({{"error","Subtitle burn failed — check that the video and SRT are compatible"}}).dump(),"application/json");
+        }
+        try { fs::remove(in); fs::remove(sub); fs::remove(out); } catch (...) {}
     });
 
     // ── POST /api/tools/metadata-strip ──────────────────────────────────────

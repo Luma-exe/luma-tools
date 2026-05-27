@@ -140,6 +140,29 @@ window.LUMA_TOOL_SPECS = {
     ],
     run: { label: 'Make GIF', icon: 'fa-magic', via: 'server', endpoint: '/api/tools/video-to-gif', method: 'POST', formData: true, outputFile: true },
   },
+  'gif-optimise': {
+    intake: { kind: 'file', accept: 'image/gif,.gif' },
+    options: [
+      { id: 'quality', label: 'Quality', kind: 'slider', min: 20, max: 100, step: 5, default: 80, format: v => v + '%' },
+    ],
+    run: { label: 'Optimise', icon: 'fa-compress', via: 'server', endpoint: '/api/tools/gif-optimise', method: 'POST', formData: true, outputFile: true },
+  },
+  'subtitle-burn': {
+    intake: { kind: 'dualFileOrText',
+      labelA: 'Video file', placeholderA: 'Drop your MP4 / MKV…',
+      acceptA: 'video/*',
+      labelB: 'Subtitle file', placeholderB: 'Drop your .srt or .vtt…',
+      acceptB: '.srt,.vtt,.ass' },
+    options: [],
+    run: { label: 'Burn subtitles', icon: 'fa-closed-captioning', via: 'server',
+           endpoint: '/api/tools/subtitle-burn', method: 'POST', formData: true, outputFile: true,
+           buildFormData: (s) => {
+             const f = new FormData();
+             if (s.fileA) f.append('file', s.fileA);
+             if (s.fileB) f.append('subs', s.fileB);
+             return f;
+           }},
+  },
   'gif-to-video': {
     intake: { kind: 'file', accept: 'image/gif,.gif' },
     options: [
@@ -280,7 +303,7 @@ window.LUMA_TOOL_SPECS = {
       acceptB: '.pdf,.docx,.txt,.md' },
     options: [],
     run: { label: 'Check coverage', icon: 'fa-chart-bar', via: 'server',
-           endpoint: '/api/tools/ai-coverage-analysis', method: 'POST', formData: true, outputJson: true, aiBadge: true,
+           endpoint: '/api/tools/ai-coverage-standalone', method: 'POST', formData: true, outputJson: true, aiBadge: true,
            buildFormData: (s) => {
              const f = new FormData();
              if (s.fileA) f.append('source_file', s.fileA);
