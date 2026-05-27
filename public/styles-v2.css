@@ -1668,6 +1668,26 @@ html, body { overflow-x: hidden; }
 .content { min-width: 0; }
 .main { min-width: 0; }
 
+/* Subtle theme toggle in top-right (next to account pill) */
+.btn-theme-toggle {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: transparent;
+  border: 1px solid var(--border-2);
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  flex-shrink: 0;
+}
+.btn-theme-toggle:hover {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border-color: var(--border-3);
+}
+[data-theme="light"] .btn-theme-toggle { color: var(--text-3); }
+
 /* Account pill in top bar — avatar + name + tier */
 .btn-primary.btn-account {
   display: inline-flex; align-items: center; gap: 10px;
@@ -2608,3 +2628,30 @@ html, body { overflow-x: hidden; }
 .tpv .drop-ic i { font-size: 1.5rem; }
 .tpv .drop-title { font-size: 14px; color: var(--text); font-weight: 500; }
 .tpv .drop-sub { font-size: 12.5px; color: var(--text-3); }
+
+/* Dual file-or-text intake (Coverage Check, etc.) */
+.tpv-dual-upload { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .tpv-dual-upload { grid-template-columns: 1fr; } }
+.tpv-dual-panel { display: flex; flex-direction: column; gap: 8px; }
+.tpv-dual-label {
+  font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-3);
+  padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+.tpv-dual-drop {
+  position: relative;
+  padding: 16px 12px; text-align: center;
+  border: 1px dashed var(--border-2); border-radius: var(--r-sm);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: rgba(255,255,255,.01); cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+.tpv-dual-drop:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+.tpv-dual-drop .drop-ic { color: var(--text-3); }
+.tpv-dual-drop .drop-title { font-size: 12.5px; color: var(--text); font-weight: 500; }
+.tpv-dual-drop .drop-sub { font-size: 11px; color: var(--text-3); }
+.tpv-dual-or {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em;
+}
+.tpv-dual-or::before,.tpv-dual-or::after { content:''; flex:1; height:1px; background:var(--border); }

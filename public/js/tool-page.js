@@ -89,6 +89,57 @@
       b.addEventListener('input', () => { state.textB = b.value; });
       row.appendChild(a); row.appendChild(b);
       wrap.appendChild(row);
+    } else if (i.kind === 'dualFileOrText') {
+      // Two side-by-side panels, each with its own file drop + textarea
+      const row = el('div', { class: 'tpv-dual tpv-dual-upload' });
+      ['A','B'].forEach(side => {
+        const lbl = side === 'A' ? (i.labelA||'Source') : (i.labelB||'Notes');
+        const ph  = side === 'A' ? (i.placeholderA||'') : (i.placeholderB||'');
+        const acc = side === 'A' ? (i.acceptA||'*/*') : (i.acceptB||'*/*');
+        const fileKey = 'file'+side;  // fileA or fileB
+        const textKey = 'text'+side;  // textA or textB
+        const uid = 'tpv-df-' + side + '-' + Math.random().toString(36).slice(2,6);
+        const panel = el('div', { class: 'tpv-dual-panel' });
+        panel.innerHTML = `
+          <div class="tpv-dual-label">${lbl}</div>
+          <div class="tpv-dual-drop" id="${uid}-drop">
+            <div class="drop-ic"><i class="fas fa-cloud-upload-alt" style="font-size:1.2rem"></i></div>
+            <div class="drop-title">Drop a file or <label for="${uid}-file" style="color:var(--accent);cursor:pointer">browse</label></div>
+            <div class="drop-sub">${acc.replace(/\./g,'').replace(/,/g,', ').toUpperCase()}</div>
+            <input id="${uid}-file" type="file" accept="${acc}" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+          </div>
+          <div class="tpv-dual-or"><span>or paste text</span></div>
+          <textarea class="tpv-textarea" rows="5" placeholder="${ph}"></textarea>
+          <div class="tpv-dual-file-name" id="${uid}-fname" style="display:none"></div>
+        `;
+        const dropEl = panel.querySelector(`#${uid}-drop`);
+        const fileIn  = panel.querySelector(`#${uid}-file`);
+        const fname   = panel.querySelector(`#${uid}-fname`);
+        const ta      = panel.querySelector('textarea');
+        function setFile(f) {
+          state[fileKey] = f; state[textKey] = '';
+          ta.disabled = true; ta.style.opacity = '0.4';
+          fname.textContent = `📎 ${f.name} (${fmtBytes(f.size)})`;
+          fname.style.display = ''; fname.style.color = 'var(--accent-light)';
+          fname.style.fontSize = '12px'; fname.style.marginTop = '4px';
+          dropEl.style.borderColor = 'var(--accent-line)';
+          dropEl.style.background = 'var(--accent-soft)';
+          // add clear button
+          if (!fname.querySelector('button')) {
+            const clr = document.createElement('button');
+            clr.textContent = '✕'; clr.style.cssText = 'margin-left:8px;background:none;border:0;color:var(--text-3);cursor:pointer;font-size:13px;';
+            clr.onclick = () => { state[fileKey]=null; fileIn.value=''; ta.disabled=false; ta.style.opacity=''; fname.style.display='none'; dropEl.style.borderColor=''; dropEl.style.background=''; };
+            fname.appendChild(clr);
+          }
+        }
+        fileIn.addEventListener('change', () => { if (fileIn.files[0]) setFile(fileIn.files[0]); });
+        ta.addEventListener('input', () => { state[textKey] = ta.value; state[fileKey] = null; });
+        ['dragover','dragenter'].forEach(ev => dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.style.borderColor='var(--accent-line)'; dropEl.style.background='var(--accent-soft)'; }));
+        ['dragleave'].forEach(ev => dropEl.addEventListener(ev, () => { if (!state[fileKey]) { dropEl.style.borderColor=''; dropEl.style.background=''; } }));
+        dropEl.addEventListener('drop', e => { e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) setFile(f); });
+        row.appendChild(panel);
+      });
+      wrap.appendChild(row);
     }
     return wrap;
   }
