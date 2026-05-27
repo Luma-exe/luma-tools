@@ -1219,6 +1219,21 @@ Return 10-20 key concepts. Be thorough but fair in your assessment.)";
         source_text = sanitize_utf8(source_text);
         notes_text  = sanitize_utf8(notes_text);
 
+        // Strip control chars (< 0x20 except \n \r \t) from both texts
+        // BEFORE sending to AI. Control chars in the prompt cause the model
+        // to reproduce them inside JSON strings, making the response
+        // unparseable. Replacing with spaces preserves readability.
+        auto strip_ctrl = [](const string& s) -> string {
+            string out; out.reserve(s.size());
+            for (unsigned char c : s) {
+                if (c < 0x20 && c != '\n' && c != '\r' && c != '\t') out += ' ';
+                else out += (char)c;
+            }
+            return out;
+        };
+        source_text = strip_ctrl(source_text);
+        notes_text  = strip_ctrl(notes_text);
+
         if (source_text.size() < 50 || notes_text.size() < 20) {
             res.status = 400;
             res.set_content(json({{"error","Provide both source material and notes (min 50 / 20 chars)"}}).dump(),"application/json");
