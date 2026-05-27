@@ -914,7 +914,7 @@ int main() {
         try {
             const char* fb_env = std::getenv("FEEDBACK_WEBHOOK_URL");
             string fb_url = fb_env ? string(fb_env) : "";
-            string desc = emoji + " **" + html_escape(tool) + "**\n**From:** " + from;
+            string desc = emoji + " **" + tool + "**\n**From:** " + from;
             if (!fb_url.empty())
                 discord_log_to(fb_url, "", emoji + " Tool rated", desc, color);
             else
