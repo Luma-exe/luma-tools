@@ -254,8 +254,8 @@
       </div>
 
       <div class="tech-foot">
-        <p class="tech-stack">Powered by <b>C++</b>, <b>WebAssembly</b>, <b>FFmpeg</b>, <b>yt-dlp</b> &amp; <b>Ghostscript</b> — Built with <span class="tech-heart">♥</span> by <b>Luma</b></p>
-        <a class="tech-coffee" href="https://ko-fi.com/luma" target="_blank" rel="noopener">☕ Buy me a coffee</a>
+        <p class="tech-stack">Powered by <b>C++</b>, <b>WebAssembly</b>, <b>FFmpeg</b>, <b>yt-dlp</b> &amp; <b>Ghostscript</b> — Built with <span class="tech-heart">♥</span> by <a href="https://github.com/Luma-exe" target="_blank" rel="noopener" class="tech-author"><b>Luma</b></a></p>
+        <a class="tech-coffee" href="https://ko-fi.com/lumaexe" target="_blank" rel="noopener">☕ Buy me a coffee</a>
       </div>
     `;
 
@@ -378,15 +378,33 @@
       go.disabled = !v;
     }
     input.addEventListener('input', refresh);
+    function carryToDownloader(v) {
+      openTool('downloader', () => {
+        // Try multiple selectors — legacy panel uses #urlInput
+        const urlInput = $('#urlInput')
+                      || $('#downloaderUrl')
+                      || document.querySelector('#tool-downloader input[type="url"], #tool-downloader input[type="text"]');
+        if (urlInput) {
+          urlInput.value = v;
+          urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+          urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        // Auto-kick the analyze step so the user lands on a populated page
+        // ready to go, not on an empty form they have to re-fill.
+        if (typeof window.analyzeURL === 'function') {
+          try { window.analyzeURL(); } catch {}
+        }
+      });
+    }
     go.addEventListener('click', () => {
       const v = input.value.trim();
       if (!v) return;
-      if (/^https?:\/\//i.test(v)) {
-        // Route URLs to the downloader, pre-fill the input
-        openTool('downloader', () => {
-          const urlInput = $('#downloaderUrl') || $('#downloader-url') || document.querySelector('#tool-downloader input[type="url"], #tool-downloader input[type="text"]');
-          if (urlInput) { urlInput.value = v; urlInput.dispatchEvent(new Event('input')); }
-        });
+      if (/^https?:\/\//i.test(v)) carryToDownloader(v);
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const v = input.value.trim();
+        if (v && /^https?:\/\//i.test(v)) carryToDownloader(v);
       }
     });
     ['dragover','dragenter'].forEach(ev => bar.addEventListener(ev, e => { e.preventDefault(); bar.classList.add('quick-drag'); meta.textContent = 'Release to upload'; }));
