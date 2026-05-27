@@ -16,7 +16,7 @@ window.LUMA_TOOL_SPECS = {
 
   // ── Image ──────────────────────────────────────────────────────────────
   'image-compress': {
-    intake: { kind: 'file', accept: 'image/*', multiple: true, maxMb: 50 },
+    intake: { kind: 'file', accept: 'image/*,.heic,.heif', multiple: true, maxMb: 50 },
     options: [
       { id: 'quality', label: 'Quality', kind: 'segs',
         values: [['light','Light'],['medium','Medium'],['high','High'],['max','Max']],
@@ -40,11 +40,11 @@ window.LUMA_TOOL_SPECS = {
   },
 
   'image-convert': {
-    intake: { kind: 'file', accept: 'image/*', multiple: true, maxMb: 50 },
+    intake: { kind: 'file', accept: 'image/*,.heic,.heif', multiple: true, maxMb: 50 },
     options: [
       { id: 'format', label: 'Target format', kind: 'segs',
         values: [['jpg','JPG'],['png','PNG'],['webp','WebP'],['avif','AVIF'],['bmp','BMP'],['tiff','TIFF']],
-        default: 'webp' },
+        default: 'jpg' },
     ],
     run: { label: 'Convert', icon: 'fa-exchange-alt', via: 'browser', handler: 'imageConvert' },
   },
@@ -467,6 +467,16 @@ window.LUMA_TOOL_SPECS = {
     ],
     run: { label: 'Generate citation', icon: 'fa-quote-left', via: 'server', endpoint: '/api/tools/citation-generate', method: 'POST', formData: true, outputText: true,
            buildFormData: (state) => { const f = new FormData(); f.append('source_type','url'); f.append('url', state.url||''); f.append('style', state.options.style||'apa'); return f; } },
+  },
+
+  'image-heic': {
+    intake: { kind: 'file', accept: '.heic,.heif,image/heic,image/heif', multiple: true, maxMb: 100 },
+    options: [
+      { id: 'format',  label: 'Output',  kind: 'segs', values: [['jpg','JPG'],['png','PNG'],['webp','WebP']], default: 'jpg' },
+      { id: 'quality', label: 'Quality', kind: 'slider', min: 60, max: 100, step: 5, default: 90, format: v => v + '%' },
+    ],
+    run: { label: 'Convert HEIC', icon: 'fa-mobile-alt', via: 'server',
+           endpoint: '/api/tools/image-convert', method: 'POST', formData: true, outputFile: true },
   },
 
   // downloader: kept on its legacy panel — it has rich analyze/format/

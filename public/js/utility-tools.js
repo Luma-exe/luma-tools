@@ -259,7 +259,7 @@ function downloadMindMapSVG() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'mindmap.svg';
+    a.download = lumaTag('mindmap.svg');
     a.click();
     URL.revokeObjectURL(url);
     showToast('Mind map downloaded!', 'success');

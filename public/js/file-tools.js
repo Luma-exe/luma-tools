@@ -98,6 +98,7 @@ function handleFileSelect(toolId, file) {
     if (toolId === 'video-extract-audio') initWaveform('video-extract-audio', file);
     if (toolId === 'video-trim') initWaveform('video-trim', file);
     if (toolId === 'audio-trim') initWaveform('audio-trim', file);
+    if (toolId === 'audio-normalize') initWaveform('audio-normalize', file);
 
     if (toolId === 'video-frame' || toolId === 'gif-frame-remove') {
         if (typeof FrameScrubber !== 'undefined') FrameScrubber.init(toolId, file);
@@ -634,14 +635,22 @@ function showResult(toolId, blob, filename, jobId = null) {
     result.querySelector('.result-size').textContent = formatBytes(blob.size);
     // Add to result history
     addToHistory(toolId, tagged, blob);
-    // Show thumbs rating if not already there
-    if (!result.querySelector('.luma-rating')) {
-        const ratingEl = document.createElement('div');
-        ratingEl.className = 'luma-rating';
-        ratingEl.innerHTML = `<span class="luma-rating-label">Was this useful?</span>
-          <button class="luma-rating-btn" data-r="up" onclick="lumaRate('${toolId}','up',this)">👍</button>
-          <button class="luma-rating-btn" data-r="down" onclick="lumaRate('${toolId}','down',this)">👎</button>`;
-        result.appendChild(ratingEl);
+    // Before/After size diff bar
+    const origFile = state.files && state.files[toolId];
+    const origSize = origFile ? origFile.size : (state.multiFiles && state.multiFiles[toolId] ? state.multiFiles[toolId].reduce((a,f)=>a+f.size,0) : 0);
+    if (origSize > 0 && blob.size > 0) {
+        let diffEl = result.querySelector('.luma-diff');
+        if (!diffEl) { diffEl = document.createElement('div'); diffEl.className = 'luma-diff'; result.appendChild(diffEl); }
+        const pct = Math.round((1 - blob.size / origSize) * 100);
+        const smaller = blob.size < origSize;
+        diffEl.innerHTML = `
+          <span class="luma-diff-label">Before</span>
+          <span class="luma-diff-size">${formatBytes(origSize)}</span>
+          <span class="luma-diff-arrow">→</span>
+          <span class="luma-diff-size">${formatBytes(blob.size)}</span>
+          <span class="luma-diff-pct ${smaller ? 'is-smaller' : 'is-larger'}">${smaller ? '−' : '+'}${Math.abs(pct)}%</span>
+          <div class="luma-diff-bar"><div class="luma-diff-fill" style="width:${Math.min(100,blob.size/origSize*100).toFixed(1)}%"></div></div>
+        `;
     }
     const downloadLink = result.querySelector('.result-download');
 
@@ -1166,7 +1175,7 @@ async function downloadMultiAsZip(pages, toolId) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${toolId}-output.zip`;
+        a.download = lumaTag(toolId + '-output.zip');
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (e) {

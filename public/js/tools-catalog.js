@@ -42,6 +42,7 @@ window.LUMA_CATEGORIES = [
     blurb: 'Edit photos without uploading.',
     tools: [
       { id: 'image-compress',     name: 'Compress',           where: 'browser', desc: 'Shrink JPG, PNG, WebP.',          fa: 'fa-compress-alt' },
+      { id: 'image-heic',         name: 'HEIC → JPG',         where: 'server',  desc: 'Convert iPhone HEIC photos to JPG.', fa: 'fa-mobile-alt' },
       { id: 'image-resize',       name: 'Resize',             where: 'browser', desc: 'Scale by width or height.',       fa: 'fa-expand-arrows-alt' },
       { id: 'image-convert',      name: 'Convert',            where: 'browser', desc: 'PNG, JPG, WebP, BMP, TIFF.',      fa: 'fa-exchange-alt' },
       { id: 'image-crop',         name: 'Crop',               where: 'browser', desc: 'Aspect-ratio presets.',           fa: 'fa-crop-alt' },

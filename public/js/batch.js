@@ -227,7 +227,7 @@ async function batchDownloadAll() {
     if (successResults.length === 1) {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(successResults[0].blob);
-        a.download = successResults[0].name;
+        a.download = lumaTag(successResults[0].name);
         a.click();
         URL.revokeObjectURL(a.href);
         return;

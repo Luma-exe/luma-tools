@@ -781,7 +781,7 @@ function downloadOCRText() {
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'extracted_text.txt';
+    a.download = lumaTag('extracted_text.txt');
     a.click();
     URL.revokeObjectURL(a.href);
 }
@@ -1254,7 +1254,7 @@ function generateBulkInstallScript() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'luma-install.bat';
+    a.download = lumaTag('luma-install.bat');
     a.click();
     URL.revokeObjectURL(url);
     showToast(`Install script downloaded (${n} programs)`, 'success');

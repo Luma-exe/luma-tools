@@ -1104,7 +1104,7 @@ function downloadAnnotated() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'annotated_screenshot.png';
+        a.download = lumaTag('annotated_screenshot.png');
         a.click();
         URL.revokeObjectURL(url);
         showToast('Image downloaded', 'success');
@@ -1126,7 +1126,7 @@ function downloadText(content, filename, mimeType) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = lumaTag(filename);
     a.click();
     URL.revokeObjectURL(url);
 }
