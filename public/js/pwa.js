@@ -46,6 +46,79 @@ function installPWA() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PWA INSTALL BANNER — appears after first tool use or 45s, dismissible
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function () {
+    const DISMISSED_KEY = 'lt_pwa_banner_dismissed';
+    const INSTALL_KEY   = 'lt_pwa_installed';
+
+    function shouldShow() {
+        if (localStorage.getItem(DISMISSED_KEY)) return false;
+        if (localStorage.getItem(INSTALL_KEY))   return false;
+        if (window.matchMedia('(display-mode: standalone)').matches) return false;
+        if (window.navigator.standalone) return false;
+        return true;
+    }
+
+    function createBanner() {
+        if (document.getElementById('pwaBanner')) return;
+        const el = document.createElement('div');
+        el.id = 'pwaBanner';
+        el.className = 'pwa-banner';
+        el.innerHTML = `
+          <div class="pwa-banner-icon"><svg width="22" height="22" viewBox="0 0 32 32" fill="none"><path d="M18 4 L10 18 L15.5 18 L14 28 L22 14 L16.5 14 Z" fill="currentColor"/></svg></div>
+          <div class="pwa-banner-text">
+            <strong>Install Luma Tools</strong>
+            <span>One tap away — works offline, no browser chrome</span>
+          </div>
+          <button class="pwa-banner-install" onclick="window._pwaBannerInstall()">Install free</button>
+          <button class="pwa-banner-dismiss" onclick="window._pwaBannerDismiss()" aria-label="Dismiss">&#x2715;</button>
+        `;
+        document.body.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('pwa-banner-visible'));
+    }
+
+    window._pwaBannerInstall = function () {
+        installPWA();
+        localStorage.setItem(INSTALL_KEY, '1');
+        const b = document.getElementById('pwaBanner');
+        if (b) b.remove();
+    };
+
+    window._pwaBannerDismiss = function () {
+        localStorage.setItem(DISMISSED_KEY, '1');
+        const b = document.getElementById('pwaBanner');
+        if (b) { b.classList.remove('pwa-banner-visible'); setTimeout(() => b.remove(), 350); }
+    };
+
+    function initBanner() {
+        if (!shouldShow()) return;
+
+        // Show after first tool completion OR 45 seconds, whichever comes first
+        let shown = false;
+        function show() {
+            if (shown || !shouldShow()) return;
+            shown = true;
+            createBanner();
+        }
+
+        setTimeout(show, 45000);
+
+        // Also show when a tool result appears (tool completes)
+        document.addEventListener('lt:toolComplete', show, { once: true });
+    }
+
+    window.addEventListener('appinstalled', () => {
+        localStorage.setItem(INSTALL_KEY, '1');
+        const b = document.getElementById('pwaBanner');
+        if (b) b.remove();
+    });
+
+    document.addEventListener('DOMContentLoaded', initBanner);
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
 // BACKGROUND PARTICLES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -150,6 +223,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Always start on landing, then immediately override if luma-planner sent a deep-link.
     // This 'last write wins' approach is immune to script load order and SW caching.
     switchTool('landing');
+
+    // ── QR share-link deep link: /#qr-generate?q=<encoded-text> ──────────
+    // When someone shares a QR code link, auto-open the tool and generate it.
+    setTimeout(function () {
+        try {
+            var hash = window.location.hash; // e.g. "#qr-generate?q=hello"
+            if (hash.startsWith('#qr-generate?')) {
+                var qs = hash.slice('#qr-generate?'.length);
+                var params = new URLSearchParams(qs);
+                var q = params.get('q');
+                if (q) {
+                    switchTool('qr-generate');
+                    setTimeout(function () {
+                        var inp = document.getElementById('qrInput');
+                        if (inp) { inp.value = q; }
+                        if (typeof generateQR === 'function') generateQR();
+                    }, 400);
+                }
+            }
+        } catch (_) {}
+    }, 300);
     setTimeout(function () {
         try {
             var hasDeepLink = !!sessionStorage.getItem('lt_deeplink');

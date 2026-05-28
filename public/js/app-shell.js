@@ -134,6 +134,12 @@
         <div class="hero-logo">${logoSvg(36)}</div>
         <h1 class="hero-title">Luma <span class="hero-title-accent">Tools</span></h1>
         <p class="hero-tagline">A free toolkit for students, creators and developers</p>
+        <div class="hero-trust">
+          <span class="hero-trust-badge">${icon('check',12)} No account needed</span>
+          <span class="hero-trust-badge">${icon('check',12)} No email required</span>
+          <span class="hero-trust-badge">${icon('shield',12)} Private by default</span>
+          <span class="hero-trust-badge">${icon('check',12)} Free forever</span>
+        </div>
         <div class="hero-stats">
           <span class="hero-stat"><b>${total}+</b> tools</span>
           <span class="hero-stat-sep"></span>

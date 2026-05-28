@@ -48,7 +48,27 @@ function generateQR() {
                 if (qr.isDark(r, c)) ctx.fillRect(c * cellSize + margin, r * cellSize + margin, cellSize, cellSize);
         wrap.appendChild(canvas);
         document.getElementById('qrOutput').classList.remove('hidden');
+        document.dispatchEvent(new CustomEvent('lt:toolComplete', { detail: { tool: 'qr-generate' } }));
+        // Update the share link to reflect the current QR content
+        const shareBtn = document.getElementById('qrShareBtn');
+        if (shareBtn) shareBtn.dataset.text = text;
     } catch (e) { showToast('QR generation failed: ' + e.message, 'error'); }
+}
+
+function shareQR() {
+    const btn = document.getElementById('qrShareBtn');
+    const text = btn && btn.dataset.text;
+    if (!text) return;
+    const url = window.location.origin + '/#qr-generate?q=' + encodeURIComponent(text);
+    navigator.clipboard.writeText(url).then(
+        () => showToast('Share link copied to clipboard!', 'success'),
+        () => {
+            const ta = document.createElement('textarea');
+            ta.value = url; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            showToast('Share link copied!', 'success');
+        }
+    );
 }
 
 function downloadQR() {

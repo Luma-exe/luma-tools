@@ -417,8 +417,8 @@ int main() {
 
     svr.set_pre_routing_handler([](const httplib::Request& req, httplib::Response& res) {
         res.set_header("Access-Control-Allow-Origin", "*");
-        res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        res.set_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type, X-LT-Key");
         // Required for SharedArrayBuffer / ffmpeg.wasm (crossOriginIsolated = true)
         res.set_header("Cross-Origin-Opener-Policy", "same-origin");
         res.set_header("Cross-Origin-Embedder-Policy", "credentialless");
@@ -468,6 +468,70 @@ int main() {
             if (uid > 0) {
                 if (req.path == "/api/download") account_bump_download_count(uid);
                 else                             account_bump_tool_count(uid);
+            }
+        }
+
+        // ── API key validation (X-LT-Key header) ───────────────────────────────
+        // If a valid key is present, track the call count and allow the request
+        // to proceed with free-tier limits. Invalid keys are rejected immediately.
+        static std::mutex s_apikey_mutex;
+        static const int API_FREE_DAILY_LIMIT = 200;
+        if (req.has_header("X-LT-Key") &&
+            req.path.rfind("/api/keys/", 0) != 0) { // don't validate on key-mgmt routes
+            string provided_key = req.get_header_value("X-LT-Key");
+            string key_file = get_processing_dir() + "/api_keys.json";
+            bool key_valid = false;
+            bool key_quota_ok = true;
+            {
+                lock_guard<std::mutex> lk(s_apikey_mutex);
+                try {
+                    json store;
+                    if (fs::exists(key_file)) {
+                        ifstream f(key_file);
+                        store = json::parse(f);
+                    } else {
+                        store = {{"keys", json::array()}};
+                    }
+                    for (auto& k : store["keys"]) {
+                        if (k.value("key", "") == provided_key && k.value("active", false)) {
+                            // Check daily call limit (reset based on UTC day)
+                            std::time_t now = std::time(nullptr);
+                            int64_t last_reset = k.value("day_reset", (int64_t)0);
+                            int today_calls    = k.value("today_calls", 0);
+                            // Reset counter if a new UTC day has started
+                            if (now - last_reset >= 86400) {
+                                k["today_calls"] = 0;
+                                k["day_reset"]   = (int64_t)now;
+                                today_calls      = 0;
+                            }
+                            if (today_calls >= API_FREE_DAILY_LIMIT) {
+                                key_quota_ok = false;
+                            } else {
+                                k["calls"]       = k.value("calls", 0) + 1;
+                                k["today_calls"] = today_calls + 1;
+                                key_valid = true;
+                            }
+                            // Persist updated counts
+                            ofstream fw(key_file);
+                            fw << store.dump(2);
+                            break;
+                        }
+                    }
+                } catch (...) {}
+            }
+            if (!key_quota_ok) {
+                res.status = 429;
+                res.set_content(json({
+                    {"error", "API key daily limit reached (200 requests/day on the free tier). Resets every 24 hours."},
+                    {"limit", API_FREE_DAILY_LIMIT}
+                }).dump(), "application/json");
+                return httplib::Server::HandlerResponse::Handled;
+            }
+            if (!key_valid && !provided_key.empty()) {
+                res.status = 401;
+                res.set_content(R"({"error":"Invalid or revoked API key. Generate a new key at tools.lumaplayground.com/#api-access"})",
+                                "application/json");
+                return httplib::Server::HandlerResponse::Handled;
             }
         }
 
@@ -729,12 +793,21 @@ int main() {
             "qr-generate","hash-generate","archive-extract","base64","json-format",
             "color-convert","markdown-preview","diff-checker","word-counter","csv-json",
             "unix-date","regex-tester","code-beautify","uuid-gen","url-encode",
-            "password-gen","jwt-decode",
+            "password-gen","jwt-decode","api-access",
+        };
+        const vector<string> DOWNLOADER_SLUGS = {
+            "youtube-downloader","tiktok-downloader","instagram-downloader",
+            "spotify-downloader","twitter-downloader","reddit-downloader",
+            "facebook-downloader","twitch-downloader","vimeo-downloader",
         };
         std::ostringstream xml;
         xml << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
             << "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
             << "  <url><loc>https://tools.lumaplayground.com/</loc><priority>1.0</priority></url>\n";
+        for (const auto& slug : DOWNLOADER_SLUGS) {
+            xml << "  <url><loc>https://tools.lumaplayground.com/" << slug
+                << "</loc><priority>0.9</priority></url>\n";
+        }
         for (const auto& id : TOOL_IDS) {
             xml << "  <url><loc>https://tools.lumaplayground.com/tools/" << id
                 << "</loc><priority>0.8</priority></url>\n";
@@ -743,6 +816,84 @@ int main() {
         res.set_header("Content-Type", "application/xml");
         res.set_content(xml.str(), "application/xml");
     });
+
+    // ── Platform-specific downloader SEO pages ───────────────────────────
+    // High-traffic search terms: "youtube downloader", "tiktok downloader", etc.
+    // Each page has a rich, keyword-targeted title + description then
+    // JS-redirects directly into the Media Downloader tool in the SPA.
+    {
+        struct PlatformPage {
+            string slug;       // URL path (no leading slash)
+            string platform;   // Display name
+            string desc;       // SEO description
+        };
+        const vector<PlatformPage> PLATFORMS = {
+            {"youtube-downloader", "YouTube Downloader",
+             "Free YouTube video downloader — download YouTube videos as MP4 or MP3 in any quality. "
+             "No signup, no account, no ads. Paste the URL and download instantly."},
+            {"tiktok-downloader", "TikTok Downloader",
+             "Download TikTok videos without watermark — free, fast, and no account required. "
+             "Save TikTok videos as MP4 or extract the audio as MP3 in seconds."},
+            {"instagram-downloader", "Instagram Downloader",
+             "Download Instagram videos, Reels, and stories for free. "
+             "No login, no account needed — paste the URL and save any Instagram video instantly."},
+            {"spotify-downloader", "Spotify Downloader",
+             "Download Spotify songs and playlists as MP3 for free. "
+             "No account or Spotify Premium required — just paste the track or playlist URL."},
+            {"twitter-downloader", "Twitter / X Video Downloader",
+             "Download videos from Twitter and X for free. "
+             "Save any tweet video or GIF as MP4 — no signup, no extensions, just paste the URL."},
+            {"reddit-downloader", "Reddit Video Downloader",
+             "Download Reddit videos with audio for free — no account, no watermark. "
+             "Paste any Reddit post URL and save the video or GIF instantly."},
+            {"facebook-downloader", "Facebook Video Downloader",
+             "Download Facebook videos for free — public posts, Reels, and Watch videos. "
+             "No login required. Paste the URL and save as MP4 in HD."},
+            {"twitch-downloader", "Twitch Clip Downloader",
+             "Download Twitch clips and VOD highlights as MP4 for free. "
+             "No Twitch account needed — paste the clip URL and download instantly."},
+            {"vimeo-downloader", "Vimeo Downloader",
+             "Download Vimeo videos for free in any quality. "
+             "No account needed — paste the Vimeo URL and save as MP4 or MP3."},
+        };
+
+        for (const auto& p : PLATFORMS) {
+            string captured_slug     = p.slug;
+            string captured_platform = p.platform;
+            string captured_desc     = p.desc;
+            string canonical = "https://tools.lumaplayground.com/" + captured_slug;
+
+            svr.Get("/" + captured_slug, [=](const httplib::Request&, httplib::Response& res) {
+                std::ostringstream html;
+                html << "<!DOCTYPE html><html lang=\"en\"><head>"
+                     << "<meta charset=\"UTF-8\">"
+                     << "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                     << "<title>" << captured_platform << " — Free, No Signup | Luma Tools</title>"
+                     << "<meta name=\"description\" content=\"" << captured_desc << "\">"
+                     << "<link rel=\"canonical\" href=\"" << canonical << "\">"
+                     << "<meta property=\"og:type\" content=\"website\">"
+                     << "<meta property=\"og:url\" content=\"" << canonical << "\">"
+                     << "<meta property=\"og:title\" content=\"" << captured_platform << " — Free, No Signup | Luma Tools\">"
+                     << "<meta property=\"og:description\" content=\"" << captured_desc << "\">"
+                     << "<meta property=\"og:image\" content=\"https://tools.lumaplayground.com/og/" << captured_slug << ".svg\">"
+                     << "<meta name=\"twitter:card\" content=\"summary_large_image\">"
+                     << "<meta name=\"twitter:title\" content=\"" << captured_platform << " — Free, No Signup | Luma Tools\">"
+                     << "<meta name=\"twitter:description\" content=\"" << captured_desc << "\">"
+                     << "<meta name=\"twitter:image\" content=\"https://tools.lumaplayground.com/og/" << captured_slug << ".svg\">"
+                     << "<meta name=\"theme-color\" content=\"#7c5cff\">"
+                     << "<script>window.location.replace('https://tools.lumaplayground.com/#downloader');</script>"
+                     << "<noscript><meta http-equiv=\"refresh\" content=\"0;url=https://tools.lumaplayground.com/#downloader\"></noscript>"
+                     << "</head><body style=\"background:#0a0a0f;color:#f0f0f5;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0\">"
+                     << "<div style=\"text-align:center\">"
+                     << "<p style=\"font-size:1.1rem;font-weight:600\">" << captured_platform << "</p>"
+                     << "<p style=\"color:#8888a0;font-size:.9rem;margin-top:6px\">Loading Luma Tools…</p>"
+                     << "</div>"
+                     << "</body></html>";
+                res.set_header("Cache-Control", "public, max-age=3600");
+                res.set_content(html.str(), "text/html");
+            });
+        }
+    }
 
     // ── /tools/:id — SEO landing page for each tool ──────────────────────
     // Returns a fully-indexed HTML page (proper title, OG tags) then
@@ -931,6 +1082,188 @@ int main() {
         string tool = req.matches[1].str();
         res.set_header("Location", "/?embed=1#" + tool);
         // Allow framing — default httplib does not set X-Frame-Options, good.
+        res.status = 302;
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // API KEY SYSTEM
+    // Developer API keys stored in processing/api_keys.json.
+    // Schema: { "keys": [ { "key": "lt_...", "label": "My app", "ip": "1.2.3.4",
+    //                        "created": 1700000000, "calls": 42, "active": true } ] }
+    // Auth: X-LT-Key header on any /api/* request grants plan="api_free" access.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    static std::mutex g_apikeys_mutex;
+
+    // Returns path to the key store file
+    auto apikeys_path = []() -> string {
+        return get_processing_dir() + "/api_keys.json";
+    };
+
+    // Load key store (call with mutex held)
+    auto apikeys_load = [&apikeys_path]() -> json {
+        string path = apikeys_path();
+        if (!fs::exists(path)) return {{"keys", json::array()}};
+        try {
+            ifstream f(path);
+            return json::parse(f);
+        } catch (...) {
+            return {{"keys", json::array()}};
+        }
+    };
+
+    // Save key store (call with mutex held)
+    auto apikeys_save = [&apikeys_path](const json& store) {
+        ofstream f(apikeys_path());
+        f << store.dump(2);
+    };
+
+    // Generate a random API key: lt_<32 hex chars>
+    auto gen_key = []() -> string {
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<uint64_t> dist;
+        std::ostringstream ss;
+        ss << "lt_";
+        for (int i = 0; i < 4; i++) {
+            uint64_t v = dist(gen);
+            char buf[17];
+            snprintf(buf, sizeof(buf), "%016llx", (unsigned long long)v);
+            ss << buf;
+        }
+        return ss.str();
+    };
+
+    // ── POST /api/keys/create — generate a new API key ───────────────────────
+    svr.Post("/api/keys/create", [&g_apikeys_mutex, &apikeys_load, &apikeys_save, &gen_key](
+        const httplib::Request& req, httplib::Response& res) {
+        json body;
+        try { body = json::parse(req.body); } catch (...) { body = {}; }
+        string label = body.value("label", "My API key");
+        if (label.empty()) label = "My API key";
+        if (label.size() > 64) label = label.substr(0, 64);
+
+        string new_key = gen_key();
+        string ip = req.remote_addr;
+        int64_t now = (int64_t)std::time(nullptr);
+
+        lock_guard<std::mutex> lock(g_apikeys_mutex);
+        json store = apikeys_load();
+        auto& keys = store["keys"];
+
+        // Limit: 5 active keys per IP
+        int active_count = 0;
+        for (const auto& k : keys)
+            if (k.value("ip", "") == ip && k.value("active", false)) active_count++;
+        if (active_count >= 5) {
+            res.status = 429;
+            res.set_content(R"({"error":"Max 5 active API keys per IP. Revoke an existing key first."})",
+                            "application/json");
+            return;
+        }
+
+        json entry = {
+            {"key", new_key}, {"label", label}, {"ip", ip},
+            {"created", now}, {"calls", 0}, {"active", true}
+        };
+        keys.push_back(entry);
+        apikeys_save(store);
+
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(json({{"key", new_key}, {"label", label}, {"created", now}}).dump(),
+                        "application/json");
+    });
+
+    // ── GET /api/keys/list — list caller's active keys (by IP) ───────────────
+    svr.Get("/api/keys/list", [&g_apikeys_mutex, &apikeys_load](
+        const httplib::Request& req, httplib::Response& res) {
+        string ip = req.remote_addr;
+        lock_guard<std::mutex> lock(g_apikeys_mutex);
+        json store = apikeys_load();
+        json out = json::array();
+        for (const auto& k : store["keys"]) {
+            if (k.value("ip", "") == ip && k.value("active", false)) {
+                // Mask key: show first 8 + last 4 chars
+                string full = k.value("key", "");
+                string masked = full.size() > 12
+                    ? full.substr(0, 8) + "…" + full.substr(full.size() - 4)
+                    : full;
+                out.push_back({
+                    {"key_masked", masked},
+                    {"key", full},
+                    {"label", k.value("label", "")},
+                    {"created", k.value("created", 0)},
+                    {"calls", k.value("calls", 0)}
+                });
+            }
+        }
+        res.set_header("Cache-Control", "no-store");
+        res.set_content(json({{"keys", out}}).dump(), "application/json");
+    });
+
+    // ── DELETE /api/keys/revoke — revoke a key (only the owner IP can) ───────
+    svr.Delete("/api/keys/revoke", [&g_apikeys_mutex, &apikeys_load, &apikeys_save](
+        const httplib::Request& req, httplib::Response& res) {
+        json body;
+        try { body = json::parse(req.body); } catch (...) {}
+        string target = body.value("key", "");
+        string ip = req.remote_addr;
+        if (target.empty()) {
+            res.status = 400;
+            res.set_content(R"({"error":"Missing key"})", "application/json");
+            return;
+        }
+        lock_guard<std::mutex> lock(g_apikeys_mutex);
+        json store = apikeys_load();
+        bool found = false;
+        for (auto& k : store["keys"]) {
+            if (k.value("key", "") == target && k.value("ip", "") == ip) {
+                k["active"] = false;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            res.status = 404;
+            res.set_content(R"({"error":"Key not found or not yours"})", "application/json");
+            return;
+        }
+        apikeys_save(store);
+        res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // ── GET /api/keys/docs — machine-readable endpoint catalogue ─────────────
+    svr.Get("/api/keys/docs", [](const httplib::Request&, httplib::Response& res) {
+        json docs = {
+            {"version", "1"},
+            {"base_url", "https://tools.lumaplayground.com"},
+            {"auth", "Pass your key as the X-LT-Key header on every request"},
+            {"rate_limit", "200 requests / day on the free API tier"},
+            {"endpoints", json::array({
+                {{"method","POST"},{"path","/api/tools/image-compress"},  {"desc","Compress an image (JPEG/PNG/WebP). Multipart: file=<image>. Returns compressed file."}},
+                {{"method","POST"},{"path","/api/tools/image-resize"},    {"desc","Resize an image. Multipart: file=<image>, width=<px>, height=<px>."}},
+                {{"method","POST"},{"path","/api/tools/image-convert"},   {"desc","Convert image format. Multipart: file=<image>, format=png|jpg|webp|avif."}},
+                {{"method","POST"},{"path","/api/tools/image-watermark"}, {"desc","Add text watermark. Multipart: file=<image>, text=<str>, position=<str>."}},
+                {{"method","POST"},{"path","/api/tools/image-bg-remove"}, {"desc","Remove image background (AI). Multipart: file=<image>. Returns PNG."}},
+                {{"method","POST"},{"path","/api/tools/video-compress"},  {"desc","Compress a video. Multipart: file=<video>. Returns compressed MP4."}},
+                {{"method","POST"},{"path","/api/tools/video-convert"},   {"desc","Convert video format. Multipart: file=<video>, format=mp4|webm|mov."}},
+                {{"method","POST"},{"path","/api/tools/audio-convert"},   {"desc","Convert audio format. Multipart: file=<audio>, format=mp3|flac|wav|ogg|aac."}},
+                {{"method","POST"},{"path","/api/tools/pdf-compress"},    {"desc","Compress a PDF. Multipart: file=<pdf>. Returns compressed PDF."}},
+                {{"method","POST"},{"path","/api/tools/pdf-merge"},       {"desc","Merge PDFs. Multipart: file=<pdf1>, file=<pdf2>, ... Returns merged PDF."}},
+                {{"method","POST"},{"path","/api/tools/paraphrase"},      {"desc","AI paraphrase text. JSON body: {text, tone?}. Returns {result}."}},
+                {{"method","POST"},{"path","/api/tools/study-notes"},     {"desc","AI study notes from text. JSON body: {text}. Returns {result} (async job)."}},
+                {{"method","POST"},{"path","/api/tools/flashcards"},      {"desc","AI flashcard generation. JSON body: {text}. Returns {cards:[{front,back}]}."}},
+                {{"method","POST"},{"path","/api/tools/csv-json"},        {"desc","Convert CSV to JSON. Multipart: file=<csv>. Returns JSON array."}},
+                {{"method","POST"},{"path","/api/detect"},                {"desc","Detect media platform from URL. JSON body: {url}. Returns {platform, type}."}},
+            })}
+        };
+        res.set_header("Cache-Control", "public, max-age=3600");
+        res.set_content(docs.dump(2), "application/json");
+    });
+
+    // ── /api-docs — serve the API docs SPA panel ─────────────────────────────
+    svr.Get("/api-docs", [](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Location", "https://tools.lumaplayground.com/#api-access");
         res.status = 302;
     });
 

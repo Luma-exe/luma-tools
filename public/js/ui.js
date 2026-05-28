@@ -88,6 +88,8 @@ function switchTool(toolId) {
 
     // Deep linking
     try { history.pushState({ tool: toolId }, '', toolId === 'landing' ? '/' : '#' + toolId); } catch {}
+    // Notify listeners (e.g. api.js, analytics hooks)
+    document.dispatchEvent(new CustomEvent('lt:panelOpen', { detail: { toolId } }));
     // Restore saved per-tool settings
     restoreToolSettings(toolId);
     // Server-offline warning for server-side tools
@@ -109,6 +111,19 @@ function switchTool(toolId) {
     }
     if (toolId === 'bulk-install') {
         setTimeout(() => { if (typeof renderBulkGrid === 'function') renderBulkGrid(); }, 50);
+    }
+
+    // Inject ad slot below tool body (once per panel, skipped on landing)
+    if (toolId !== 'landing' && panel) {
+        const body = panel.querySelector('.tool-body');
+        if (body && !body.querySelector('.ad-slot')) {
+            const ad = document.createElement('div');
+            ad.className = 'ad-slot';
+            // AdSense unit — activates once the publisher script is loaded in <head>
+            ad.innerHTML = '<ins class="adsbygoogle" style="display:block;width:100%;max-width:728px;height:90px" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="0000000000" data-ad-format="horizontal" data-full-width-responsive="false"></ins>';
+            body.appendChild(ad);
+            try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (_) {}
+        }
     }
 }
 

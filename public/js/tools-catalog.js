@@ -145,6 +145,7 @@ window.LUMA_CATEGORIES = [
       { id: 'url-encode',       name: 'URL Encode',        where: 'browser', desc: 'Encode / decode URL params.',       fa: 'fa-link' },
       { id: 'password-gen',     name: 'Password Generator',where: 'browser', desc: 'Strong, configurable passwords.',   fa: 'fa-key' },
       { id: 'jwt-decode',       name: 'JWT Generator + Decoder', where: 'browser', desc: 'Sign and inspect JWTs.',     fa: 'fa-shield-alt' },
+      { id: 'api-access',       name: 'Developer API',     where: 'server',  desc: 'Use Luma Tools from your own apps. 200 req/day free.', fa: 'fa-code' },
     ],
   },
 ];

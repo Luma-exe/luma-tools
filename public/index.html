@@ -32,6 +32,9 @@
     <meta name="twitter:title" content="Luma Tools — All-in-One Browser Toolkit">
     <meta name="twitter:description" content="65+ free tools — AI study notes &amp; flashcards, media downloader, image editing, video &amp; audio conversion, PDF tools and more. Most processing happens right in your browser.">
     <meta name="twitter:image" content="https://tools.lumaplayground.com/icon-512.png">
+    <!-- Google AdSense — replace ca-pub-XXXXXXXXXXXXXXXX with your publisher ID to activate -->
+    <!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script> -->
+
     <link rel="stylesheet" href="styles.css?v=251">
     <link rel="stylesheet" href="styles-v2.css?v=329">
     <script>
@@ -419,6 +422,9 @@
                     </a>
                     <a class="nav-item" data-tool="jwt-decode" data-location="browser" onclick="switchTool('jwt-decode')">
                         <i class="fas fa-shield-alt"></i><span>JWT Decoder</span>
+                    </a>
+                    <a class="nav-item" data-tool="api-access" data-location="server" onclick="switchTool('api-access')">
+                        <i class="fas fa-code"></i><span>Developer API</span>
                     </a>
                 </div>
             </nav>
@@ -1569,7 +1575,10 @@
                     <button class="process-btn" onclick="generateQR()"><i class="fas fa-qrcode"></i> Generate QR Code</button>
                     <div class="qr-output hidden" id="qrOutput">
                         <div class="qr-canvas-wrap" id="qrCanvasWrap"></div>
-                        <button class="process-btn" style="margin-top:12px" onclick="downloadQR()"><i class="fas fa-download"></i> Download PNG</button>
+                        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                            <button class="process-btn" onclick="downloadQR()"><i class="fas fa-download"></i> Download PNG</button>
+                            <button class="process-btn" id="qrShareBtn" onclick="shareQR()" style="background:var(--surface-2,#1a1a2e);border:1px solid var(--border)"><i class="fas fa-link"></i> Copy share link</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2885,6 +2894,83 @@
                 </div>
             </div>
 
+            <!-- ── API ACCESS ─────────────────────────────────────────────── -->
+            <div class="tool-panel" id="tool-api-access">
+                <div class="tool-header">
+                    <h2><i class="fas fa-code"></i> Developer API</h2>
+                    <p>Use Luma Tools programmatically from your own apps. Free tier: 200 requests/day.</p>
+                </div>
+                <div class="tool-body">
+                    <!-- Key management -->
+                    <div class="api-section">
+                        <div class="api-section-title"><i class="fas fa-key"></i> Your API Keys</div>
+                        <p class="api-desc">Keys are tied to your IP address. You can have up to 5 active keys.</p>
+                        <div id="apiKeyList" class="api-key-list"><span class="api-loading"><i class="fas fa-circle-notch fa-spin"></i> Loading…</span></div>
+                        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+                            <input id="apiKeyLabel" class="tool-input" placeholder="Key label (e.g. My app)" style="flex:1;min-width:150px;max-width:280px">
+                            <button class="process-btn" onclick="apiCreateKey()"><i class="fas fa-plus"></i> Create key</button>
+                        </div>
+                        <div id="apiNewKey" class="api-new-key hidden">
+                            <div class="api-new-key-label"><i class="fas fa-check-circle" style="color:#22c55e"></i> Key created — copy it now, it won't be shown again in full</div>
+                            <div class="api-new-key-row">
+                                <code id="apiNewKeyVal" class="api-key-val"></code>
+                                <button class="btn-icon" onclick="apiCopyNewKey()" title="Copy key"><i class="fas fa-copy"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick start -->
+                    <div class="api-section">
+                        <div class="api-section-title"><i class="fas fa-bolt"></i> Quick Start</div>
+                        <p class="api-desc">Pass your key as the <code>X-LT-Key</code> header on any API request:</p>
+                        <pre class="api-code">curl -X POST https://tools.lumaplayground.com/api/tools/image-compress \
+  -H "X-LT-Key: YOUR_KEY" \
+  -F "file=@photo.jpg" \
+  --output compressed.jpg</pre>
+                        <p class="api-desc" style="margin-top:8px">Or compress a video:</p>
+                        <pre class="api-code">curl -X POST https://tools.lumaplayground.com/api/tools/video-compress \
+  -H "X-LT-Key: YOUR_KEY" \
+  -F "file=@video.mp4" \
+  --output compressed.mp4</pre>
+                    </div>
+
+                    <!-- Endpoints -->
+                    <div class="api-section">
+                        <div class="api-section-title"><i class="fas fa-list"></i> Available Endpoints</div>
+                        <p class="api-desc">All endpoints accept multipart/form-data unless noted. File size limit: 100 MB on the free tier.</p>
+                        <div class="api-endpoint-table" id="apiEndpointTable"><span class="api-loading"><i class="fas fa-circle-notch fa-spin"></i> Loading…</span></div>
+                    </div>
+
+                    <!-- Pricing -->
+                    <div class="api-section">
+                        <div class="api-section-title"><i class="fas fa-tag"></i> Pricing</div>
+                        <div class="api-pricing">
+                            <div class="api-pricing-tier">
+                                <div class="api-tier-name">Free</div>
+                                <div class="api-tier-price">$0 <span>/mo</span></div>
+                                <ul class="api-tier-list">
+                                    <li><i class="fas fa-check"></i> 200 requests / day</li>
+                                    <li><i class="fas fa-check"></i> All 15+ tool endpoints</li>
+                                    <li><i class="fas fa-check"></i> 100 MB file limit</li>
+                                    <li><i class="fas fa-check"></i> No credit card</li>
+                                </ul>
+                            </div>
+                            <div class="api-pricing-tier api-tier-pro">
+                                <div class="api-tier-badge">Coming soon</div>
+                                <div class="api-tier-name">Pro</div>
+                                <div class="api-tier-price">$10 <span>/mo</span></div>
+                                <ul class="api-tier-list">
+                                    <li><i class="fas fa-check"></i> Unlimited requests</li>
+                                    <li><i class="fas fa-check"></i> Priority processing</li>
+                                    <li><i class="fas fa-check"></i> 2 GB file limit</li>
+                                    <li><i class="fas fa-check"></i> SLA uptime guarantee</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- v2 SHELL VIEWS (rendered by app-shell.js) ─────────── -->
             <div class="tool-panel" id="tool-categories"><!-- category list --></div>
             <div class="tool-panel" id="tool-all"><!-- all tools grouped --></div>
@@ -3041,6 +3127,7 @@
     <!-- Downloader & health -->
     <script src="js/downloader.js?v=251"></script>
     <script src="js/health.js?v=251"></script>
+    <script src="js/api.js?v=329"></script>
     <!-- PWA, particles, init (must be last) -->
     <script src="js/pwa.js"></script>
 
