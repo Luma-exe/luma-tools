@@ -492,7 +492,10 @@ int main() {
                     } else {
                         store = {{"keys", json::array()}};
                     }
+                    if (!store.is_object() || !store.contains("keys") || !store["keys"].is_array())
+                        store["keys"] = json::array();
                     for (auto& k : store["keys"]) {
+                        if (!k.is_object()) continue;
                         if (k.value("key", "") == provided_key && k.value("active", false)) {
                             // Check daily call limit (reset based on UTC day)
                             std::time_t now = std::time(nullptr);
@@ -1095,141 +1098,136 @@ int main() {
 
     static std::mutex g_apikeys_mutex;
 
-    // Returns path to the key store file
-    auto apikeys_path = []() -> string {
-        return get_processing_dir() + "/api_keys.json";
-    };
-
-    // Load key store (call with mutex held)
-    auto apikeys_load = [&apikeys_path]() -> json {
-        string path = apikeys_path();
-        if (!fs::exists(path)) return {{"keys", json::array()}};
-        try {
-            ifstream f(path);
-            return json::parse(f);
-        } catch (...) {
-            return {{"keys", json::array()}};
-        }
-    };
-
-    // Save key store (call with mutex held)
-    auto apikeys_save = [&apikeys_path](const json& store) {
-        ofstream f(apikeys_path());
-        f << store.dump(2);
-    };
-
-    // Generate a random API key: lt_<32 hex chars>
-    auto gen_key = []() -> string {
-        std::random_device rd;
-        std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<uint64_t> dist;
-        std::ostringstream ss;
-        ss << "lt_";
-        for (int i = 0; i < 4; i++) {
-            uint64_t v = dist(gen);
-            char buf[17];
-            snprintf(buf, sizeof(buf), "%016llx", (unsigned long long)v);
-            ss << buf;
-        }
-        return ss.str();
-    };
+    // ── Helpers: inline in each handler to avoid dangling lambda refs ─────────
+    // (lambdas capturing other lambdas by-ref go stale when inner scope exits)
+    #define APIKEYS_PATH()  (get_processing_dir() + "/api_keys.json")
+    #define APIKEYS_LOAD()  ([&]() -> json { \
+        string _p = APIKEYS_PATH(); \
+        if (!fs::exists(_p)) return json::object({{"keys", json::array()}}); \
+        try { ifstream _f(_p); json _j = json::parse(_f); \
+              if (!_j.is_object() || !_j.contains("keys") || !_j["keys"].is_array()) \
+                  _j["keys"] = json::array(); \
+              return _j; } \
+        catch (...) { return json::object({{"keys", json::array()}}); } \
+    }())
+    #define APIKEYS_SAVE(store) do { ofstream _fw(APIKEYS_PATH()); _fw << (store).dump(2); } while(0)
+    #define APIKEYS_GENKEY() ([&]() -> string { \
+        std::random_device _rd; std::mt19937_64 _gen(_rd()); \
+        std::uniform_int_distribution<uint64_t> _dist; \
+        std::ostringstream _ss; _ss << "lt_"; \
+        for (int _i = 0; _i < 4; _i++) { \
+            uint64_t _v = _dist(_gen); char _buf[17]; \
+            snprintf(_buf, sizeof(_buf), "%016llx", (unsigned long long)_v); _ss << _buf; } \
+        return _ss.str(); \
+    }())
 
     // ── POST /api/keys/create — generate a new API key ───────────────────────
-    svr.Post("/api/keys/create", [&g_apikeys_mutex, &apikeys_load, &apikeys_save, &gen_key](
+    svr.Post("/api/keys/create", [](
         const httplib::Request& req, httplib::Response& res) {
-        json body;
-        try { body = json::parse(req.body); } catch (...) { body = {}; }
-        string label = body.value("label", "My API key");
-        if (label.empty()) label = "My API key";
-        if (label.size() > 64) label = label.substr(0, 64);
+        try {
+            json body;
+            try { body = json::parse(req.body); } catch (...) { body = json::object(); }
+            if (!body.is_object()) body = json::object();
+            string label = body.contains("label") && body["label"].is_string()
+                           ? body["label"].get<string>() : "My API key";
+            if (label.empty()) label = "My API key";
+            if (label.size() > 64) label = label.substr(0, 64);
 
-        string new_key = gen_key();
-        string ip = req.remote_addr;
-        int64_t now = (int64_t)std::time(nullptr);
+            string new_key = APIKEYS_GENKEY();
+            string ip = req.remote_addr;
+            int64_t now = (int64_t)std::time(nullptr);
 
-        lock_guard<std::mutex> lock(g_apikeys_mutex);
-        json store = apikeys_load();
-        auto& keys = store["keys"];
+            lock_guard<std::mutex> lock(g_apikeys_mutex);
+            json store = APIKEYS_LOAD();
+            json& keys = store["keys"];
 
-        // Limit: 5 active keys per IP
-        int active_count = 0;
-        for (const auto& k : keys)
-            if (k.value("ip", "") == ip && k.value("active", false)) active_count++;
-        if (active_count >= 5) {
-            res.status = 429;
-            res.set_content(R"({"error":"Max 5 active API keys per IP. Revoke an existing key first."})",
+            int active_count = 0;
+            for (const auto& k : keys)
+                if (k.is_object() && k.value("ip","") == ip && k.value("active",false)) active_count++;
+            if (active_count >= 5) {
+                res.status = 429;
+                res.set_content(R"({"error":"Max 5 active API keys per IP. Revoke an existing key first."})",
+                                "application/json");
+                return;
+            }
+            keys.push_back(json::object({
+                {"key",new_key},{"label",label},{"ip",ip},
+                {"created",now},{"calls",0},{"active",true}
+            }));
+            APIKEYS_SAVE(store);
+            res.set_header("Cache-Control","no-store");
+            res.set_content(json({{"key",new_key},{"label",label},{"created",now}}).dump(),
                             "application/json");
-            return;
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json({{"error",string(e.what())}}).dump(), "application/json");
         }
-
-        json entry = {
-            {"key", new_key}, {"label", label}, {"ip", ip},
-            {"created", now}, {"calls", 0}, {"active", true}
-        };
-        keys.push_back(entry);
-        apikeys_save(store);
-
-        res.set_header("Cache-Control", "no-store");
-        res.set_content(json({{"key", new_key}, {"label", label}, {"created", now}}).dump(),
-                        "application/json");
     });
 
     // ── GET /api/keys/list — list caller's active keys (by IP) ───────────────
-    svr.Get("/api/keys/list", [&g_apikeys_mutex, &apikeys_load](
+    svr.Get("/api/keys/list", [](
         const httplib::Request& req, httplib::Response& res) {
-        string ip = req.remote_addr;
-        lock_guard<std::mutex> lock(g_apikeys_mutex);
-        json store = apikeys_load();
-        json out = json::array();
-        for (const auto& k : store["keys"]) {
-            if (k.value("ip", "") == ip && k.value("active", false)) {
-                // Mask key: show first 8 + last 4 chars
-                string full = k.value("key", "");
-                string masked = full.size() > 12
-                    ? full.substr(0, 8) + "…" + full.substr(full.size() - 4)
-                    : full;
-                out.push_back({
-                    {"key_masked", masked},
-                    {"key", full},
-                    {"label", k.value("label", "")},
-                    {"created", k.value("created", 0)},
-                    {"calls", k.value("calls", 0)}
-                });
+        try {
+            string ip = req.remote_addr;
+            lock_guard<std::mutex> lock(g_apikeys_mutex);
+            json store = APIKEYS_LOAD();
+            json out = json::array();
+            for (const auto& k : store["keys"]) {
+                if (!k.is_object()) continue;
+                if (k.value("ip","") == ip && k.value("active",false)) {
+                    string full = k.value("key","");
+                    string masked = full.size() > 12
+                        ? full.substr(0,8) + "..." + full.substr(full.size()-4)
+                        : full;
+                    out.push_back({{"key_masked",masked},{"key",full},
+                                   {"label",k.value("label","")},
+                                   {"created",k.value("created",0)},
+                                   {"calls",k.value("calls",0)}});
+                }
             }
+            res.set_header("Cache-Control","no-store");
+            res.set_content(json({{"keys",out}}).dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json({{"error",string(e.what())}}).dump(), "application/json");
         }
-        res.set_header("Cache-Control", "no-store");
-        res.set_content(json({{"keys", out}}).dump(), "application/json");
     });
 
     // ── DELETE /api/keys/revoke — revoke a key (only the owner IP can) ───────
-    svr.Delete("/api/keys/revoke", [&g_apikeys_mutex, &apikeys_load, &apikeys_save](
+    svr.Delete("/api/keys/revoke", [](
         const httplib::Request& req, httplib::Response& res) {
-        json body;
-        try { body = json::parse(req.body); } catch (...) {}
-        string target = body.value("key", "");
-        string ip = req.remote_addr;
-        if (target.empty()) {
-            res.status = 400;
-            res.set_content(R"({"error":"Missing key"})", "application/json");
-            return;
-        }
-        lock_guard<std::mutex> lock(g_apikeys_mutex);
-        json store = apikeys_load();
-        bool found = false;
-        for (auto& k : store["keys"]) {
-            if (k.value("key", "") == target && k.value("ip", "") == ip) {
-                k["active"] = false;
-                found = true;
-                break;
+        try {
+            json body;
+            try { body = json::parse(req.body); } catch (...) { body = json::object(); }
+            if (!body.is_object()) body = json::object();
+            string target = body.contains("key") && body["key"].is_string()
+                            ? body["key"].get<string>() : "";
+            string ip = req.remote_addr;
+            if (target.empty()) {
+                res.status = 400;
+                res.set_content(R"({"error":"Missing key"})", "application/json");
+                return;
             }
+            lock_guard<std::mutex> lock(g_apikeys_mutex);
+            json store = APIKEYS_LOAD();
+            bool found = false;
+            for (auto& k : store["keys"]) {
+                if (!k.is_object()) continue;
+                if (k.value("key","") == target && k.value("ip","") == ip) {
+                    k["active"] = false; found = true; break;
+                }
+            }
+            if (!found) {
+                res.status = 404;
+                res.set_content(R"({"error":"Key not found or not yours"})", "application/json");
+                return;
+            }
+            APIKEYS_SAVE(store);
+            res.set_content(R"({"ok":true})", "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(json({{"error",string(e.what())}}).dump(), "application/json");
         }
-        if (!found) {
-            res.status = 404;
-            res.set_content(R"({"error":"Key not found or not yours"})", "application/json");
-            return;
-        }
-        apikeys_save(store);
-        res.set_content(R"({"ok":true})", "application/json");
     });
 
     // ── GET /api/keys/docs — machine-readable endpoint catalogue ─────────────
