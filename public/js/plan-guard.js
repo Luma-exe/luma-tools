@@ -75,8 +75,38 @@
                 }
             } catch { /* not JSON, let the original caller handle it */ }
         }
+
+        // 401 with require_login: user tried an AI endpoint without being signed in.
+        if (res.status === 401 && method === 'POST' && isAIEndpoint(url)) {
+            try {
+                const clone = res.clone();
+                const data = await clone.json();
+                if (data && data.require_login) {
+                    handleRequireLogin();
+                }
+            } catch {}
+        }
+
         return res;
     };
+
+    function handleRequireLogin() {
+        // Show a toast + redirect prompt when an unauthenticated user hits an AI endpoint.
+        if (typeof showToast === 'function') {
+            showToast('Sign in to use AI tools — free account, no payment needed.', 'warning', 5000);
+        }
+        // Show a sign-in nudge modal if one exists, otherwise fall through to toast only.
+        const modal = document.getElementById('signInNudgeModal');
+        if (modal) {
+            modal.classList.add('open');
+        } else if (typeof openUpgradeModal === 'function') {
+            // Re-use upgrade modal with custom copy as fallback.
+            openUpgradeModal();
+            const body = document.getElementById('upgradeBody');
+            if (body) body.innerHTML =
+                'AI tools require a free account. <a href="/account/login" style="color:var(--accent-light);text-decoration:underline">Sign in or register free</a> — no payment needed.';
+        }
+    }
 
     function handlePlanGate(status, data) {
         const msg = (data && data.error) || 'Upgrade to Pro to continue.';
@@ -112,6 +142,8 @@
                 this.render(data);
                 // Also refresh the sidebar user-profile card.
                 this.refreshUserCard(data);
+                // Wire AI guard buttons now that we know the sign-in state.
+                if (!data.signed_in) wireAIGuard();
                 return data;
             } catch { return null; }
         },
@@ -163,24 +195,91 @@
             }
         },
         render(data) {
-            const el = document.getElementById('planQuotaChip');
-            if (!el || !data) return;
+            if (!data) return;
             const ai = data.ai || {};
-            if (ai.unlimited) {
-                el.innerHTML = '<i class="fas fa-crown"></i> Pro — unlimited AI';
-                el.classList.add('plan-quota-pro');
-                el.classList.remove('plan-quota-low');
-            } else {
-                const remaining = Math.max(0, ai.remaining || 0);
-                el.innerHTML = '<i class="fas fa-bolt"></i> ' + remaining + ' / ' +
-                               (ai.quota || 20) + ' AI today';
-                el.classList.remove('plan-quota-pro');
-                el.classList.toggle('plan-quota-low', remaining <= 3);
+            const signedIn = !!data.signed_in;
+
+            // ── Old sidebar chip (#planQuotaChip) ─────────────────────────────
+            const chip = document.getElementById('planQuotaChip');
+            if (chip) {
+                if (ai.unlimited) {
+                    chip.innerHTML = '<i class="fas fa-crown"></i> Pro — unlimited AI';
+                    chip.classList.add('plan-quota-pro');
+                    chip.classList.remove('plan-quota-low');
+                } else {
+                    const remaining = Math.max(0, ai.remaining || 0);
+                    chip.innerHTML = '<i class="fas fa-bolt"></i> ' + remaining + ' / ' +
+                                   (ai.quota || 20) + ' AI today';
+                    chip.classList.remove('plan-quota-pro');
+                    chip.classList.toggle('plan-quota-low', remaining <= 3);
+                }
+                chip.style.display = '';
             }
-            el.style.display = '';
+
+            // ── v2 sidebar .sb-pro button ─────────────────────────────────────
+            const proBtn  = document.querySelector('.sb-pro');
+            const proText = document.querySelector('.sb-pro-text');
+            if (proText) {
+                if (!signedIn) {
+                    // Not logged in — show sign-in nudge
+                    proText.textContent = 'Sign in for AI tools';
+                    if (proBtn) {
+                        proBtn.title = 'AI tools require a free account';
+                        proBtn.onclick = () => { window.location.href = '/account/login'; };
+                        proBtn.classList.remove('plan-quota-pro');
+                    }
+                } else if (ai.unlimited) {
+                    proText.textContent = 'Pro — unlimited AI';
+                    if (proBtn) proBtn.classList.add('plan-quota-pro');
+                } else {
+                    const remaining = Math.max(0, ai.remaining || 0);
+                    const total = ai.quota || 20;
+                    proText.textContent = remaining + ' / ' + total + ' AI requests today';
+                    if (proBtn) {
+                        proBtn.title = remaining <= 0
+                            ? 'Daily AI limit reached — upgrade to Pro for unlimited'
+                            : 'Click to upgrade to Pro for unlimited AI';
+                        proBtn.classList.toggle('plan-quota-low', remaining <= 3);
+                        proBtn.classList.remove('plan-quota-pro');
+                    }
+                }
+            }
+
+            // Store sign-in state for client-side pre-flight guard
+            window._ltSignedIn = signedIn;
         }
     };
     window.PlanGuard = PlanGuard;
+
+    // ── Client-side AI pre-flight guard ──────────────────────────────────────
+    // After quota is loaded, wrap every AI submit button so that unauthenticated
+    // users see the sign-in prompt instantly — before the network request fires.
+    function wireAIGuard() {
+        const AI_TOOL_IDS = [
+            'ai-study-notes','ai-coverage','ai-flashcards','ai-quiz','ai-paraphrase',
+            'citation-gen','mind-map','youtube-summary'
+        ];
+        AI_TOOL_IDS.forEach(id => {
+            const panel = document.getElementById('tool-' + id);
+            if (!panel) return;
+            panel.querySelectorAll('.process-btn, .submit-btn, button[onclick]').forEach(btn => {
+                if (btn.dataset.aiGuarded) return;
+                btn.dataset.aiGuarded = '1';
+                btn.addEventListener('click', function (e) {
+                    if (window._ltSignedIn === false) {
+                        e.stopImmediatePropagation();
+                        e.preventDefault();
+                        handleRequireLogin();
+                    }
+                }, true); // capture phase — fires before onclick
+            });
+        });
+    }
+
+    // Re-wire whenever a tool panel opens (new panels may not exist at DOMContentLoaded)
+    document.addEventListener('lt:panelOpen', function (e) {
+        if (window._ltSignedIn === false) wireAIGuard();
+    });
 
     document.addEventListener('DOMContentLoaded', () => {
         PlanGuard.refreshQuota();

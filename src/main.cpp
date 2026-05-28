@@ -578,7 +578,20 @@ int main() {
             //     so script writers can back off cleanly.
             if (!is_pro && is_ai_post) {
                 int uid = account_user_id_for_request(req);
-                string key = (uid > 0) ? ("u:" + to_string(uid)) : ("ip:" + real_ip);
+
+                // (b0) Unauthenticated users may not use AI at all.
+                //      Require a free account — protects against anonymous abuse
+                //      and gives users an incentive to register.
+                if (uid == 0) {
+                    res.status = 401;
+                    res.set_content(json({
+                        {"error", "Sign in to use AI tools. Create a free account to get 20 AI requests per day — no payment required."},
+                        {"require_login", true}
+                    }).dump(), "application/json");
+                    return httplib::Server::HandlerResponse::Handled;
+                }
+
+                string key = "u:" + to_string(uid);
                 std::time_t now = std::time(nullptr);
                 int used = 0;
                 int64_t reset_at = now;
@@ -1300,14 +1313,17 @@ int main() {
             }
         }
 
+        // Unauthenticated users cannot use AI — reflect that in the quota response.
+        bool signed_in = (uid > 0);
         json payload = {
             {"plan", plan},
-            {"signed_in", uid > 0},
+            {"signed_in", signed_in},
             {"ai", {
-                {"used", ai_used},
-                {"quota", is_pro ? -1 : FREE_AI_DAILY_QUOTA},
-                {"remaining", is_pro ? -1 : std::max(0, FREE_AI_DAILY_QUOTA - ai_used)},
+                {"used",      signed_in ? ai_used : 0},
+                {"quota",     is_pro ? -1 : (signed_in ? FREE_AI_DAILY_QUOTA : 0)},
+                {"remaining", is_pro ? -1 : (signed_in ? std::max(0, FREE_AI_DAILY_QUOTA - ai_used) : 0)},
                 {"unlimited", is_pro},
+                {"requires_login", !signed_in},
                 {"resets_in_seconds", reset_in}
             }},
             {"upload", {
