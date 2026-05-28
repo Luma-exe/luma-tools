@@ -949,9 +949,11 @@ string account_plan_for_request(const httplib::Request& req) {
     if (!current_account_any(req, user)) return "free";
     string p = lower_copy(trim_copy(user.plan));
     if (p.empty()) return "free";
-    // Only treat the user as paid if their subscription is currently active.
-    string s = lower_copy(trim_copy(user.account_status));
     if (p == "pro" || p == "starter") {
+        // No Stripe subscription → manually granted plan, trust the plan field directly.
+        if (trim_copy(user.stripe_subscription_id).empty()) return p;
+        // Has a Stripe subscription → only grant pro while the subscription is live.
+        string s = lower_copy(trim_copy(user.account_status));
         if (s == "active" || s == "trialing" || s == "past_due") return p;
         return "free";
     }
