@@ -39,3 +39,10 @@ __pycache__/
 
 # Local smoke-test DBs
 /stats.db*
+
+# Debug/test scripts
+_wh_test.sh
+
+# Stale root-level JS copies (real files live in public/js/)
+/public/tool-page.js
+/public/tool-specs.js
