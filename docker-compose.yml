@@ -53,6 +53,11 @@ services:
       - ./stats.db:/app/stats.db
       - ./stats.db-wal:/app/stats.db-wal
       - ./stats.db-shm:/app/stats.db-shm
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.50"
 
   # Watches every container with label autoheal=true and restarts it after the
   # HEALTHCHECK has reported "unhealthy" for AUTOHEAL_INTERVAL consecutive
@@ -68,6 +73,11 @@ services:
       AUTOHEAL_START_PERIOD: "60"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          memory: 32m
+          cpus: "0.10"
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -77,6 +87,11 @@ services:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
     depends_on:
       - app
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.25"
 
 volumes:
   downloads:
